@@ -1,0 +1,76 @@
+# ---- dependencies ----
+node_modules/
+.pnp/
+.pnp.js
+.yarn/cache
+.yarn/install-state.gz
+
+# ---- build output ----
+dist/
+dist-ssr/
+build/
+out/
+*.tsbuildinfo
+
+# ---- caches ----
+.vite/
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.turbo/
+.npm/
+
+# ---- environment & secrets ----
+# Never commit real credentials. Only .env.example is tracked.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+secrets.json
+credentials.json
+service-account*.json
+.aws/
+.netrc
+
+# ---- logs ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+
+# ---- editors & OS ----
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+*.sublime-workspace
+
+# VS Code: keep shared launch/tasks/extension configs, ignore personal settings
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+
+# ---- test & coverage ----
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# ---- deploy platforms ----
+.vercel/
+.netlify/
+.wrangler/
