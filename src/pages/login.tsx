@@ -59,8 +59,8 @@ export default function Login() {
             <div className="mt-8 border-t border-border pt-5">
               <p className="font-mono text-[9px] uppercase tracking-[.15em] text-muted-foreground">Prototype accounts · any password</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <button type="button" onClick={() => { setEmail('hod@encalm.com'); setPassword('encalm'); }} className="rounded-xl border border-border bg-white p-3 text-left hover:border-[#c9a04e]"><span className="block text-[11px] font-bold text-[#173e49]">Rhea Shah</span><span className="mt-1 block font-mono text-[9px] uppercase tracking-[.08em] text-muted-foreground">Project HOD</span></button>
-                <button type="button" onClick={() => { setEmail('lead@encalm.com'); setPassword('encalm'); }} className="rounded-xl border border-border bg-white p-3 text-left hover:border-[#c9a04e]"><span className="block text-[11px] font-bold text-[#173e49]">Arjun Mehta</span><span className="mt-1 block font-mono text-[9px] uppercase tracking-[.08em] text-muted-foreground">Project Lead</span></button>
+                <button type="button" onClick={() => { setEmail('hod@encalm.com'); setPassword('encalm'); }} className="rounded-xl border border-border bg-white p-3 text-left hover:border-[#c9a04e]"><span className="block text-[11px] font-bold text-[#173e49]">Ruchika Chauhan</span><span className="mt-1 block font-mono text-[9px] uppercase tracking-[.08em] text-muted-foreground">Project HOD</span></button>
+                <button type="button" onClick={() => { setEmail('lead@encalm.com'); setPassword('encalm'); }} className="rounded-xl border border-border bg-white p-3 text-left hover:border-[#c9a04e]"><span className="block text-[11px] font-bold text-[#173e49]">Chinmay Saxena</span><span className="mt-1 block font-mono text-[9px] uppercase tracking-[.08em] text-muted-foreground">Project Lead</span></button>
               </div>
             </div>
           </div>
