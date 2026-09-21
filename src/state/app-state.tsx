@@ -29,8 +29,8 @@ export type DemoUser = {
 };
 
 const demoUsers: Record<AppRole, DemoUser> = {
-  hod: { name: 'Rhea Shah', email: 'hod@encalm.com', role: 'hod', title: 'Project HOD', initials: 'RS' },
-  lead: { name: 'Arjun Mehta', email: 'lead@encalm.com', role: 'lead', title: 'Project Lead', initials: 'AM' },
+  hod: { name: 'Ruchika Chauhan', email: 'hod@encalm.com', role: 'hod', title: 'Project HOD', initials: 'RC' },
+  lead: { name: 'Chinmay Saxena', email: 'lead@encalm.com', role: 'lead', title: 'Project Lead', initials: 'CS' },
 };
 
 /** Roles allowed to mutate project records. HODs have read-only access. */
