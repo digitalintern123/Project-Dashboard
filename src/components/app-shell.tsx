@@ -1,25 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import {
-  AlertTriangle,
-  Bell,
-  CalendarRange,
-  CalendarDays,
-  ChevronRight,
-  CircleDollarSign,
-  FileBarChart,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
-  Menu,
-  PanelLeft,
-  Plus,
-  RotateCcw,
-  Settings,
-  ShieldCheck,
-  Target,
-  X,
-} from 'lucide-react';
+import { TriangleAlert as AlertTriangle, Bell, CalendarRange, CalendarDays, ChevronRight, CircleDollarSign, ChartBar as FileBarChart, LayoutDashboard, ListChecks, LogOut, Menu, PanelLeft, Plus, RotateCcw, Settings, ShieldCheck, Target, X } from 'lucide-react';
 import { useAppState } from '@/state/app-state';
 import { readItem, writeItem } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
@@ -140,7 +121,6 @@ export function AppShell({ children }: AppShellProps) {
           })}
         </nav>
 
-        {!collapsed && <div className="mb-5 rounded-2xl border border-sidebar-border bg-sidebar-accent/50 p-4"><div className="flex items-center gap-2 text-sidebar-primary"><span className="size-1.5 rounded-full bg-sidebar-primary" /><span className="font-mono text-[9px] uppercase tracking-[.14em]">{isLead ? 'Lead workspace' : 'Live portfolio'}</span></div><p className="mt-3 text-[11px] leading-5 text-sidebar-foreground/60">{isLead ? 'Keep project information accurate and moving.' : 'A clear view of the decisions moving the network forward.'}</p></div>}
         <div className={`border-t border-sidebar-border pt-4 ${collapsed ? 'text-center' : ''}`}><div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}><span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#d6a95d] text-[11px] font-bold text-[#173e49]">{user?.initials}</span>{!collapsed && <span className="min-w-0"><span className="block truncate text-[11px] font-bold">{user?.name}</span><span className="mt-1 block truncate font-mono text-[9px] uppercase tracking-[.08em] text-sidebar-foreground/50">{user?.title}</span></span>}{!collapsed && <button type="button" aria-label="Notifications" data-testid="button-notifications" className="ml-auto rounded-lg p-2 text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"><Bell size={15} /></button>}</div>{!collapsed && <div className="mt-3 flex items-center gap-2 pl-1"><span className="size-1.5 rounded-full bg-[#66b89b]" /><span className="font-mono text-[9px] uppercase tracking-[.1em] text-sidebar-foreground/40">Online</span><button type="button" onClick={logout} className="ml-auto flex items-center gap-1 text-[10px] text-sidebar-foreground/40 hover:text-sidebar-foreground"><LogOut size={12} /> Logout</button></div>}</div>
       </aside>
 
