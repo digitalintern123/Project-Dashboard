@@ -71,8 +71,8 @@ non-empty password works**; the email decides the role.
 
 | Email | Role | Access |
 | --- | --- | --- |
-| `hod@encalm.com` | Project HOD (Rhea Shah) | Read-only across the whole portfolio |
-| `lead@encalm.com` | Project Lead (Arjun Mehta) | Can create and edit projects |
+| `hod@encalm.com` | Project HOD (Ruchika Chauhan) | Read-only across the whole portfolio |
+| `lead@encalm.com` | Project Lead (Chinmay Saxena) | Can create and edit projects |
 
 ---
 
