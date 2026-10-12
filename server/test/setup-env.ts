@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+// Every test file gets its own throwaway data directory and SQLite database,
+// so tests never touch server/data.
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'encalm-test-'));
+process.env.DATA_DIR = dir;
+process.env.DATABASE_PATH = path.join(dir, 'test.db');
+process.env.JWT_SECRET = 'test-secret-that-is-long-enough-for-the-checks-0123456789';
+process.env.NODE_ENV = 'test';
