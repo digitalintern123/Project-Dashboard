@@ -23,22 +23,16 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,
-    chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
-        // Split vendor frameworks and heavy components into cached chunks
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'charts-vendor': ['recharts'],
-          'icons-vendor': ['lucide-react'],
-          'ui-vendor': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-tooltip',
-          ],
+        // Long-lived vendor chunks, so app deploys don't invalidate them.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/node_modules\/(react|react-dom|scheduler|wouter)\//.test(id)) return 'react-vendor';
+          if (/node_modules\/(recharts|d3-[^/]+|victory-vendor)\//.test(id)) return 'charts-vendor';
+          if (id.includes('node_modules/@radix-ui/')) return 'radix-vendor';
+          if (id.includes('node_modules/lucide-react/')) return 'icons-vendor';
+          return 'vendor';
         },
       },
     },
