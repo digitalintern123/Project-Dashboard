@@ -192,7 +192,8 @@ router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params
 router.delete('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams }), audited({ action: 'delete', entityType: 'issue', table: 'issues', id: (req) => req.params.issueId as string }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
-  db.prepare('DELETE FROM issues WHERE id = ? AND project_id = ?').run(issueId, projectId);
+  const result = db.prepare('DELETE FROM issues WHERE id = ? AND project_id = ?').run(issueId, projectId);
+  if (result.changes === 0) return res.status(404).json({ error: 'Issue not found' });
   saveDatabaseSnapshot();
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });

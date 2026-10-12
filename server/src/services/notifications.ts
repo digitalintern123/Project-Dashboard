@@ -113,7 +113,7 @@ export async function dispatchCriticalIssueAlert(params: CriticalIssueAlertParam
   const { issueTitle, severity, category, detail, raisedBy, projectId, projectName, origin = 'http://localhost:5173' } = params;
   const dashboardUrl = `${origin}/project/${projectId}`;
 
-  const leaders = db.prepare('SELECT id, name, email, role FROM users WHERE role IN ("hod", "coordinator")').all() as {
+  const leaders = db.prepare("SELECT id, name, email, role FROM users WHERE role IN ('hod', 'coordinator')").all() as {
     id: string;
     name: string;
     email: string;
@@ -161,7 +161,7 @@ export async function dispatchMilestoneApprovalAlert(params: MilestoneApprovalAl
   const { milestoneTitle, targetDate, stage, projectId, projectName, origin = 'http://localhost:5173' } = params;
   const dashboardUrl = `${origin}/project/${projectId}`;
 
-  const coordinators = db.prepare('SELECT id, name, email FROM users WHERE role = "coordinator"').all() as {
+  const coordinators = db.prepare("SELECT id, name, email FROM users WHERE role = 'coordinator'").all() as {
     id: string;
     name: string;
     email: string;

@@ -167,7 +167,8 @@ router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ pa
 router.delete('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams }), audited({ action: 'delete', entityType: 'milestone', table: 'milestones', id: (req) => req.params.milestoneId as string }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
-  db.prepare('DELETE FROM milestones WHERE id = ? AND project_id = ?').run(milestoneId, projectId);
+  const result = db.prepare('DELETE FROM milestones WHERE id = ? AND project_id = ?').run(milestoneId, projectId);
+  if (result.changes === 0) return res.status(404).json({ error: 'Milestone not found' });
   saveDatabaseSnapshot();
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });

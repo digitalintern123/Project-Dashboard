@@ -210,6 +210,9 @@ router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params
 router.delete('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams }), audited({ action: 'delete', entityType: 'stage', table: 'phases', id: (req) => req.params.phaseId as string }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const phaseId = req.params.phaseId as string;
+  if (!db.prepare('SELECT 1 FROM phases WHERE id = ? AND project_id = ?').get(phaseId, projectId)) {
+    return res.status(404).json({ error: 'Stage not found' });
+  }
   const count = db.prepare('SELECT COUNT(*) as count FROM phases WHERE project_id = ?').get(projectId) as { count: number };
   if (count.count <= 1) {
     return res.status(400).json({ error: 'A project must retain at least one stage' });

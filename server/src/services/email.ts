@@ -520,11 +520,11 @@ export async function resendEmailLog(id: string): Promise<{ success: boolean; st
         html: row.html_content,
       });
 
-      db.prepare('UPDATE email_logs SET status = "sent", error = null WHERE id = ?').run(id);
+      db.prepare("UPDATE email_logs SET status = 'sent', error = null WHERE id = ?").run(id);
       return { success: true, status: 'sent' };
     } catch (err: any) {
       const errorMsg = err.message || 'SMTP resend failed';
-      db.prepare('UPDATE email_logs SET status = "failed", error = ? WHERE id = ?').run(errorMsg, id);
+      db.prepare("UPDATE email_logs SET status = 'failed', error = ? WHERE id = ?").run(errorMsg, id);
       return { success: false, status: 'failed', error: errorMsg };
     }
   }
@@ -572,11 +572,11 @@ export async function resendEmailLog(id: string): Promise<{ success: boolean; st
       throw new Error(`Microsoft Graph API resend failed (${graphRes.status}): ${errText}`);
     }
 
-    db.prepare('UPDATE email_logs SET status = "sent", error = null WHERE id = ?').run(id);
+    db.prepare("UPDATE email_logs SET status = 'sent', error = null WHERE id = ?").run(id);
     return { success: true, status: 'sent' };
   } catch (err: any) {
     const errorMsg = err.message || 'Resend failed';
-    db.prepare('UPDATE email_logs SET status = "failed", error = ? WHERE id = ?').run(errorMsg, id);
+    db.prepare("UPDATE email_logs SET status = 'failed', error = ? WHERE id = ?").run(errorMsg, id);
     return { success: false, status: 'failed', error: errorMsg };
   }
 }
