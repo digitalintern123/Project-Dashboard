@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../env.js';
 import { db, initDatabase } from '../db/database.js';
 import { checkPasswordPolicy, hashPassword } from '../utils/passwords.js';
 

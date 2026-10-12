@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env.js';
 import type { Server } from 'node:http';
 import { assertProductionConfig } from './config.js';
 import { db, initDatabase } from './db/database.js';
@@ -20,6 +20,9 @@ const PORT = Number(
     (isProduction && process.env.PORT && process.env.PORT !== '5173' ? process.env.PORT : 5000),
 );
 
+// Behind Nginx set HOST=127.0.0.1 so the app port is not reachable from outside.
+const HOST = process.env.HOST || '0.0.0.0';
+
 const app = createApp();
 
 // 12. Lifecycle & Server Startup
@@ -36,8 +39,8 @@ async function startServer() {
     encryptPlaintextSettings();
     startEmailWorker();
 
-    server = app.listen(PORT, '0.0.0.0', () => {
-      logger.info({ port: PORT, release: appRelease() }, 'Encalm Project Dashboard listening');
+    server = app.listen(PORT, HOST, () => {
+      logger.info({ host: HOST, port: PORT, release: appRelease() }, 'Encalm Project Dashboard listening');
     });
   } catch (err) {
     logger.fatal({ err }, 'Failed to start server');

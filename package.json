@@ -15,6 +15,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "create-user": "node server/dist/create-user.js",
+    "migrate": "node server/dist/migrate.js",
+    "migrate:dev": "tsx server/src/scripts/migrate.ts",
     "test:unit": "vitest run --project unit --project web",
     "test:api": "vitest run --project server",
     "coverage": "vitest run --project server --project unit --coverage",

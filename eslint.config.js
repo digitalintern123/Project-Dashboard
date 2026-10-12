@@ -59,6 +59,12 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
+    // CommonJS config files (PM2 ecosystem).
+    files: ['**/*.cjs'],
+    languageOptions: { globals: globals.node, sourceType: 'commonjs' },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
     // Tests may use `any` for request/response fixtures.
     files: ['server/test/**', 'src/**/*.test.{ts,tsx}', 'src/test/**', 'e2e/**'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' },

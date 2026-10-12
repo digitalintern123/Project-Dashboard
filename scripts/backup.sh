@@ -53,7 +53,7 @@ fi
 
 (cd "$WORK" && sha256sum "$NAME"* > "$NAME.sha256")
 mv "$WORK"/"$NAME"* "$BACKUP_DIR"/
-log "Wrote $(ls "$BACKUP_DIR"/"$NAME"* | xargs -n1 basename | tr '\n' ' ')"
+log "Wrote $(cd "$BACKUP_DIR" && echo "$NAME"*)"
 
 log "Removing local backups older than $RETENTION_DAYS days"
 find "$BACKUP_DIR" -maxdepth 1 -type f -name 'encalm-*' -mtime "+$RETENTION_DAYS" -print -delete
