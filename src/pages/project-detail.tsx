@@ -57,7 +57,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatFullDate, isValidIsoDate, parseIsoDate, todayLabel } from '@/lib/date';
 import { getCommercialSummary, getProgressVariance, formatRatio, calculateWeightedProgress } from '@/lib/calculations';
 import { initialsOf, leadName } from '@/data/users';
-import { statusTone } from './workspace';
+import { statusTone } from '@/lib/tones';
 import { PhotoLightbox } from '@/components/photo-lightbox';
 import { PhotoUploadDialog } from '@/components/photo-upload-dialog';
 import { ProjectAreaProgram } from '@/components/project-area-program';

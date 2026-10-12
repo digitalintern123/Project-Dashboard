@@ -49,6 +49,7 @@ import { useAppState } from '@/state/app-state';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { CRORE } from '@/data/projects';
+import { healthTone, statusTone } from '@/lib/tones';
 import { formatFullDate, isValidIsoDate, todayIso, todayLabel } from '@/lib/date';
 import { initialsOf, leadName } from '@/data/users';
 import {
@@ -75,22 +76,6 @@ export type WorkspaceView =
   | 'reports'
   | 'new-project'
   | 'team';
-
-const healthTone: Record<Health, string> = {
-  'On track': 'bg-[#e4f1ec] text-[#2e7c67]',
-  'At risk': 'bg-[#f8edcf] text-[#9a711f]',
-  Delayed: 'bg-[#fae5e1] text-[#b2473d]',
-  'Not started': 'bg-[#eef0ed] text-[#69716b]',
-};
-
-export const statusTone: Record<ProjectStatus, string> = {
-  'Yet to start': 'bg-[#eef0ed] text-[#69716b]',
-  'In Design': 'bg-[#e8f1f5] text-[#2c6e8a]',
-  'In Tendering': 'bg-[#fef4e6] text-[#b37418]',
-  'Under Construction': 'bg-[#fff0eb] text-[#c2583f]',
-  Operational: 'bg-[#e4f1ec] text-[#2e7c67]',
-  'On Hold': 'bg-[#fae5e1] text-[#b2473d]',
-};
 
 function PageHeader({
   eyebrow,

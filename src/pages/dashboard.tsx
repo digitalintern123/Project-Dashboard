@@ -34,7 +34,7 @@ import { sortProjectsIncompleteFirst } from '@/lib/calculations';
 import { useAppState } from '@/state/app-state';
 import { greetingForNow, parseIsoDate, todayLongLabel } from '@/lib/date';
 import { initialsOf, leadName } from '@/data/users';
-import { statusTone } from './workspace';
+import { statusTone } from '@/lib/tones';
 
 const healthStyles: Record<Health, { dot: string; text: string; bg: string }> = {
   'On track': { dot: 'bg-[#3d9a7e]', text: 'text-[#2e7c67]', bg: 'bg-[#e4f1ec]' },
