@@ -70,7 +70,8 @@ initDatabase();
 
 try {
   // Check if user exists
-  const existing = db.prepare('SELECT id, email, role FROM users WHERE LOWER(email) = ?').get(email) as any;
+  const existing = db.prepare('SELECT id, email, role FROM users WHERE LOWER(email) = ?').get(email) as
+    { id: string; email: string; role: string } | undefined;
 
   if (existing) {
     db.prepare(
@@ -101,7 +102,7 @@ try {
     console.log(`   Title:    ${title}`);
     console.log(`   Initials: ${initials}\n`);
   }
-} catch (err: any) {
-  console.error('❌ Failed to create/update user:', err.message);
+} catch (err) {
+  console.error('❌ Failed to create/update user:', err instanceof Error ? err.message : err);
   process.exit(1);
 }

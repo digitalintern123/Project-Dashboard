@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole, requireProjectAccess, type AuthenticatedRequest } from '../middleware/auth.js';
 import { removePhotoFiles } from '../services/photos.service.js';
-import { saveDatabaseSnapshot, restoreDatabaseFromJSON } from '../utils/backup.js';
+import { saveDatabaseSnapshot, restoreDatabaseFromJSON, type ExportedProject } from '../utils/backup.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { largeJson } from '../validation/large-json.js';
@@ -41,7 +41,7 @@ router.post(
     details: (req) => ({ projects: (req.body.projects as { id: string }[]).map((p) => p.id) }),
   }),
   transactional((req: AuthenticatedRequest, res) => {
-    const { projects, explicit } = req.body as { projects: { id: string }[]; explicit?: boolean };
+    const { projects, explicit } = req.body as { projects: ExportedProject[]; explicit?: boolean };
     // Never let a stale browser cache resurrect projects into a deliberately emptied database.
     if (projectsRepo.count() === 0 && !explicit) {
       return res.json({

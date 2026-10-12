@@ -441,7 +441,7 @@ export function seedVizagHotelToDatabase() {
         order_index: ph.order_index,
         planned_start: ph.planned_start || null,
         planned_finish: ph.planned_finish || null,
-        actual_finish: (ph as any).actual_finish || null,
+        actual_finish: ('actual_finish' in ph ? ph.actual_finish : null) || null,
         work_completed: ph.work_completed || null,
         next_action: ph.next_action || null,
         decision_required: ph.decision_required || null,
@@ -469,7 +469,7 @@ export function seedVizagHotelToDatabase() {
         owner: ms.owner || null,
         approval_required: ms.approval_required ?? 0,
         approval_status: ms.approval_status || 'Not required',
-        completed_date: (ms as any).completed_date || null,
+        completed_date: ('completed_date' in ms ? ms.completed_date : null) || null,
         order_index: ms.order_index,
       });
     }

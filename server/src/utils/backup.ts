@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { db, dataDir } from '../db/database.js';
+import type { IssueRow, MilestoneRow, PhaseRow, PhotoRow, ProjectRow, UpdateRow } from '../repositories/rows.js';
 
 /**
  * Disaster Recovery & Export Backup Snapshot.
@@ -9,39 +10,171 @@ import { db, dataDir } from '../db/database.js';
  */
 export const SNAPSHOT_FILE_PATH = path.join(dataDir, 'portfolio-database.json');
 
-function parseTaggedUsers(val: any): string[] {
+/** Tagged user ids from an export (an array) or a database row (JSON text). */
+function parseTaggedUsers(val: unknown): string[] {
   if (!val) return [];
-  if (Array.isArray(val)) return val;
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val !== 'string') return [];
   try {
-    const parsed = JSON.parse(val);
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed: unknown = JSON.parse(val);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
   } catch {
     return [];
   }
 }
 
+/*
+ * Exported records are camelCase; files written by older versions used
+ * snake_case for some fields, so both spellings are read. Contents are
+ * untrusted: only the shape (id, name) is validated before restore.
+ */
+type Text = string | null | undefined;
+type Num = number | string | null | undefined;
+type Tagged = { taggedUsers?: unknown; tagged_users?: unknown };
+
+type ExportedPhase = Tagged & {
+  id?: string;
+  name?: Text;
+  status?: Text;
+  progress?: Num;
+  weight?: number | null;
+  owner?: Text;
+  plannedStart?: Text;
+  planned_start?: Text;
+  plannedFinish?: Text;
+  planned_finish?: Text;
+  actualFinish?: Text;
+  actual_finish?: Text;
+  workCompleted?: Text;
+  work_completed?: Text;
+  nextAction?: Text;
+  next_action?: Text;
+  decisionRequired?: Text;
+  decision_required?: Text;
+  updatedAt?: Text;
+  updated_at?: Text;
+};
+
+type ExportedMilestone = Tagged & {
+  id?: string;
+  title?: Text;
+  date?: Text;
+  status?: Text;
+  stage?: Text;
+  owner?: Text;
+  approvalRequired?: boolean;
+  approvalStatus?: Text;
+  completedDate?: Text;
+  completed_date?: Text;
+};
+
+type ExportedIssue = Tagged & {
+  id?: string;
+  title?: Text;
+  detail?: Text;
+  severity?: Text;
+  owner?: Text;
+  category?: Text;
+  status?: Text;
+  stage?: Text;
+  dateRaised?: Text;
+  date_raised?: Text;
+  dueDate?: Text;
+  due_date?: Text;
+  impactCost?: Text;
+  impact_cost?: Text;
+  impactSchedule?: Text;
+  impact_schedule?: Text;
+  impactScope?: Text;
+  impact_scope?: Text;
+  action?: Text;
+  resolution?: Text;
+};
+
+type ExportedUpdate = {
+  id?: string;
+  date?: Text;
+  author?: Text;
+  role?: Text;
+  text?: Text;
+  stage?: Text;
+  kind?: Text;
+};
+
+type ExportedPhoto = {
+  id?: string;
+  url?: Text;
+  thumbnailUrl?: Text;
+  thumbnail_url?: Text;
+  caption?: Text;
+  stage?: Text;
+  category?: Text;
+  takenDate?: Text;
+  taken_date?: Text;
+  uploadedBy?: Text;
+  uploaded_by?: Text;
+  role?: Text;
+  fileSize?: number | null;
+  file_size?: number | null;
+  createdAt?: Text;
+  created_at?: Text;
+};
+
+export type ExportedProject = {
+  id: string;
+  name: string;
+  location?: Text;
+  category?: Text;
+  code?: Text;
+  health?: Text;
+  status?: Text;
+  progress?: Num;
+  targetDate?: Text;
+  targetLabel?: Text;
+  aop?: Num;
+  awarded?: Num;
+  spent?: Num;
+  projectedCost?: Num;
+  projected_cost?: Num;
+  area?: Text;
+  paxKeys?: Text;
+  pax_keys?: Text;
+  specification?: { area?: string; capacity?: string } & Record<string, unknown>;
+  nextMilestone?: Text;
+  nextMilestoneDate?: Text;
+  leadId?: Text;
+  startDate?: Text;
+  lastUpdated?: Text;
+  templateId?: Text;
+  phases?: ExportedPhase[];
+  milestones?: ExportedMilestone[];
+  issues?: ExportedIssue[];
+  updates?: ExportedUpdate[];
+  photos?: ExportedPhoto[];
+};
+
 /**
  * Fetch full project tree for a given project ID directly from database.
  */
 export function getFullProjectRecord(projectId: string) {
-  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
+  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as ProjectRow | undefined;
   if (!row) return null;
 
   const phases = db
     .prepare('SELECT * FROM phases WHERE project_id = ? ORDER BY order_index ASC')
-    .all(projectId) as any[];
+    .all(projectId) as PhaseRow[];
   const milestones = db
     .prepare('SELECT * FROM milestones WHERE project_id = ? ORDER BY order_index ASC, date ASC')
-    .all(projectId) as any[];
+    .all(projectId) as MilestoneRow[];
   const issues = db
     .prepare('SELECT * FROM issues WHERE project_id = ? ORDER BY order_index ASC, id DESC')
-    .all(projectId) as any[];
+    .all(projectId) as IssueRow[];
   const updates = db
     .prepare('SELECT * FROM updates WHERE project_id = ? ORDER BY created_at DESC')
-    .all(projectId) as any[];
+    .all(projectId) as UpdateRow[];
   const photos = db
     .prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC')
-    .all(projectId) as any[];
+    .all(projectId) as PhotoRow[];
 
   return {
     id: row.id,
@@ -167,7 +300,7 @@ export function saveDatabaseSnapshot(): void {
 /**
  * Restores projects into SQLite from a JSON payload (or backup file).
  */
-export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?: any[] }): {
+export function restoreDatabaseFromJSON(data: { projects?: ExportedProject[]; notifications?: unknown[] }): {
   success: boolean;
   count: number;
 } {
@@ -272,7 +405,7 @@ export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?
       db.prepare('DELETE FROM photos WHERE project_id = ?').run(p.id);
 
       if (Array.isArray(p.phases)) {
-        p.phases.forEach((ph: any, idx: number) => {
+        p.phases.forEach((ph: ExportedPhase, idx: number) => {
           insertPhase.run({
             id: ph.id || `${p.id}-phase-${idx}`,
             project_id: p.id,
@@ -295,7 +428,7 @@ export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?
       }
 
       if (Array.isArray(p.milestones)) {
-        p.milestones.forEach((m: any, idx: number) => {
+        p.milestones.forEach((m: ExportedMilestone, idx: number) => {
           insertMilestone.run({
             id: m.id || `${p.id}-milestone-${idx}`,
             project_id: p.id,
@@ -314,7 +447,7 @@ export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?
       }
 
       if (Array.isArray(p.issues)) {
-        p.issues.forEach((iss: any, idx: number) => {
+        p.issues.forEach((iss: ExportedIssue, idx: number) => {
           insertIssue.run({
             id: iss.id || `${p.id}-issue-${idx}`,
             project_id: p.id,
@@ -339,7 +472,7 @@ export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?
       }
 
       if (Array.isArray(p.updates)) {
-        p.updates.forEach((u: any, idx: number) => {
+        p.updates.forEach((u: ExportedUpdate, idx: number) => {
           insertUpdate.run({
             id: u.id || `${p.id}-update-${idx}`,
             project_id: p.id,
@@ -354,7 +487,7 @@ export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?
       }
 
       if (Array.isArray(p.photos)) {
-        p.photos.forEach((ph: any, idx: number) => {
+        p.photos.forEach((ph: ExportedPhoto, idx: number) => {
           insertPhoto.run({
             id: ph.id || `${p.id}-photo-${idx}`,
             project_id: p.id,

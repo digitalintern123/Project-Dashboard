@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import type { Server } from 'node:http';
 import { assertProductionConfig } from './config.js';
 import { db, initDatabase } from './db/database.js';
 import { seedDatabase } from './db/seed.js';
@@ -20,7 +21,7 @@ const PORT = Number(
 const app = createApp();
 
 // 12. Lifecycle & Server Startup
-let server: any = null;
+let server: Server | null = null;
 
 async function startServer() {
   try {
