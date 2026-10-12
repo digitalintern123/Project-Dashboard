@@ -17,7 +17,6 @@ import { calculateWeightedProgress } from '@/lib/calculations';
 
 export type AppRole = 'hod' | 'lead' | 'coordinator';
 export type AuthUser = User;
-export type DemoUser = AuthUser;
 
 const EDITOR_ROLES: readonly AppRole[] = ['lead', 'coordinator'];
 
@@ -69,7 +68,6 @@ type AppStateValue = {
   addMultiplePhotos: (projectId: string, photos: PhotoUploadInput[]) => Promise<SitePhoto[]>;
   deletePhoto: (projectId: string, photoId: string) => Promise<boolean>;
   resetProjects: () => Promise<void>;
-  restoreAllPdfs: () => Promise<{ success: boolean; count?: number; error?: string }>;
   exportBackup: () => Promise<void>;
   importBackup: (fileOrJson: string | object) => Promise<{ success: boolean; count?: number; error?: string }>;
 };
@@ -920,17 +918,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshProjects, refreshNotifications]);
 
-  const restoreAllPdfs = useCallback(async (): Promise<{ success: boolean; count?: number; error?: string }> => {
-    try {
-      const res = await api.system.restoreAllPdfs();
-      await refreshProjects();
-      await refreshNotifications();
-      return { success: true, count: res.totalProjects };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Failed to restore PDF master data' };
-    }
-  }, [refreshProjects, refreshNotifications]);
-
   const value = useMemo<AppStateValue>(
     () => ({
       role,
@@ -974,7 +961,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       addMultiplePhotos,
       deletePhoto,
       resetProjects,
-      restoreAllPdfs,
       exportBackup,
       importBackup,
     }),
@@ -1020,7 +1006,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       addMultiplePhotos,
       deletePhoto,
       resetProjects,
-      restoreAllPdfs,
       exportBackup,
       importBackup,
     ],

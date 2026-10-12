@@ -33,8 +33,6 @@ import {
   Mail,
   Tag,
   UserCheck,
-  Database,
-  RefreshCw,
   FileSpreadsheet,
 } from 'lucide-react';
 import { useAppState, type AppRole } from '@/state/app-state';
@@ -100,8 +98,6 @@ export function AppShell({ children }: AppShellProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [reminders, setReminders] = useState(() => readItem('encalm-update-reminders') !== 'off');
   const [resetConfirm, setResetConfirm] = useState(false);
-  const [restoreConfirm, setRestoreConfirm] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
   const [emailHubOpen, setEmailHubOpen] = useState(false);
 
   const {
@@ -109,7 +105,6 @@ export function AppShell({ children }: AppShellProps) {
     user,
     logout,
     resetProjects,
-    restoreAllPdfs,
     exportBackup,
     importBackup,
     isConnected,
@@ -219,35 +214,6 @@ export function AppShell({ children }: AppShellProps) {
       title: 'Database wiped clean',
       description: 'All project data has been cleared. You now have a fresh canvas to create projects from scratch.',
     });
-  };
-
-  const handleRestoreAllPdfs = async () => {
-    setIsRestoring(true);
-    try {
-      const res = await restoreAllPdfs();
-      if (res.success) {
-        toast({
-          title: '3 Source PDF Datasets Restored',
-          description: `Successfully restored ${res.count || 68} authentic projects across Vizag Hotel, Mopa Goa Hotel, and Project Area Sheet.`,
-        });
-        setRestoreConfirm(false);
-        closeSettings();
-      } else {
-        toast({
-          title: 'Restoration Failed',
-          description: res.error || 'Failed to restore PDF master data.',
-          variant: 'destructive',
-        });
-      }
-    } catch (err: any) {
-      toast({
-        title: 'Restoration Error',
-        description: err.message || 'An error occurred during restoration.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRestoring(false);
-    }
   };
 
   return (
@@ -489,7 +455,6 @@ export function AppShell({ children }: AppShellProps) {
               onClick={() => {
                 setSettingsOpen(true);
                 setResetConfirm(false);
-                setRestoreConfirm(false);
               }}
               className={`rounded-lg border border-border bg-card p-2 text-muted-foreground hover:bg-muted ${
                 settingsOpen ? 'bg-muted text-foreground' : ''
@@ -866,59 +831,6 @@ export function AppShell({ children }: AppShellProps) {
                   </div>
                 </button>
               </div>
-
-              {/* Restore All 3 Source PDFs Action */}
-              {restoreConfirm ? (
-                <div className="mt-3 rounded-xl border border-[#cbe4d9] bg-[#edf5f0] p-3.5">
-                  <p className="text-[11px] font-bold text-[#1e5141]">Restore 3 PDF Master Data?</p>
-                  <p className="mt-1 text-[10px] leading-4 text-[#3d6556]">
-                    This will synchronize all authentic records from the 3 source PDFs: Vizag Hotel & Suites (156 Keys /
-                    168 Bays), Mopa Goa Hotel (220 Keys), and Master Project Area Sheet (66 facilities across Delhi,
-                    Hyderabad, Goa, Vizag).
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      disabled={isRestoring}
-                      onClick={handleRestoreAllPdfs}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#1e5141] px-3 py-2 text-[10px] font-bold text-white hover:bg-[#163f33] disabled:opacity-50"
-                    >
-                      {isRestoring ? (
-                        <>
-                          <RefreshCw size={12} className="animate-spin" />
-                          Restoring 68 projects...
-                        </>
-                      ) : (
-                        'Confirm & Restore (68 Projects)'
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isRestoring}
-                      onClick={() => setRestoreConfirm(false)}
-                      className="rounded-lg border border-border bg-white px-3 py-2 text-[10px] font-bold"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setRestoreConfirm(true)}
-                  className="mt-3 flex w-full items-center gap-3 rounded-xl border border-[#cbe4d9] bg-[#edf5f0]/60 p-3.5 text-left hover:bg-[#edf5f0] transition-colors"
-                >
-                  <span className="grid size-8 place-items-center rounded-lg bg-[#d9ebe2] text-[#1e5141]">
-                    <Database size={15} />
-                  </span>
-                  <span>
-                    <strong className="block text-[11px] text-[#1e5141]">Restore 3 PDF Master Data</strong>
-                    <span className="mt-1 block text-[10px] text-[#4f7566]">
-                      Reload all 68 authentic facilities from Vizag, Mopa Goa, & Project Area Sheet.
-                    </span>
-                  </span>
-                </button>
-              )}
 
               {resetConfirm ? (
                 <div className="mt-3 rounded-xl border border-[#f0c8c2] bg-[#fff5f2] p-3.5">

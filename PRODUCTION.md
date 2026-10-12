@@ -174,7 +174,7 @@ The JSON file `portfolio-database.json` is a convenience export of project data 
 audit log or settings). It is not a backup.
 
 ### Destructive System Operations Guard
-- `/api/system/reset`, `/clear`, `/import`, and `/restore-all-pdfs` are guarded by role authentication (Coordinator only).
+- `/api/system/reset`, `/clear` and `/import` are guarded by role authentication (Coordinator only).
 - In production (`NODE_ENV=production`), these endpoints are strictly disabled unless `ALLOW_SYSTEM_RESET=true` is set in the environment.
 
 ---

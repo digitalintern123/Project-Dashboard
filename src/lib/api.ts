@@ -300,19 +300,6 @@ export const api = {
   system: {
     health: () => request<{ status: string; database: string; counts: Record<string, number> }>('/api/system/health'),
     reset: () => request<{ message: string }>('/api/system/reset', { method: 'POST' }),
-    restoreAllPdfs: () =>
-      request<{
-        success: boolean;
-        message: string;
-        totalProjects: number;
-        hotelCount: number;
-        loungeCount: number;
-        kitchenCount: number;
-        otherCount: number;
-        encalmEatsCount: number;
-        locations: Record<string, number>;
-        restoredAt: string;
-      }>('/api/system/restore-all-pdfs', { method: 'POST' }),
     exportBackup: () => request<any>('/api/system/export'),
     importBackup: (data: any) =>
       request<{ message: string; count: number }>('/api/system/import', {

@@ -50,7 +50,6 @@ describe('reset and clear', () => {
     try {
       expect((await coord.post('/api/system/reset')).status).toBe(403);
       expect((await coord.post('/api/system/clear')).status).toBe(403);
-      expect((await coord.post('/api/system/restore-all-pdfs')).status).toBe(403);
     } finally {
       process.env.NODE_ENV = 'test';
     }
@@ -71,12 +70,6 @@ describe('reset and clear', () => {
     expect((await coord.post('/api/system/reset')).status).toBe(200);
     expect(projectCount()).toBe(0);
   });
-
-  it('restore-all-pdfs reloads the 68 master facilities', async () => {
-    const res = await coord.post('/api/system/restore-all-pdfs');
-    expect(res.status).toBe(200);
-    expect(projectCount()).toBe(68);
-  });
 });
 
 describe('health', () => {
@@ -84,6 +77,6 @@ describe('health', () => {
     const res = await coord.get('/api/system/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('healthy');
-    expect(res.body.counts.projects).toBe(68);
+    expect(res.body.counts.projects).toBe(projectCount());
   });
 });

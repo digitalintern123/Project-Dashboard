@@ -158,13 +158,7 @@ does not un-leak it; rotate the credential instead.
 
 ## 7. Deploying
 
-`npm run build` produces a static `dist/` folder.
-
-- **Netlify** — drag `dist/` in, or connect the repo with build command
-  `npm run build` and publish directory `dist`
-- **Vercel / Cloudflare Pages** — same build command and output directory
-- **Any static host** — serve `dist/` with a SPA rewrite so unknown paths fall
-  back to `index.html`, otherwise deep links like `/project/xyz` 404
+The app is a single Node.js server that serves both the API and the built frontend; it cannot be hosted as a static site. See [PRODUCTION.md](PRODUCTION.md) for deploying to the VPS.
 
 ---
 

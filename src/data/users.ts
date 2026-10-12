@@ -19,11 +19,6 @@ export const DEFAULT_HOD_ID = 'user-ruchika-chauhan';
 export const DEFAULT_COORDINATOR_ID = 'user-praveen-pal';
 export const DEFAULT_LEAD_ID = 'user-chinmay-saxena';
 
-// Backward compatibility aliases
-export const DEMO_HOD_ID = DEFAULT_HOD_ID;
-export const DEMO_COORDINATOR_ID = DEFAULT_COORDINATOR_ID;
-export const DEMO_LEAD_ID = DEFAULT_LEAD_ID;
-
 export const users: User[] = [
   {
     id: DEFAULT_HOD_ID,

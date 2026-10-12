@@ -63,7 +63,6 @@ const everyProtectedRoute: Route[] = [
   ['post', '/api/system/import'],
   ['post', '/api/system/reset'],
   ['post', '/api/system/clear'],
-  ['post', '/api/system/restore-all-pdfs'],
   ['get', '/api/system/health'],
 ];
 
@@ -98,7 +97,6 @@ const coordinatorOnly: Route[] = [
   ['post', '/api/system/import'],
   ['post', '/api/system/reset'],
   ['post', '/api/system/clear'],
-  ['post', '/api/system/restore-all-pdfs'],
   ['get', '/api/system/health'],
 ];
 
