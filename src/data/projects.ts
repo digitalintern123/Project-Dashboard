@@ -183,6 +183,8 @@ export type SitePhoto = {
   id: string;
   projectId: string;
   url: string;
+  /** 400 px WebP; older photos may not have one. */
+  thumbnailUrl?: string;
   caption: string;
   stage?: string;
   category?: PhotoCategory;
@@ -193,6 +195,11 @@ export type SitePhoto = {
   fileSize?: number;
   createdAt?: string;
 };
+
+/** The small version of a photo for grids and cards; the full image is for the lightbox. */
+export function photoThumbnail(photo: Pick<SitePhoto, 'url' | 'thumbnailUrl'>): string {
+  return photo.thumbnailUrl || photo.url;
+}
 
 export type Project = {
   id: string;

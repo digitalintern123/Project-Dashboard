@@ -222,6 +222,7 @@ export function PhotoLightbox({
           <img
             src={currentPhoto.url}
             alt={currentPhoto.caption || 'Site photograph'}
+            decoding="async"
             className={`transition-all duration-200 object-contain rounded-lg shadow-2xl ${
               zoomed ? 'max-w-none scale-125' : 'max-h-[75vh] max-w-full'
             }`}

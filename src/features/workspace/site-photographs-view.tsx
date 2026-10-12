@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { Camera, Search, Upload } from 'lucide-react';
-import { locations, photoCategories, type Project, type SitePhoto } from '@/data/projects';
+import { locations, photoCategories, type Project, type SitePhoto, photoThumbnail } from '@/data/projects';
 import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
 import { formatFullDate } from '@/lib/date';
@@ -153,7 +153,9 @@ export function SitePhotographsView() {
                   className="relative aspect-video w-full overflow-hidden bg-black/5 cursor-pointer"
                 >
                   <img
-                    src={photo.url}
+                    src={photoThumbnail(photo)}
+                    loading="lazy"
+                    decoding="async"
                     alt={photo.caption}
                     className="size-full object-cover transition duration-300 group-hover:scale-105"
                   />

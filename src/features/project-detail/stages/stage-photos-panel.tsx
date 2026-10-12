@@ -1,5 +1,5 @@
 import { Camera, Upload } from 'lucide-react';
-import { type Project, type SitePhoto } from '@/data/projects';
+import { type Project, type SitePhoto, photoThumbnail } from '@/data/projects';
 import { formatFullDate } from '@/lib/date';
 import { activateOnKey } from '@/lib/a11y';
 import { DetailCard } from '../ui';
@@ -71,7 +71,9 @@ export function StagePhotosPanel({
                   className="group relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black/5 cursor-pointer shadow-md"
                 >
                   <img
-                    src={latestPhoto?.url}
+                    src={latestPhoto ? photoThumbnail(latestPhoto) : undefined}
+                    loading="lazy"
+                    decoding="async"
                     alt={latestPhoto?.caption}
                     className="size-full object-cover transition duration-300 group-hover:scale-105"
                   />
@@ -172,7 +174,9 @@ export function StagePhotosPanel({
                         className="relative aspect-video w-full overflow-hidden bg-black/5 cursor-pointer"
                       >
                         <img
-                          src={ph.url}
+                          src={photoThumbnail(ph)}
+                          loading="lazy"
+                          decoding="async"
                           alt={ph.caption}
                           className="size-full object-cover transition duration-300 group-hover:scale-105"
                         />

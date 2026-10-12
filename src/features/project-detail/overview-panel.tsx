@@ -9,7 +9,7 @@ import {
   ShieldAlert,
   Upload,
 } from 'lucide-react';
-import { type Project, type SitePhoto } from '@/data/projects';
+import { type Project, type SitePhoto, photoThumbnail } from '@/data/projects';
 import { formatFullDate } from '@/lib/date';
 import { leadName } from '@/data/users';
 import { getIssueStatusTheme } from '@/lib/issue-theme';
@@ -225,7 +225,9 @@ export function OverviewPanel({
                     className="group relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-black/5 cursor-pointer shadow-sm"
                   >
                     <img
-                      src={currentPhoto.url}
+                      src={photoThumbnail(currentPhoto)}
+                      loading="lazy"
+                      decoding="async"
                       alt={currentPhoto.caption}
                       className="size-full object-cover transition duration-300 group-hover:scale-105"
                     />
