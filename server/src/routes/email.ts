@@ -391,14 +391,7 @@ router.post(
   validate({ body: S.tagAndCommentBody }),
   audited({ action: 'tag', entityType: 'email', id: (req) => req.body.projectId, details: (req) => req.body }),
   async (req: AuthenticatedRequest, res) => {
-    const {
-      projectId,
-      entityType = 'Stage',
-      entityTitle,
-      entityContext,
-      taggedUserIds = [],
-      comment,
-    } = req.body;
+    const { projectId, entityType = 'Stage', entityTitle, entityContext, taggedUserIds = [], comment } = req.body;
 
     if (!projectId) {
       return res.status(400).json({ error: 'Project ID is required' });

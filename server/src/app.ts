@@ -12,6 +12,7 @@ import { clientDistDir } from './paths.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './utils/session.js';
 import { envInt } from './config.js';
 import { requireAuth } from './middleware/auth.js';
+import { HttpError } from './utils/http-error.js';
 import { LARGE_JSON_PATHS } from './validation/large-json.js';
 
 import authRouter from './routes/auth.js';
@@ -213,12 +214,19 @@ export function createApp() {
   }
 
   // 11. Global Error Handler
-  app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    if (err instanceof HttpError) {
+      return res.status(err.status).json({ error: err.message, ...err.extra });
+    }
+    const status = (err as { status?: unknown })?.status;
+    if (typeof status === 'number' && status >= 400 && status < 500) {
+      // e.g. body-parser's 413 for oversized bodies
+      return res.status(status).json({ error: (err as Error).message });
+    }
     console.error('[API Unhandled Error]', err);
-    const status = typeof err.status === 'number' ? err.status : 500;
-    res.status(status).json({
+    res.status(500).json({
       error: 'Internal Server Error',
-      message: isProduction ? 'An unexpected error occurred.' : err.message,
+      message: isProduction ? 'An unexpected error occurred.' : (err as Error)?.message,
     });
   });
 

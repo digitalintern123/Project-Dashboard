@@ -238,10 +238,17 @@ describe('updates feed', () => {
     });
   });
 
+  it('ignores a client-supplied author: updates are always posted as the signed-in user', async () => {
+    const res = await lead.post(`${P}/updates`).send({ text: 'Spoof attempt', author: 'Somebody Else', role: 'CEO' });
+    expect(res.status).toBe(201);
+    expect(res.body.project.updates[0]).toMatchObject({ text: 'Spoof attempt', author: testUsers.leadA.name });
+    expect(res.body.project.updates[0].role).not.toBe('CEO');
+  });
+
   it('lists updates for a project and across the portfolio', async () => {
     const one = await hod.get(`${P}/updates`);
     expect(one.status).toBe(200);
-    expect(one.body.updates[0].text).toBe('Ceiling framing complete');
+    expect(one.body.updates.map((u: any) => u.text)).toContain('Ceiling framing complete');
     const all = await hod.get('/api/updates');
     expect(all.body.updates[0].project.id).toBe('proj-i');
   });

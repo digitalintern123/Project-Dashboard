@@ -1,31 +1,23 @@
 import { Router } from 'express';
-import { db } from '../db/database.js';
-import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
-import { fetchFullProject } from './projects.js';
+import { requireAuth, requireProjectAccess, type AuthenticatedRequest } from '../middleware/auth.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
+import { publicBaseUrl } from '../config.js';
 import { audited } from '../utils/audit.js';
 import { afterCommit, transactional } from '../utils/tx.js';
+import { requireProject } from '../services/projects.service.js';
+import { addUpdate } from '../services/project-items.service.js';
+import { updatesRepo } from '../repositories/updates.repo.js';
+import { projectsRepo } from '../repositories/projects.repo.js';
+import { notFound } from '../utils/http-error.js';
 
 export const projectUpdatesRouter = Router({ mergeParams: true });
 export const globalUpdatesRouter = Router();
 
-// GET all updates across the portfolio
-globalUpdatesRouter.get('/', requireAuth, (req, res) => {
-  const rows = db
-    .prepare(
-      `
-    SELECT u.*, p.name as project_name, p.code as project_code, p.id as project_id
-    FROM updates u
-    JOIN projects p ON u.project_id = p.id
-    ORDER BY u.created_at DESC
-    LIMIT 100
-  `,
-    )
-    .all() as any[];
-
-  const updates = rows.map((r) => ({
+// Latest updates across the portfolio
+globalUpdatesRouter.get('/', requireAuth, (_req, res) => {
+  const updates = updatesRepo.listRecent(100).map((r) => ({
     id: r.id,
     date: r.date,
     author: r.author,
@@ -33,33 +25,17 @@ globalUpdatesRouter.get('/', requireAuth, (req, res) => {
     text: r.text,
     stage: r.stage,
     kind: r.kind,
-    project: {
-      id: r.project_id,
-      name: r.project_name,
-      code: r.project_code,
-    },
+    project: { id: r.project_id, name: r.project_name, code: r.project_code },
   }));
-
-  return res.json({ updates });
+  res.json({ updates });
 });
 
-// GET updates for a specific project
-projectUpdatesRouter.get('/', requireAuth, validate({ params: S.projectParams }), (req: any, res) => {
-  const projectId = req.params.id as string;
-  const rows = db
-    .prepare(
-      `
-    SELECT * FROM updates
-    WHERE project_id = ?
-    ORDER BY created_at DESC
-  `,
-    )
-    .all(projectId) as any[];
-
-  return res.json({ updates: rows });
+projectUpdatesRouter.get('/', requireAuth, validate({ params: S.projectParams }), (req, res) => {
+  const id = req.params.id as string;
+  if (!projectsRepo.exists(id)) throw notFound('Project');
+  res.json({ updates: updatesRepo.listForProject(id) });
 });
 
-// POST add update to project
 projectUpdatesRouter.post(
   '/',
   requireAuth,
@@ -67,37 +43,9 @@ projectUpdatesRouter.post(
   validate({ params: S.projectParams, body: S.createUpdateBody }),
   audited({ action: 'create', entityType: 'update', table: 'updates' }),
   transactional((req: AuthenticatedRequest, res) => {
-    const projectId = req.params.id as string;
-    const project = fetchFullProject(projectId);
-    if (!project) return res.status(404).json({ error: 'Project not found' });
-
-    const body = req.body;
-    const updateId = `${projectId}-update-${Date.now()}`;
-    res.locals.auditEntityId = updateId;
-    const todayFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-
-    db.prepare(
-      `
-    INSERT INTO updates (id, project_id, date, author, role, text, stage, kind)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `,
-    ).run(
-      updateId,
-      projectId,
-      body.date || todayFormatted,
-      body.author || req.user?.name || 'Project Lead',
-      body.role || req.user?.title || 'Project Lead',
-      body.text,
-      body.stage || null,
-      body.kind || 'General',
-    );
-
-    // Update project last_updated
-    db.prepare('UPDATE projects SET last_updated = ? WHERE id = ?').run(todayFormatted, projectId);
-
+    const id = req.params.id as string;
+    res.locals.auditEntityId = addUpdate(id, req.body, { user: req.user!, origin: publicBaseUrl(req) });
     afterCommit(saveDatabaseSnapshot);
-
-    const updatedProject = fetchFullProject(projectId);
-    return res.status(201).json({ project: updatedProject });
+    res.status(201).json({ project: requireProject(id) });
   }),
 );

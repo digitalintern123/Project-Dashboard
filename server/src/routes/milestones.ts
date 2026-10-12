@@ -1,19 +1,24 @@
 import { Router } from 'express';
-import { db } from '../db/database.js';
-import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
-import { fetchFullProject, parseTaggedUsers } from './projects.js';
-import { broadcastNotification } from '../utils/notify.js';
+import { requireAuth, requireProjectAccess, type AuthenticatedRequest } from '../middleware/auth.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
-import { dispatchTagNotifications, dispatchMilestoneApprovalAlert } from '../services/notifications.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
 import { audited } from '../utils/audit.js';
 import { afterCommit, transactional } from '../utils/tx.js';
+import { requireProject } from '../services/projects.service.js';
+import { addMilestone, removeMilestone, updateMilestone, type Actor } from '../services/project-items.service.js';
 
 const router = Router({ mergeParams: true });
+const projectId = (req: AuthenticatedRequest) => req.params.id as string;
+const itemId = (req: AuthenticatedRequest) => req.params.milestoneId as string;
+const actor = (req: AuthenticatedRequest): Actor => ({ user: req.user!, origin: publicBaseUrl(req) });
 
-// POST add milestone
+function respond(req: AuthenticatedRequest, res: import('express').Response, status = 200) {
+  afterCommit(saveDatabaseSnapshot);
+  res.status(status).json({ project: requireProject(projectId(req)) });
+}
+
 router.post(
   '/',
   requireAuth,
@@ -21,215 +26,32 @@ router.post(
   validate({ params: S.projectParams, body: S.createMilestoneBody }),
   audited({ action: 'create', entityType: 'milestone', table: 'milestones' }),
   transactional((req: AuthenticatedRequest, res) => {
-    const projectId = req.params.id as string;
-    const project = fetchFullProject(projectId);
-    if (!project) return res.status(404).json({ error: 'Project not found' });
-
-    const body = req.body;
-    const milestoneId = body.id || `${projectId}-milestone-${Date.now()}`;
-    if (db.prepare('SELECT 1 FROM milestones WHERE id = ?').get(milestoneId)) {
-      return res.status(409).json({ error: 'Milestone with this id already exists' });
-    }
-    res.locals.auditEntityId = milestoneId;
-    const maxOrder = db
-      .prepare('SELECT MAX(order_index) as max_idx FROM milestones WHERE project_id = ?')
-      .get(projectId) as { max_idx: number | null };
-    const nextOrder = (maxOrder.max_idx ?? -1) + 1;
-    const taggedUsers = Array.isArray(body.taggedUsers) ? body.taggedUsers : [];
-
-    db.prepare(
-      `
-    INSERT INTO milestones (
-      id, project_id, title, date, status, stage, owner,
-      approval_required, approval_status, completed_date, tagged_users, order_index
-    ) VALUES (
-      @id, @project_id, @title, @date, @status, @stage, @owner,
-      @approval_required, @approval_status, @completed_date, @tagged_users, @order_index
-    )
-  `,
-    ).run({
-      id: milestoneId,
-      project_id: projectId,
-      title: body.title,
-      date: body.date,
-      status: body.status || 'upcoming',
-      stage: body.stage || null,
-      owner: body.owner || 'Project Lead',
-      approval_required: body.approvalRequired ? 1 : 0,
-      approval_status: body.approvalStatus || (body.approvalRequired ? 'Pending' : 'Not required'),
-      completed_date: body.completedDate || null,
-      tagged_users: JSON.stringify(taggedUsers),
-      order_index: nextOrder,
-    });
-
-    const origin = publicBaseUrl(req);
-    const authorName = req.user?.name || body.owner || 'Project Lead';
-
-    // 1. Notify tagged users
-    if (taggedUsers.length > 0) {
-      dispatchTagNotifications({
-        taggedUserIds: taggedUsers,
-        taggedBy: authorName,
-        entityType: 'Milestone',
-        entityTitle: body.title,
-        entityContext: `Target date: ${body.date}${body.stage ? ` • Stage: ${body.stage}` : ''}`,
-        projectId,
-        projectName: project.name,
-        origin,
-      });
-    }
-
-    // 2. If requires approval, alert Coordinator
-    if (body.approvalRequired) {
-      broadcastNotification(
-        'approval_required',
-
-        `notif-appr-${milestoneId}`,
-        `Approval Requested: ${body.title}`,
-        `${project.name} requires milestone approval from Coordinator.`,
-        projectId,
-        `/project/${projectId}`,
-      );
-
-      dispatchMilestoneApprovalAlert({
-        milestoneTitle: body.title,
-        targetDate: body.date,
-        stage: body.stage,
-        requestedBy: authorName,
-        projectId,
-        projectName: project.name,
-        origin,
-      });
-    }
-
-    afterCommit(saveDatabaseSnapshot);
-
-    const updatedProject = fetchFullProject(projectId);
-    return res.status(201).json({ project: updatedProject });
+    res.locals.auditEntityId = addMilestone(projectId(req), req.body, actor(req));
+    respond(req, res, 201);
   }),
 );
 
-// PATCH update milestone
 router.patch(
   '/:milestoneId',
   requireAuth,
   requireProjectAccess(),
   validate({ params: S.milestoneParams, body: S.updateMilestoneBody }),
-  audited({
-    action: 'update',
-    entityType: 'milestone',
-    table: 'milestones',
-    id: (req) => req.params.milestoneId as string,
-  }),
+  audited({ action: 'update', entityType: 'milestone', table: 'milestones', id: itemId }),
   transactional((req: AuthenticatedRequest, res) => {
-    const projectId = req.params.id as string;
-    const milestoneId = req.params.milestoneId as string;
-    const milestone = db
-      .prepare('SELECT * FROM milestones WHERE id = ? AND project_id = ?')
-      .get(milestoneId, projectId) as any;
-    if (!milestone) return res.status(404).json({ error: 'Milestone not found' });
-
-    const project = fetchFullProject(projectId);
-    const patch = req.body;
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (patch.title !== undefined) {
-      updates.push('title = ?');
-      values.push(patch.title);
-    }
-    if (patch.date !== undefined) {
-      updates.push('date = ?');
-      values.push(patch.date);
-    }
-    if (patch.status !== undefined) {
-      updates.push('status = ?');
-      values.push(patch.status);
-    }
-    if (patch.stage !== undefined) {
-      updates.push('stage = ?');
-      values.push(patch.stage);
-    }
-    if (patch.owner !== undefined) {
-      updates.push('owner = ?');
-      values.push(patch.owner);
-    }
-    if (patch.approvalRequired !== undefined) {
-      updates.push('approval_required = ?');
-      values.push(patch.approvalRequired ? 1 : 0);
-    }
-    if (patch.approvalStatus !== undefined) {
-      if (req.user && req.user.role !== 'coordinator') {
-        return res.status(403).json({ error: 'Only Project Coordinators can approve or reject milestones' });
-      }
-      updates.push('approval_status = ?');
-      values.push(patch.approvalStatus);
-    }
-    if (patch.completedDate !== undefined) {
-      updates.push('completed_date = ?');
-      values.push(patch.completedDate);
-    }
-
-    let newlyTaggedUsers: string[] = [];
-    if (patch.taggedUsers !== undefined) {
-      const updatedTagged: string[] = Array.isArray(patch.taggedUsers) ? patch.taggedUsers : [];
-      const prevTagged = parseTaggedUsers(milestone.tagged_users);
-      newlyTaggedUsers = updatedTagged.filter((u) => !prevTagged.includes(u));
-
-      updates.push('tagged_users = ?');
-      values.push(JSON.stringify(updatedTagged));
-    }
-
-    if (updates.length > 0) {
-      values.push(milestoneId);
-      values.push(projectId);
-      db.prepare(`UPDATE milestones SET ${updates.join(', ')} WHERE id = ? AND project_id = ?`).run(...values);
-    }
-
-    const origin = publicBaseUrl(req);
-    const authorName = req.user?.name || milestone.owner || 'Project Lead';
-
-    // Notify newly tagged users only when explicitly requested
-    if (patch.notify && newlyTaggedUsers.length > 0 && project) {
-      dispatchTagNotifications({
-        taggedUserIds: newlyTaggedUsers,
-        taggedBy: authorName,
-        entityType: 'Milestone',
-        entityTitle: patch.title || milestone.title,
-        entityContext: `Target date: ${patch.date || milestone.date}`,
-        projectId,
-        projectName: project.name,
-        origin,
-      });
-    }
-
-    afterCommit(saveDatabaseSnapshot);
-
-    const updatedProject = fetchFullProject(projectId);
-    return res.json({ project: updatedProject });
+    updateMilestone(projectId(req), itemId(req), req.body, actor(req));
+    respond(req, res);
   }),
 );
 
-// DELETE milestone
 router.delete(
   '/:milestoneId',
   requireAuth,
   requireProjectAccess(),
   validate({ params: S.milestoneParams }),
-  audited({
-    action: 'delete',
-    entityType: 'milestone',
-    table: 'milestones',
-    id: (req) => req.params.milestoneId as string,
-  }),
+  audited({ action: 'delete', entityType: 'milestone', table: 'milestones', id: itemId }),
   transactional((req: AuthenticatedRequest, res) => {
-    const projectId = req.params.id as string;
-    const milestoneId = req.params.milestoneId as string;
-    const result = db.prepare('DELETE FROM milestones WHERE id = ? AND project_id = ?').run(milestoneId, projectId);
-    if (result.changes === 0) return res.status(404).json({ error: 'Milestone not found' });
-    afterCommit(saveDatabaseSnapshot);
-    const updatedProject = fetchFullProject(projectId);
-    return res.json({ project: updatedProject });
+    removeMilestone(projectId(req), itemId(req));
+    respond(req, res);
   }),
 );
 
