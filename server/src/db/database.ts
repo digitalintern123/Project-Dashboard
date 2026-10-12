@@ -233,6 +233,21 @@ export function initDatabase() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT,
+      before_json TEXT,
+      after_json TEXT,
+      ip TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
+
     CREATE TABLE IF NOT EXISTS system_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,

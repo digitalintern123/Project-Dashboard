@@ -108,12 +108,13 @@ export function rotateSession(res: Response, presentedToken: string | undefined)
   return { status: 'rotated', userId: row.user_id };
 }
 
-/** Revokes the refresh token behind this cookie, if any. */
-export function revokeSession(presentedToken: string | undefined): void {
-  if (!presentedToken) return;
-  db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE token_hash = ? AND revoked_at IS NULL").run(
-    hashToken(presentedToken),
-  );
+/** Revokes the refresh token behind this cookie, if any; returns its user id. */
+export function revokeSession(presentedToken: string | undefined): string | null {
+  if (!presentedToken) return null;
+  const hash = hashToken(presentedToken);
+  const row = db.prepare('SELECT user_id FROM refresh_tokens WHERE token_hash = ?').get(hash) as { user_id: string } | undefined;
+  db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE token_hash = ? AND revoked_at IS NULL").run(hash);
+  return row?.user_id ?? null;
 }
 
 /** Invalidates every access and refresh token the user holds. */

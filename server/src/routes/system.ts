@@ -7,6 +7,7 @@ import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/au
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { largeJson } from '../validation/large-json.js';
+import { audited } from '../utils/audit.js';
 
 const router = Router();
 const isProduction = process.env.NODE_ENV === 'production';
@@ -32,7 +33,7 @@ router.get('/export', requireAuth, requireRole(['coordinator', 'lead']), (req: A
 });
 
 // POST import database from JSON (Coordinator only)
-router.post('/import', requireAuth, requireRole(['coordinator']), largeJson, validate({ body: S.importBody }), (req: AuthenticatedRequest, res) => {
+router.post('/import', requireAuth, requireRole(['coordinator']), largeJson, validate({ body: S.importBody }), audited({ action: 'import', entityType: 'portfolio', details: (req) => ({ projects: (req.body.projects as { id: string }[]).map((p) => p.id) }) }), (req: AuthenticatedRequest, res) => {
   try {
     const body = req.body;
     if (!body) {
@@ -61,7 +62,7 @@ function assertResetAllowed(res: any): boolean {
 }
 
 // POST reset/clear database (Coordinator only)
-router.post('/reset', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.post('/reset', requireAuth, requireRole(['coordinator']), audited({ action: 'reset', entityType: 'portfolio' }), (req: AuthenticatedRequest, res) => {
   if (!assertResetAllowed(res)) return;
   try {
     clearAllProjectData();
@@ -74,7 +75,7 @@ router.post('/reset', requireAuth, requireRole(['coordinator']), (req: Authentic
 });
 
 // POST clear database explicitly (Coordinator only)
-router.post('/clear', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.post('/clear', requireAuth, requireRole(['coordinator']), audited({ action: 'clear', entityType: 'portfolio' }), (req: AuthenticatedRequest, res) => {
   if (!assertResetAllowed(res)) return;
   try {
     clearAllProjectData();
@@ -87,7 +88,7 @@ router.post('/clear', requireAuth, requireRole(['coordinator']), (req: Authentic
 });
 
 // POST restore all 3 PDF master data (Coordinator only)
-router.post('/restore-all-pdfs', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.post('/restore-all-pdfs', requireAuth, requireRole(['coordinator']), audited({ action: 'restore_pdfs', entityType: 'portfolio' }), (req: AuthenticatedRequest, res) => {
   if (!assertResetAllowed(res)) return;
   try {
     const summary = restoreAllPdfDataToDatabase();
@@ -99,6 +100,54 @@ router.post('/restore-all-pdfs', requireAuth, requireRole(['coordinator']), (req
     console.error('Restore all PDFs failed:', err);
     return res.status(500).json({ error: 'Failed to restore PDF data', details: err.message });
   }
+});
+
+// GET audit log (Coordinator only), newest first, paginated
+router.get('/audit', requireAuth, requireRole(['coordinator']), validate({ query: S.auditQuery }), (req, res) => {
+  const q = req.query as { limit?: string; offset?: string; userId?: string; entityType?: string; entityId?: string; action?: string };
+  const limit = Math.min(Number(q.limit ?? 50), 200);
+  const offset = Number(q.offset ?? 0);
+
+  const where: string[] = [];
+  const params: string[] = [];
+  if (q.userId) { where.push('a.user_id = ?'); params.push(q.userId); }
+  if (q.entityType) { where.push('a.entity_type = ?'); params.push(q.entityType); }
+  if (q.entityId) { where.push('a.entity_id = ?'); params.push(q.entityId); }
+  if (q.action) { where.push('a.action = ?'); params.push(q.action); }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  const total = (db.prepare(`SELECT COUNT(*) as count FROM audit_log a ${whereSql}`).get(...params) as { count: number }).count;
+  const rows = db.prepare(`
+    SELECT a.*, u.name AS user_name, u.email AS user_email
+    FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
+    ${whereSql}
+    ORDER BY a.created_at DESC, a.id DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset) as any[];
+
+  const parse = (v: string | null) => {
+    if (v == null) return null;
+    try { return JSON.parse(v); } catch { return v; }
+  };
+
+  return res.json({
+    total,
+    limit,
+    offset,
+    entries: rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      userName: r.user_name ?? null,
+      userEmail: r.user_email ?? null,
+      action: r.action,
+      entityType: r.entity_type,
+      entityId: r.entity_id,
+      before: parse(r.before_json),
+      after: parse(r.after_json),
+      ip: r.ip,
+      createdAt: r.created_at,
+    })),
+  });
 });
 
 // GET readiness probe (verifies database responsiveness)

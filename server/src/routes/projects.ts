@@ -8,6 +8,7 @@ import { saveDatabaseSnapshot, restoreDatabaseFromJSON } from '../utils/backup.j
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { largeJson } from '../validation/large-json.js';
+import { audited } from '../utils/audit.js';
 
 const router = Router();
 
@@ -161,7 +162,7 @@ router.get('/:id', requireAuth, validate({ params: S.projectParams }), (req, res
 });
 
 // POST bulk sync projects from client cache or external source
-router.post('/sync', requireAuth, requireRole(['coordinator']), largeJson, validate({ body: S.syncProjectsBody }), (req: AuthenticatedRequest, res) => {
+router.post('/sync', requireAuth, requireRole(['coordinator']), largeJson, validate({ body: S.syncProjectsBody }), audited({ action: 'sync', entityType: 'portfolio', details: (req) => ({ projects: (req.body.projects as { id: string }[]).map((p) => p.id) }) }), (req: AuthenticatedRequest, res) => {
   const { projects, explicit } = req.body;
 
   // Protect clean database state from being contaminated by stale browser local caches
@@ -180,13 +181,15 @@ router.post('/sync', requireAuth, requireRole(['coordinator']), largeJson, valid
 });
 
 // POST create project
-router.post('/', requireAuth, requireRole(['coordinator', 'lead']), validate({ body: S.createProjectBody }), (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireRole(['coordinator', 'lead']), validate({ body: S.createProjectBody }), audited({ action: 'create', entityType: 'project', table: 'projects' }), (req: AuthenticatedRequest, res) => {
   const body = req.body;
   if (!body.name || !body.location || !body.category) {
     return res.status(400).json({ error: 'Name, location, and category are required' });
   }
 
-  const id = body.id || `${body.location.toLowerCase()}-${body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
+  const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const id = body.id || `${slug(body.location) || 'site'}-${slug(body.name) || 'project'}-${Date.now()}`;
+  res.locals.auditEntityId = id;
   
   const existing = db.prepare('SELECT id FROM projects WHERE id = ?').get(id);
   if (existing) {
@@ -348,7 +351,7 @@ router.post('/', requireAuth, requireRole(['coordinator', 'lead']), validate({ b
 });
 
 // PATCH allot project (Coordinator only)
-router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams, body: S.allotProjectBody }), (req: AuthenticatedRequest, res) => {
+router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams, body: S.allotProjectBody }), audited({ action: 'allot', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string;
   const { leadId } = req.body;
   if (!leadId) {
@@ -391,7 +394,7 @@ router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), validate({
 });
 
 // PATCH update project
-router.patch('/:id', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.updateProjectBody }), (req: AuthenticatedRequest, res) => {
+router.patch('/:id', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.updateProjectBody }), audited({ action: 'update', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string;
   const project = fetchFullProject(id);
   if (!project) {
@@ -467,7 +470,7 @@ router.patch('/:id', requireAuth, requireProjectAccess(), validate({ params: S.p
 });
 
 // DELETE project
-router.delete('/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams }), (req, res) => {
+router.delete('/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams }), audited({ action: 'delete', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), (req, res) => {
   const id = req.params.id as string;
 
   const projectPhotos = db.prepare('SELECT url, thumbnail_url FROM photos WHERE project_id = ?').all(id) as { url: string; thumbnail_url: string | null }[];

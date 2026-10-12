@@ -17,6 +17,7 @@ import {
 } from '../utils/passwords.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
+import { audited, writeAudit } from '../utils/audit.js';
 
 const router = Router();
 
@@ -66,11 +67,20 @@ router.post('/login', validate({ body: S.loginBody }), (req, res) => {
           user.id,
         );
         console.warn(`[Auth] Account ${normalizedEmail} locked for 15 minutes after ${attempts} failed attempts (ip ${req.ip})`);
+        writeAudit({ userId: user.id, action: 'account_locked', entityType: 'user', entityId: user.id, ip: req.ip });
       } else {
         db.prepare('UPDATE users SET failed_attempts = ? WHERE id = ?').run(attempts, user.id);
       }
     }
     console.warn(`[Auth] Failed login for ${normalizedEmail} from ${req.ip}${locked ? ' (account locked)' : ''}`);
+    writeAudit({
+      userId: user?.id ?? null,
+      action: 'login_failed',
+      entityType: 'user',
+      entityId: user?.id ?? null,
+      after: { email: normalizedEmail, locked },
+      ip: req.ip,
+    });
     return res.status(401).json({ error: INVALID_CREDENTIALS });
   }
 
@@ -79,6 +89,7 @@ router.post('/login', validate({ body: S.loginBody }), (req, res) => {
   }
 
   startSession(res, user.id);
+  writeAudit({ userId: user.id, action: 'login', entityType: 'user', entityId: user.id, ip: req.ip });
   return res.json({ user: toPublicUser(user) });
 });
 
@@ -102,7 +113,8 @@ router.get('/me', requireAuth, (req: AuthenticatedRequest, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  revokeSession(req.cookies?.[REFRESH_COOKIE]);
+  const userId = revokeSession(req.cookies?.[REFRESH_COOKIE]);
+  if (userId) writeAudit({ userId, action: 'logout', entityType: 'user', entityId: userId, ip: req.ip });
   clearSessionCookies(res);
   return res.json({ message: 'Logged out successfully' });
 });
@@ -111,6 +123,7 @@ router.post('/logout', (req, res) => {
 router.post('/logout-all', requireAuth, (req: AuthenticatedRequest, res) => {
   revokeAllSessions(req.user!.id);
   clearSessionCookies(res);
+  writeAudit({ userId: req.user!.id, action: 'logout_all', entityType: 'user', entityId: req.user!.id, ip: req.ip });
   return res.json({ message: 'Signed out of all sessions' });
 });
 
@@ -139,6 +152,7 @@ router.post('/change-password', requireAuth, validate({ body: S.changePasswordBo
   // Sign out every other session, then give this browser a fresh one.
   revokeAllSessions(user.id);
   startSession(res, user.id);
+  writeAudit({ userId: user.id, action: 'password_changed', entityType: 'user', entityId: user.id, ip: req.ip });
   const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
   return res.json({ message: 'Password changed successfully', user: toPublicUser(updated) });
 });
@@ -158,6 +172,7 @@ router.post('/users/:id/reset-password', requireAuth, requireRole(['coordinator'
     target.id,
   );
   revokeAllSessions(target.id);
+  writeAudit({ userId: req.user!.id, action: 'password_reset', entityType: 'user', entityId: target.id, ip: req.ip });
   console.log(`[Auth] ${req.user!.email} reset the password for ${target.email}`);
 
   return res.json({
@@ -178,7 +193,7 @@ router.get('/leads', requireAuth, (_req, res) => {
 });
 
 // POST /api/auth/create-lead - Coordinator can create new Project Leads with real credentials
-router.post('/create-lead', requireAuth, requireRole(['coordinator']), validate({ body: S.createLeadBody }), (req: AuthenticatedRequest, res) => {
+router.post('/create-lead', requireAuth, requireRole(['coordinator']), validate({ body: S.createLeadBody }), audited({ action: 'create', entityType: 'user', table: 'users' }), (req: AuthenticatedRequest, res) => {
   const { name, email, password, title } = req.body ?? {};
 
   if (!name || !email || !password) {
@@ -209,6 +224,7 @@ router.post('/create-lead', requireAuth, requireRole(['coordinator']), validate(
   }
 
   const id = `user-lead-${Date.now()}`;
+  res.locals.auditEntityId = id;
 
   // The coordinator chose this password, so the lead must replace it at first sign-in.
   db.prepare(`

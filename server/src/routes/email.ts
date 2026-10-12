@@ -19,8 +19,19 @@ import { fetchFullProject } from './projects.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
+import { audited } from '../utils/audit.js';
 
 const router = Router();
+
+/** Request body for the audit log with every secret removed. */
+function redactEmailSettings(req: { body: Record<string, any> }) {
+  const { smtp, graph, clientSecret: _cs, ...rest } = req.body ?? {};
+  return {
+    ...rest,
+    smtp: smtp ? { ...smtp, pass: smtp.pass ? '[redacted]' : undefined } : undefined,
+    graph: graph ? { ...graph, clientSecret: graph.clientSecret ? '[redacted]' : undefined } : undefined,
+  };
+}
 
 // GET live Encalm corporate directory search via Microsoft Graph API
 router.get('/directory', requireAuth, validate({ query: S.directoryQuery }), async (req, res) => {
@@ -111,7 +122,7 @@ router.get('/settings', requireAuth, requireRole(['coordinator']), (req, res) =>
 });
 
 // POST save email settings (SMTP and/or Microsoft Graph API)
-router.post('/settings', requireAuth, requireRole(['coordinator']), validate({ body: S.emailSettingsBody }), (req: AuthenticatedRequest, res) => {
+router.post('/settings', requireAuth, requireRole(['coordinator']), validate({ body: S.emailSettingsBody }), audited({ action: 'update', entityType: 'email_settings', details: redactEmailSettings }), (req: AuthenticatedRequest, res) => {
   const { provider, smtp, graph, tenantId, clientId, clientSecret, senderEmail, saveToSentItems } = req.body;
 
   if (provider === 'smtp' || provider === 'microsoft_graph') {
@@ -188,7 +199,7 @@ router.post('/settings', requireAuth, requireRole(['coordinator']), validate({ b
 });
 
 // POST send test email via active provider (SMTP or Microsoft Graph)
-router.post('/test', requireAuth, requireRole(['coordinator']), validate({ body: S.emailTestBody }), async (req: AuthenticatedRequest, res) => {
+router.post('/test', requireAuth, requireRole(['coordinator']), validate({ body: S.emailTestBody }), audited({ action: 'send_test', entityType: 'email', details: redactEmailSettings }), async (req: AuthenticatedRequest, res) => {
   const { to, recipientName, provider: reqProvider, smtp, graph } = req.body;
 
   if (reqProvider === 'smtp' || reqProvider === 'microsoft_graph') {
@@ -245,14 +256,14 @@ router.post('/test', requireAuth, requireRole(['coordinator']), validate({ body:
 });
 
 // POST resend log entry
-router.post('/resend/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.idParams }), async (req, res) => {
+router.post('/resend/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.idParams }), audited({ action: 'resend', entityType: 'email', id: (req) => req.params.id as string }), async (req, res) => {
   const id = req.params.id as string;
   const result = await resendEmailLog(id);
   return res.json(result);
 });
 
 // POST send executive project update to stakeholders
-router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectUpdateBody }), async (req: AuthenticatedRequest, res) => {
+router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectUpdateBody }), audited({ action: 'send_project_update', entityType: 'email', id: (req) => req.body.projectId, details: (req) => ({ recipients: req.body.recipients }) }), async (req: AuthenticatedRequest, res) => {
   const { projectId, recipients, customNote } = req.body;
   if (!projectId) {
     return res.status(400).json({ error: 'Project ID is required' });
@@ -325,7 +336,7 @@ router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectU
 });
 
 // POST tag team member(s) with comment & dispatch automated email
-router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBody }), async (req: AuthenticatedRequest, res) => {
+router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBody }), audited({ action: 'tag', entityType: 'email', id: (req) => req.body.projectId, details: (req) => req.body }), async (req: AuthenticatedRequest, res) => {
   const {
     projectId,
     entityType = 'Stage',

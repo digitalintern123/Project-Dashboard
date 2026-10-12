@@ -49,6 +49,14 @@ export const emailLogsQuery = z.object({
   limit: z.string().regex(/^\d{1,3}$/).optional(),
 });
 export const directoryQuery = z.object({ q: z.string().max(100).optional() });
+export const auditQuery = z.object({
+  limit: z.string().regex(/^\d{1,3}$/).optional(),
+  offset: z.string().regex(/^\d{1,7}$/).optional(),
+  userId: id.optional(),
+  entityType: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+  entityId: z.string().max(4000).optional(),
+  action: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+});
 
 // ---------------------------------------------------------------------------
 // Auth

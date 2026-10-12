@@ -8,17 +8,22 @@ import { dispatchTagNotifications, dispatchMilestoneApprovalAlert } from '../ser
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
+import { audited } from '../utils/audit.js';
 
 const router = Router({ mergeParams: true });
 
 // POST add milestone
-router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createMilestoneBody }), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createMilestoneBody }), audited({ action: 'create', entityType: 'milestone', table: 'milestones' }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const body = req.body;
   const milestoneId = body.id || `${projectId}-milestone-${Date.now()}`;
+  if (db.prepare('SELECT 1 FROM milestones WHERE id = ?').get(milestoneId)) {
+    return res.status(409).json({ error: 'Milestone with this id already exists' });
+  }
+  res.locals.auditEntityId = milestoneId;
   const maxOrder = db.prepare('SELECT MAX(order_index) as max_idx FROM milestones WHERE project_id = ?').get(projectId) as { max_idx: number | null };
   const nextOrder = (maxOrder.max_idx ?? -1) + 1;
   const taggedUsers = Array.isArray(body.taggedUsers) ? body.taggedUsers : [];
@@ -93,7 +98,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
 });
 
 // PATCH update milestone
-router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams, body: S.updateMilestoneBody }), async (req: AuthenticatedRequest, res) => {
+router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams, body: S.updateMilestoneBody }), audited({ action: 'update', entityType: 'milestone', table: 'milestones', id: (req) => req.params.milestoneId as string }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
   const milestone = db.prepare('SELECT * FROM milestones WHERE id = ? AND project_id = ?').get(milestoneId, projectId) as any;
@@ -159,7 +164,7 @@ router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ pa
 });
 
 // DELETE milestone
-router.delete('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams }), (req: AuthenticatedRequest, res) => {
+router.delete('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams }), audited({ action: 'delete', entityType: 'milestone', table: 'milestones', id: (req) => req.params.milestoneId as string }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
   db.prepare('DELETE FROM milestones WHERE id = ? AND project_id = ?').run(milestoneId, projectId);

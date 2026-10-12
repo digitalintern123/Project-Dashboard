@@ -8,6 +8,7 @@ import { dispatchTagNotifications } from '../services/notifications.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
+import { audited } from '../utils/audit.js';
 
 const router = Router({ mergeParams: true });
 
@@ -54,13 +55,17 @@ export function recomputeProjectProgress(projectId: string): number {
 }
 
 // POST add phase
-router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createPhaseBody }), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createPhaseBody }), audited({ action: 'create', entityType: 'stage', table: 'phases' }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const body = req.body;
   const phaseId = body.id || `${projectId}-phase-${Date.now()}`;
+  if (db.prepare('SELECT 1 FROM phases WHERE id = ?').get(phaseId)) {
+    return res.status(409).json({ error: 'Stage with this id already exists' });
+  }
+  res.locals.auditEntityId = phaseId;
   const maxOrder = db.prepare('SELECT MAX(order_index) as max_idx FROM phases WHERE project_id = ?').get(projectId) as { max_idx: number | null };
   const nextOrder = (maxOrder.max_idx ?? -1) + 1;
   const taggedUsers = Array.isArray(body.taggedUsers) ? body.taggedUsers : [];
@@ -118,7 +123,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
 });
 
 // PATCH update phase
-router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams, body: S.updatePhaseBody }), async (req: AuthenticatedRequest, res) => {
+router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams, body: S.updatePhaseBody }), audited({ action: 'update', entityType: 'stage', table: 'phases', id: (req) => req.params.phaseId as string }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const phaseId = req.params.phaseId as string;
   const phase = db.prepare('SELECT * FROM phases WHERE id = ? AND project_id = ?').get(phaseId, projectId) as any;
@@ -202,7 +207,7 @@ router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params
 });
 
 // DELETE remove phase
-router.delete('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams }), (req: AuthenticatedRequest, res) => {
+router.delete('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams }), audited({ action: 'delete', entityType: 'stage', table: 'phases', id: (req) => req.params.phaseId as string }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const phaseId = req.params.phaseId as string;
   const count = db.prepare('SELECT COUNT(*) as count FROM phases WHERE project_id = ?').get(projectId) as { count: number };
@@ -228,7 +233,7 @@ router.delete('/:phaseId', requireAuth, requireProjectAccess(), validate({ param
 });
 
 // POST move phase order
-router.post('/move', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.movePhaseBody }), (req: AuthenticatedRequest, res) => {
+router.post('/move', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.movePhaseBody }), audited({ action: 'move', entityType: 'stage', details: (req) => req.body }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const { phaseIndex, direction } = req.body;
 

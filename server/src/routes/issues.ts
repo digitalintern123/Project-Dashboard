@@ -8,17 +8,22 @@ import { dispatchTagNotifications, dispatchCriticalIssueAlert } from '../service
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
+import { audited } from '../utils/audit.js';
 
 const router = Router({ mergeParams: true });
 
 // POST add issue
-router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createIssueBody }), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createIssueBody }), audited({ action: 'create', entityType: 'issue', table: 'issues' }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const body = req.body;
   const issueId = body.id || `${projectId}-issue-${Date.now()}`;
+  if (db.prepare('SELECT 1 FROM issues WHERE id = ?').get(issueId)) {
+    return res.status(409).json({ error: 'Issue with this id already exists' });
+  }
+  res.locals.auditEntityId = issueId;
   const maxOrder = db.prepare('SELECT MAX(order_index) as max_idx FROM issues WHERE project_id = ?').get(projectId) as { max_idx: number | null };
   const nextOrder = (maxOrder.max_idx ?? -1) + 1;
   const taggedUsers = Array.isArray(body.taggedUsers) ? body.taggedUsers : [];
@@ -102,7 +107,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
 });
 
 // PATCH update issue
-router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams, body: S.updateIssueBody }), async (req: AuthenticatedRequest, res) => {
+router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams, body: S.updateIssueBody }), audited({ action: 'update', entityType: 'issue', table: 'issues', id: (req) => req.params.issueId as string }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
   const issue = db.prepare('SELECT * FROM issues WHERE id = ? AND project_id = ?').get(issueId, projectId) as any;
@@ -184,7 +189,7 @@ router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params
 });
 
 // DELETE issue
-router.delete('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams }), (req: AuthenticatedRequest, res) => {
+router.delete('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams }), audited({ action: 'delete', entityType: 'issue', table: 'issues', id: (req) => req.params.issueId as string }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
   db.prepare('DELETE FROM issues WHERE id = ? AND project_id = ?').run(issueId, projectId);

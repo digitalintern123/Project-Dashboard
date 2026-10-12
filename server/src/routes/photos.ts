@@ -12,6 +12,7 @@ import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { fetchFullProject } from './projects.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
+import { audited } from '../utils/audit.js';
 
 export const projectPhotosRouter = Router({ mergeParams: true });
 export const globalPhotosRouter = Router();
@@ -209,6 +210,8 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
     `/project/${projectId}`,
   );
 
+  res.locals.auditEntityId = createdPhotos.map((p) => p.id).join(',');
+  res.locals.auditAfter = createdPhotos;
   saveDatabaseSnapshot();
 
   return res.status(201).json({
@@ -219,13 +222,15 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
   });
 }
 
-projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams }), receivePhotos, handlePhotoUpload);
-projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), validate({ params: S.projectParams }), receivePhotos, handlePhotoUpload);
+const photoUploadAudit = audited({ action: 'create', entityType: 'photo' });
+
+projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams }), photoUploadAudit, receivePhotos, handlePhotoUpload);
+projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), validate({ params: S.projectParams }), photoUploadAudit, receivePhotos, handlePhotoUpload);
 
 /**
  * Delete a specific site photograph
  */
-projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), validate({ params: S.photoParams }), (req: AuthenticatedRequest, res) => {
+projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), validate({ params: S.photoParams }), audited({ action: 'delete', entityType: 'photo', table: 'photos', id: (req) => req.params.photoId as string }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const photoId = req.params.photoId as string;
 

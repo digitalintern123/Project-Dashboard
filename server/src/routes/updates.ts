@@ -5,6 +5,7 @@ import { fetchFullProject } from './projects.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
+import { audited } from '../utils/audit.js';
 
 export const projectUpdatesRouter = Router({ mergeParams: true });
 export const globalUpdatesRouter = Router();
@@ -50,13 +51,14 @@ projectUpdatesRouter.get('/', requireAuth, validate({ params: S.projectParams })
 });
 
 // POST add update to project
-projectUpdatesRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createUpdateBody }), (req: AuthenticatedRequest, res) => {
+projectUpdatesRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createUpdateBody }), audited({ action: 'create', entityType: 'update', table: 'updates' }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const body = req.body;
   const updateId = `${projectId}-update-${Date.now()}`;
+  res.locals.auditEntityId = updateId;
   const todayFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
   db.prepare(`
