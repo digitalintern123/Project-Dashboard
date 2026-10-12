@@ -13,7 +13,7 @@ export interface EmailLogEntry {
   subject: string;
   templateType: string;
   projectId: string | null;
-  status: 'sent' | 'failed' | 'outbox';
+  status: 'queued' | 'sent' | 'failed' | 'outbox';
   htmlContent: string;
   error: string | null;
   createdAt: string;
@@ -282,301 +282,186 @@ export interface SendEmailOptions {
   projectId?: string;
 }
 
-/**
- * Core email dispatcher supporting both standard SMTP (Outlook.com, Office 365, Custom)
- * and Microsoft Graph API (Azure AD OAuth).
- * Automatically falls back to SQLite in-app Outbox if credentials are not yet configured or during development.
- * Never throws unhandled errors to calling controllers; logs delivery status into SQLite.
- */
-export async function sendEmail(options: SendEmailOptions): Promise<{
-  id: string;
-  status: 'sent' | 'failed' | 'outbox';
-  error?: string;
-}> {
-  const emailId = `eml-${randomUUID()}`;
-  const provider = getActiveEmailProvider();
+export type QueueResult = { id: string; status: 'queued' | 'sent' | 'failed' | 'outbox'; error?: string };
 
-  // Provider 1: Standard SMTP (Outlook.com / Office 365 / Custom SMTP)
-  if (provider === 'smtp') {
+/** Attempts per email before it is marked failed. */
+export const EMAIL_MAX_ATTEMPTS = 5;
+/** First retry delay; doubles each attempt (30s, 1m, 2m, 4m). */
+export const EMAIL_RETRY_BASE_MS = 30_000;
+/** How long a worker may hold an email before another worker may retry it. */
+const EMAIL_LOCK_MS = 2 * 60_000;
+
+class EmailNotConfiguredError extends Error {}
+
+type OutgoingMessage = { to: string; recipientName?: string | null; replyTo?: string | null; subject: string; html: string };
+
+/** Delivers one message through the active provider. Throws on failure. */
+async function deliver(message: OutgoingMessage): Promise<void> {
+  if (getActiveEmailProvider() === 'smtp') {
     const smtpCfg = getSmtpConfig();
-    const isConfigured = Boolean(smtpCfg.host && smtpCfg.user && smtpCfg.pass);
-
-    // If SMTP is not configured, store in outbox for review
-    if (!isConfigured) {
-      try {
-        db.prepare(`
-          INSERT INTO email_logs (id, recipient_email, recipient_name, subject, template_type, project_id, status, html_content, error, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, 'outbox', ?, 'SMTP not configured - Queued in in-app outbox', datetime('now'))
-        `).run(
-          emailId,
-          options.to,
-          options.recipientName || null,
-          options.subject,
-          options.templateType,
-          options.projectId || null,
-          options.html
-        );
-        console.log(`[Email Outbox] Queued email "${options.subject}" to ${options.to} (SMTP not configured)`);
-        return { id: emailId, status: 'outbox', error: 'SMTP not configured' };
-      } catch (err: any) {
-        console.error('[Email Outbox Save Error]', err);
-        return { id: emailId, status: 'outbox', error: err.message };
-      }
+    if (!smtpCfg.host || !smtpCfg.user || !smtpCfg.pass) {
+      throw new EmailNotConfiguredError('SMTP not configured - kept in the in-app outbox');
     }
-
-    // Attempt real SMTP dispatch via nodemailer
-    try {
-      const transporter = await createSmtpTransporter(smtpCfg);
-
-      // Address objects let nodemailer quote display names safely.
-      const fromAddress = { name: smtpCfg.fromName || '', address: smtpCfg.fromEmail || smtpCfg.user };
-
-      await transporter.sendMail({
-        from: fromAddress,
-        to: { name: options.recipientName || '', address: options.to },
-        replyTo: options.replyTo,
-        subject: options.subject,
-        html: options.html,
-      });
-
-      db.prepare(`
-        INSERT INTO email_logs (id, recipient_email, recipient_name, subject, template_type, project_id, status, html_content, error, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'sent', ?, null, datetime('now'))
-      `).run(
-        emailId,
-        options.to,
-        options.recipientName || null,
-        options.subject,
-        options.templateType,
-        options.projectId || null,
-        options.html
-      );
-
-      console.log(`[SMTP Email Sent] Delivered "${options.subject}" to ${options.to} via ${smtpCfg.host}:${smtpCfg.port}`);
-      return { id: emailId, status: 'sent' };
-    } catch (error: any) {
-      const errorMsg = error?.message || 'SMTP delivery failed';
-      console.warn(`[SMTP Email Failed] Could not deliver to ${options.to}:`, errorMsg);
-
-      db.prepare(`
-        INSERT INTO email_logs (id, recipient_email, recipient_name, subject, template_type, project_id, status, html_content, error, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'failed', ?, ?, datetime('now'))
-      `).run(
-        emailId,
-        options.to,
-        options.recipientName || null,
-        options.subject,
-        options.templateType,
-        options.projectId || null,
-        options.html,
-        errorMsg
-      );
-
-      return { id: emailId, status: 'failed', error: errorMsg };
-    }
+    const transporter = await createSmtpTransporter(smtpCfg);
+    // Address objects let nodemailer quote display names safely.
+    await transporter.sendMail({
+      from: { name: smtpCfg.fromName || '', address: smtpCfg.fromEmail || smtpCfg.user },
+      to: { name: message.recipientName || '', address: message.to },
+      replyTo: message.replyTo || undefined,
+      subject: message.subject,
+      html: message.html,
+    });
+    return;
   }
 
-  // Provider 2: Microsoft Graph API (Azure AD OAuth 2.0)
   const cfg = getGraphConfig();
-
-  // If Microsoft Graph is not configured, store directly in outbox for review
   if (!cfg.tenantId || !cfg.clientId || !cfg.clientSecret || !cfg.senderEmail) {
-    try {
-      db.prepare(`
-        INSERT INTO email_logs (id, recipient_email, recipient_name, subject, template_type, project_id, status, html_content, error, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'outbox', ?, 'Microsoft Graph API not configured - Queued in in-app outbox', datetime('now'))
-      `).run(
-        emailId,
-        options.to,
-        options.recipientName || null,
-        options.subject,
-        options.templateType,
-        options.projectId || null,
-        options.html
-      );
-      console.log(`[Email Outbox] Queued email "${options.subject}" to ${options.to}`);
-      return { id: emailId, status: 'outbox', error: 'Microsoft Graph API not configured' };
-    } catch (err: any) {
-      console.error('[Email Outbox Save Error]', err);
-      return { id: emailId, status: 'outbox', error: err.message };
-    }
+    throw new EmailNotConfiguredError('Microsoft Graph API not configured - kept in the in-app outbox');
   }
-
-  // Attempt real Microsoft Graph API dispatch
-  try {
-    const accessToken = await acquireGraphAccessToken(cfg);
-
-    const sendEndpoint = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.senderEmail)}/sendMail`;
-    const messagePayload = {
+  const accessToken = await acquireGraphAccessToken(cfg);
+  const graphRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.senderEmail)}/sendMail`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       message: {
-        subject: options.subject,
-        body: {
-          contentType: 'HTML',
-          content: options.html,
-        },
-        toRecipients: [
-          {
-            emailAddress: {
-              address: options.to,
-              name: options.recipientName || options.to,
-            },
-          },
-        ],
-        ...(options.replyTo
-          ? {
-              replyTo: [
-                {
-                  emailAddress: {
-                    address: options.replyTo,
-                  },
-                },
-              ],
-            }
-          : {}),
+        subject: message.subject,
+        body: { contentType: 'HTML', content: message.html },
+        toRecipients: [{ emailAddress: { address: message.to, name: message.recipientName || message.to } }],
+        ...(message.replyTo ? { replyTo: [{ emailAddress: { address: message.replyTo } }] } : {}),
       },
       saveToSentItems: cfg.saveToSentItems !== false,
-    };
-
-    const graphRes = await fetch(sendEndpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messagePayload),
-    });
-
-    if (!graphRes.ok && graphRes.status !== 202) {
-      const errText = await graphRes.text().catch(() => '');
-      throw new Error(`Microsoft Graph API failed (${graphRes.status}): ${errText}`);
-    }
-
-    db.prepare(`
-      INSERT INTO email_logs (id, recipient_email, recipient_name, subject, template_type, project_id, status, html_content, error, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'sent', ?, null, datetime('now'))
-    `).run(
-      emailId,
-      options.to,
-      options.recipientName || null,
-      options.subject,
-      options.templateType,
-      options.projectId || null,
-      options.html
-    );
-
-    console.log(`[Microsoft Graph Email Sent] Delivered "${options.subject}" to ${options.to}`);
-    return { id: emailId, status: 'sent' };
-  } catch (error: any) {
-    const errorMsg = error?.message || 'Microsoft Graph API delivery failed';
-    console.warn(`[Microsoft Graph Email Failed] Could not deliver to ${options.to}:`, errorMsg);
-
-    db.prepare(`
-      INSERT INTO email_logs (id, recipient_email, recipient_name, subject, template_type, project_id, status, html_content, error, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'failed', ?, ?, datetime('now'))
-    `).run(
-      emailId,
-      options.to,
-      options.recipientName || null,
-      options.subject,
-      options.templateType,
-      options.projectId || null,
-      options.html,
-      errorMsg
-    );
-
-    return { id: emailId, status: 'failed', error: errorMsg };
+    }),
+  });
+  if (!graphRes.ok && graphRes.status !== 202) {
+    const errText = await graphRes.text().catch(() => '');
+    throw new Error(`Microsoft Graph API failed (${graphRes.status}): ${errText}`);
   }
 }
 
+let workerTimer: NodeJS.Timeout | null = null;
+let processing: Promise<number> | null = null;
+
+/** Asks a running worker to look at the queue now instead of on its next tick. */
+function kickWorker() {
+  if (workerTimer) setImmediate(() => void processEmailQueue().catch((err) => console.error('[Email Queue]', err)));
+}
+
 /**
- * Resend an email from the log table using the active provider (SMTP or Microsoft Graph)
+ * Queues an email for delivery and returns immediately. The message is logged
+ * as 'queued' and delivered by the background worker, with retries.
+ * Synchronous, so it can run inside a database transaction.
  */
-export async function resendEmailLog(id: string): Promise<{ success: boolean; status: string; error?: string }> {
-  const row = db.prepare('SELECT * FROM email_logs WHERE id = ?').get(id) as any;
-  if (!row) {
-    return { success: false, status: 'not_found', error: 'Email record not found' };
-  }
+export function queueEmail(options: SendEmailOptions, maxAttempts = EMAIL_MAX_ATTEMPTS): QueueResult {
+  const id = `eml-${randomUUID()}`;
+  db.transaction(() => {
+    db.prepare(`
+      INSERT INTO email_logs (id, recipient_email, recipient_name, reply_to, subject, template_type, project_id, status, html_content, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, datetime('now'))
+    `).run(id, options.to, options.recipientName || null, options.replyTo || null, options.subject, options.templateType, options.projectId || null, options.html);
+    db.prepare('INSERT INTO email_queue (log_id, max_attempts, next_attempt_at) VALUES (?, ?, ?)').run(id, maxAttempts, new Date().toISOString());
+  })();
+  kickWorker();
+  return { id, status: 'queued' };
+}
 
-  const provider = getActiveEmailProvider();
+/** Delivers one queued email now and records the outcome. */
+export async function deliverQueuedEmail(logId: string, now = Date.now()): Promise<QueueResult> {
+  const job = db.prepare(`
+    SELECT q.attempts, q.max_attempts, l.recipient_email, l.recipient_name, l.reply_to, l.subject, l.html_content
+    FROM email_queue q JOIN email_logs l ON l.id = q.log_id
+    WHERE q.log_id = ?
+  `).get(logId) as
+    | { attempts: number; max_attempts: number; recipient_email: string; recipient_name: string | null; reply_to: string | null; subject: string; html_content: string }
+    | undefined;
+  if (!job) return { id: logId, status: 'failed', error: 'Not queued' };
 
-  if (provider === 'smtp') {
-    const smtpCfg = getSmtpConfig();
-    if (!smtpCfg.host || !smtpCfg.user || !smtpCfg.pass) {
-      return { success: false, status: 'outbox', error: 'SMTP is not yet configured' };
-    }
-
-    try {
-      const transporter = await createSmtpTransporter(smtpCfg);
-
-      // Address objects let nodemailer quote display names safely.
-      const fromAddress = { name: smtpCfg.fromName || '', address: smtpCfg.fromEmail || smtpCfg.user };
-
-      await transporter.sendMail({
-        from: fromAddress,
-        to: { name: row.recipient_name || '', address: row.recipient_email },
-        subject: row.subject,
-        html: row.html_content,
-      });
-
-      db.prepare("UPDATE email_logs SET status = 'sent', error = null WHERE id = ?").run(id);
-      return { success: true, status: 'sent' };
-    } catch (err: any) {
-      const errorMsg = err.message || 'SMTP resend failed';
-      db.prepare("UPDATE email_logs SET status = 'failed', error = ? WHERE id = ?").run(errorMsg, id);
-      return { success: false, status: 'failed', error: errorMsg };
-    }
-  }
-
-  // Provider: Microsoft Graph API
-  const cfg = getGraphConfig();
-  if (!cfg.tenantId || !cfg.clientId || !cfg.clientSecret || !cfg.senderEmail) {
-    return { success: false, status: 'outbox', error: 'Microsoft Graph API is not yet configured' };
-  }
+  db.prepare('UPDATE email_queue SET locked_until = ? WHERE log_id = ?').run(new Date(now + EMAIL_LOCK_MS).toISOString(), logId);
+  const finish = (status: 'sent' | 'failed' | 'outbox', error: string | null) =>
+    db.transaction(() => {
+      db.prepare('UPDATE email_logs SET status = ?, error = ? WHERE id = ?').run(status, error, logId);
+      db.prepare('DELETE FROM email_queue WHERE log_id = ?').run(logId);
+    })();
 
   try {
-    const accessToken = await acquireGraphAccessToken(cfg);
-
-    const sendEndpoint = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.senderEmail)}/sendMail`;
-    const messagePayload = {
-      message: {
-        subject: row.subject,
-        body: {
-          contentType: 'HTML',
-          content: row.html_content,
-        },
-        toRecipients: [
-          {
-            emailAddress: {
-              address: row.recipient_email,
-              name: row.recipient_name || row.recipient_email,
-            },
-          },
-        ],
-      },
-      saveToSentItems: cfg.saveToSentItems !== false,
-    };
-
-    const graphRes = await fetch(sendEndpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messagePayload),
-    });
-
-    if (!graphRes.ok && graphRes.status !== 202) {
-      const errText = await graphRes.text().catch(() => '');
-      throw new Error(`Microsoft Graph API resend failed (${graphRes.status}): ${errText}`);
-    }
-
-    db.prepare("UPDATE email_logs SET status = 'sent', error = null WHERE id = ?").run(id);
-    return { success: true, status: 'sent' };
+    await deliver({ to: job.recipient_email, recipientName: job.recipient_name, replyTo: job.reply_to, subject: job.subject, html: job.html_content });
+    finish('sent', null);
+    console.log(`[Email] Delivered "${job.subject}" to ${job.recipient_email}`);
+    return { id: logId, status: 'sent' };
   } catch (err: any) {
-    const errorMsg = err.message || 'Resend failed';
-    db.prepare("UPDATE email_logs SET status = 'failed', error = ? WHERE id = ?").run(errorMsg, id);
-    return { success: false, status: 'failed', error: errorMsg };
+    const message = err?.message || 'Delivery failed';
+    if (err instanceof EmailNotConfiguredError) {
+      finish('outbox', message);
+      return { id: logId, status: 'outbox', error: message };
+    }
+    const attempts = job.attempts + 1;
+    if (attempts >= job.max_attempts) {
+      finish('failed', message);
+      console.warn(`[Email] Giving up on "${job.subject}" to ${job.recipient_email} after ${attempts} attempt(s): ${message}`);
+      return { id: logId, status: 'failed', error: message };
+    }
+    const retryAt = new Date(now + EMAIL_RETRY_BASE_MS * 2 ** (attempts - 1)).toISOString();
+    db.transaction(() => {
+      db.prepare('UPDATE email_queue SET attempts = ?, next_attempt_at = ?, locked_until = NULL, last_error = ? WHERE log_id = ?').run(attempts, retryAt, message, logId);
+      db.prepare('UPDATE email_logs SET error = ? WHERE id = ?').run(`Attempt ${attempts} failed, retrying: ${message}`, logId);
+    })();
+    console.warn(`[Email] Attempt ${attempts} for ${job.recipient_email} failed (${message}); retrying at ${retryAt}`);
+    return { id: logId, status: 'queued', error: message };
   }
+}
+
+/** Delivers every email that is due. Returns how many were processed. */
+export function processEmailQueue(now = Date.now()): Promise<number> {
+  if (processing) return processing;
+  processing = (async () => {
+    const nowIso = new Date(now).toISOString();
+    const due = db.prepare(`
+      SELECT log_id FROM email_queue
+      WHERE next_attempt_at <= ? AND (locked_until IS NULL OR locked_until < ?)
+      ORDER BY next_attempt_at
+      LIMIT 25
+    `).all(nowIso, nowIso) as { log_id: string }[];
+    for (const { log_id } of due) await deliverQueuedEmail(log_id, now);
+    return due.length;
+  })().finally(() => {
+    processing = null;
+  });
+  return processing;
+}
+
+/** Starts the background delivery worker. Emails interrupted by a restart are retried. */
+export function startEmailWorker(intervalMs = 5000): void {
+  if (workerTimer) return;
+  db.prepare('UPDATE email_queue SET locked_until = NULL').run();
+  workerTimer = setInterval(() => void processEmailQueue().catch((err) => console.error('[Email Queue]', err)), intervalMs);
+  workerTimer.unref();
+  kickWorker();
+}
+
+export function stopEmailWorker(): void {
+  if (workerTimer) clearInterval(workerTimer);
+  workerTimer = null;
+}
+
+/**
+ * Sends one email immediately (no retries) and reports the result. Only for
+ * the settings "send test email" button, where the user waits for the answer.
+ */
+export async function sendEmailNow(options: SendEmailOptions): Promise<QueueResult> {
+  const { id } = queueEmail(options, 1);
+  return deliverQueuedEmail(id);
+}
+
+/** Puts a logged email back on the queue (e.g. after fixing SMTP settings). */
+export function resendEmailLog(id: string): { success: boolean; status: string; error?: string } {
+  const row = db.prepare('SELECT status FROM email_logs WHERE id = ?').get(id) as { status: string } | undefined;
+  if (!row) return { success: false, status: 'not_found', error: 'Email record not found' };
+  if (row.status === 'queued') return { success: true, status: 'queued' };
+  db.transaction(() => {
+    db.prepare("UPDATE email_logs SET status = 'queued', error = NULL WHERE id = ?").run(id);
+    db.prepare('INSERT OR REPLACE INTO email_queue (log_id, max_attempts, next_attempt_at) VALUES (?, ?, ?)').run(id, EMAIL_MAX_ATTEMPTS, new Date().toISOString());
+  })();
+  kickWorker();
+  return { success: true, status: 'queued' };
 }
 
 /* ========================================================================= */

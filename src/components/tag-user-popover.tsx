@@ -194,15 +194,14 @@ export function TagUserPopover({
         .map((r) => r.userName || r.email)
         .join(', ');
 
-      const outboxCount = res.recipients.filter((r) => r.status === 'outbox').length;
-      const sentCount = res.recipients.filter((r) => r.status === 'sent').length;
+      const emailed = res.recipients.filter((r) => r.status !== 'skipped').length;
 
       toast({
-        title: sentCount > 0 ? '✓ Email Sent Successfully' : '✓ Notification Logged in Outbox',
+        title: emailed > 0 ? '✓ Notification sent' : '✓ Notification saved',
         description:
-          sentCount > 0
-            ? `Dispatched email notification to ${recipientNames}.`
-            : `Notification queued for ${recipientNames} (view in Email Hub).`,
+          emailed > 0
+            ? `Emails to ${recipientNames} are queued for delivery (track them in the Email Hub).`
+            : 'Tagged users were notified in the dashboard.',
       });
 
       setComment('');

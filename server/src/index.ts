@@ -6,7 +6,7 @@ import { autoRestoreSnapshotIfEmpty, saveDatabaseSnapshot } from './utils/backup
 import { createApp } from './app.js';
 import { fanOutLegacyNotifications } from './utils/notify.js';
 import { pruneExpiredRefreshTokens } from './utils/session.js';
-import { encryptPlaintextSettings } from './services/email.js';
+import { encryptPlaintextSettings, startEmailWorker, stopEmailWorker } from './services/email.js';
 
 assertProductionConfig();
 
@@ -30,6 +30,7 @@ async function startServer() {
     fanOutLegacyNotifications();
     pruneExpiredRefreshTokens();
     encryptPlaintextSettings();
+    startEmailWorker();
 
     server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`===============================================`);
@@ -53,6 +54,8 @@ function gracefulShutdown(signal: string) {
   shuttingDown = true;
 
   console.log(`\n[Process] ${signal} signal received. Commencing graceful shutdown...`);
+
+  stopEmailWorker();
 
   if (server) {
     server.close(() => {

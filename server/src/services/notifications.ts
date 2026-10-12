@@ -1,6 +1,6 @@
 import { db } from '../db/database.js';
 import {
-  sendEmail,
+  queueEmail,
   buildTagNotificationHtml,
   buildCriticalIssueHtml,
   buildMilestoneApprovalHtml,
@@ -19,9 +19,10 @@ interface TagNotificationParams {
 }
 
 /**
- * Persists in-app notifications and dispatches emails to tagged users.
+ * Persists in-app notifications and queues emails to tagged users. Synchronous,
+ * so callers can run it inside the same transaction as the change it reports.
  */
-export async function dispatchTagNotifications(params: TagNotificationParams): Promise<void> {
+export function dispatchTagNotifications(params: TagNotificationParams): void {
   const {
     taggedUserIds,
     taggedBy,
@@ -83,14 +84,14 @@ export async function dispatchTagNotifications(params: TagNotificationParams): P
         dashboardUrl,
       });
 
-      sendEmail({
+      queueEmail({
         to: recipientEmail,
         recipientName,
         subject: `Tagged on ${entityType}: ${entityTitle} (${projectName})`,
         html,
         templateType: 'tag_notification',
         projectId,
-      }).catch((e) => console.warn('[Tag Email Dispatch Error]', e));
+      });
     }
   }
 }
@@ -109,7 +110,7 @@ interface CriticalIssueAlertParams {
 /**
  * Dispatches critical issue alert to HOD & Project Coordinators
  */
-export async function dispatchCriticalIssueAlert(params: CriticalIssueAlertParams): Promise<void> {
+export function dispatchCriticalIssueAlert(params: CriticalIssueAlertParams): void {
   const { issueTitle, severity, category, detail, raisedBy, projectId, projectName, origin = 'http://localhost:5173' } = params;
   const dashboardUrl = `${origin}/project/${projectId}`;
 
@@ -133,14 +134,14 @@ export async function dispatchCriticalIssueAlert(params: CriticalIssueAlertParam
       dashboardUrl,
     });
 
-    sendEmail({
+    queueEmail({
       to: leader.email,
       recipientName: leader.name,
       subject: `🚨 CRITICAL ISSUE: ${issueTitle} (${projectName})`,
       html,
       templateType: 'critical_issue',
       projectId,
-    }).catch((e) => console.warn('[Critical Issue Email Error]', e));
+    });
   }
 }
 
@@ -157,7 +158,7 @@ interface MilestoneApprovalAlertParams {
 /**
  * Dispatches milestone approval alert to Project Coordinator
  */
-export async function dispatchMilestoneApprovalAlert(params: MilestoneApprovalAlertParams): Promise<void> {
+export function dispatchMilestoneApprovalAlert(params: MilestoneApprovalAlertParams): void {
   const { milestoneTitle, targetDate, stage, projectId, projectName, origin = 'http://localhost:5173' } = params;
   const dashboardUrl = `${origin}/project/${projectId}`;
 
@@ -178,13 +179,13 @@ export async function dispatchMilestoneApprovalAlert(params: MilestoneApprovalAl
       dashboardUrl,
     });
 
-    sendEmail({
+    queueEmail({
       to: coord.email,
       recipientName: coord.name,
       subject: `Milestone Approval Required: ${milestoneTitle} (${projectName})`,
       html,
       templateType: 'milestone_approval',
       projectId,
-    }).catch((e) => console.warn('[Milestone Approval Email Error]', e));
+    });
   }
 }

@@ -97,7 +97,7 @@ export type EmailLogItem = {
   subject: string;
   templateType: string;
   projectId: string | null;
-  status: 'sent' | 'failed' | 'outbox';
+  status: 'queued' | 'sent' | 'failed' | 'outbox';
   htmlContent: string;
   error: string | null;
   createdAt: string;

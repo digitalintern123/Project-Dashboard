@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { makeApp, loginAs, insertProject, testUsers } from './helpers.js';
 import { db } from '../src/db/database.js';
+import { processEmailQueue } from '../src/services/email.js';
 
 const app = makeApp();
 let coord: any;
@@ -41,13 +42,23 @@ describe('email settings and outbox (no provider configured)', () => {
     expect(logs.body.logs.every((l: any) => l.projectId === 'proj-e')).toBe(true);
   });
 
-  it('resends a queued email (still outbox without a provider) and 404s unknown ids', async () => {
-    const id = (db.prepare("SELECT id FROM email_logs LIMIT 1").get() as { id: string }).id;
+  it('re-queues an email for resend; without a provider the worker returns it to the outbox', async () => {
+    const id = (db.prepare("SELECT id FROM email_logs WHERE status = 'outbox' LIMIT 1").get() as { id: string }).id;
     const res = await coord.post(`/api/email/resend/${id}`);
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(false);
+    expect(res.body).toEqual({ success: true, status: 'queued' });
+    await processEmailQueue();
+    expect((db.prepare('SELECT status FROM email_logs WHERE id = ?').get(id) as any).status).toBe('outbox');
     const missing = await coord.post('/api/email/resend/nope');
     expect(missing.body.success).toBe(false);
+  });
+
+  it('queues project emails and answers before delivery', async () => {
+    const res = await lead.post('/api/email/send-project-update').send({ projectId: 'proj-e', recipients: ['q@test.local'] });
+    expect(res.body.results[0].status).toBe('queued');
+    expect((db.prepare("SELECT status FROM email_logs WHERE recipient_email = 'q@test.local'").get() as any).status).toBe('queued');
+    await processEmailQueue();
+    expect((db.prepare("SELECT status FROM email_logs WHERE recipient_email = 'q@test.local'").get() as any).status).toBe('outbox');
   });
 });
 

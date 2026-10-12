@@ -15,6 +15,7 @@ import {
   Key,
   ShieldCheck,
   Globe,
+  Clock,
 } from 'lucide-react';
 import { api, type EmailLogItem, type EmailSettings } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -221,9 +222,11 @@ export function EmailHubModal({
       const res = await api.email.resend(logId);
       if (res.success) {
         toast({
-          title: 'Email Sent',
-          description: 'Successfully redelivered email via SMTP.',
+          title: 'Email queued',
+          description: 'It will be delivered in the background; the outbox updates shortly.',
         });
+        // Delivery happens in the background: refresh again once it has had a moment.
+        setTimeout(loadLogs, 6000);
       } else {
         toast({
           title: 'Resend Note',
@@ -436,12 +439,15 @@ export function EmailHubModal({
                                   ? 'bg-[#edf5f0] text-[#2e7c67] border border-[#cbe4d9]'
                                   : log.status === 'outbox'
                                     ? 'bg-[#fdf3d8] text-[#9a711f] border border-[#eadcb1]'
-                                    : 'bg-[#fae5e1] text-[#b2473d] border border-[#f3c2bc]'
+                                    : log.status === 'queued'
+                                      ? 'bg-[#eef0ed] text-[#4f5752] border border-border'
+                                      : 'bg-[#fae5e1] text-[#b2473d] border border-[#f3c2bc]'
                               }`}
                             >
                               {log.status === 'sent' && <CheckCircle2 size={10} />}
                               {log.status === 'outbox' && <Inbox size={10} />}
                               {log.status === 'failed' && <AlertTriangle size={10} />}
+                              {log.status === 'queued' && <Clock size={10} />}
                               <span>{log.status}</span>
                             </span>
 

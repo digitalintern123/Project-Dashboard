@@ -8,7 +8,8 @@ import {
   saveSmtpConfig,
   getGraphConfig,
   saveGraphConfig,
-  sendEmail,
+  queueEmail,
+  sendEmailNow,
   resendEmailLog,
   buildTestEmailHtml,
   buildProjectSummaryHtml,
@@ -233,7 +234,8 @@ router.post('/test', requireAuth, requireRole(['coordinator']), validate({ body:
   const provider = getActiveEmailProvider();
 
   const html = buildTestEmailHtml(name);
-  const result = await sendEmail({
+  // The settings test sends immediately so the coordinator sees the real outcome.
+  const result = await sendEmailNow({
     to: targetEmail,
     recipientName: name,
     subject: `Encalm Projects - ${provider === 'smtp' ? 'SMTP' : 'Microsoft Graph'} Delivery Test`,
@@ -258,7 +260,7 @@ router.post('/test', requireAuth, requireRole(['coordinator']), validate({ body:
 // POST resend log entry
 router.post('/resend/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.idParams }), audited({ action: 'resend', entityType: 'email', id: (req) => req.params.id as string }), async (req, res) => {
   const id = req.params.id as string;
-  const result = await resendEmailLog(id);
+  const result = resendEmailLog(id);
   return res.json(result);
 });
 
@@ -315,7 +317,7 @@ router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectU
       dashboardUrl,
     });
 
-    const result = await sendEmail({
+    const result = queueEmail({
       to: rc.email,
       recipientName: rc.name,
       replyTo: senderEmail,
@@ -330,7 +332,7 @@ router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectU
 
   return res.json({
     success: true,
-    message: `Dispatched project summary to ${dispatchResults.length} recipient(s)`,
+    message: `Queued project summary for ${dispatchResults.length} recipient(s)`,
     results: dispatchResults,
   });
 });
@@ -554,7 +556,7 @@ router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBod
         dashboardUrl,
       });
 
-      const emailRes = await sendEmail({
+      const emailRes = queueEmail({
         to: recipientEmail,
         recipientName,
         replyTo: senderEmail,
@@ -606,7 +608,7 @@ router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBod
 
   return res.json({
     success: true,
-    message: `Dispatched notification email to ${dispatchResults.filter((r) => r.status !== 'skipped').length} recipient(s)`,
+    message: `Queued notification email for ${dispatchResults.filter((r) => r.status !== 'skipped').length} recipient(s)`,
     recipients: dispatchResults,
   });
 });
