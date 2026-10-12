@@ -1,6 +1,7 @@
 import { db, initDatabase } from './database.js';
 import { users as seedUsers } from '../../../src/data/users.js';
 import { generateTemporaryPassword, hashPassword, verifyPassword } from '../utils/passwords.js';
+import { logger } from '../logger.js';
 
 // The shared password every account used to be seeded with. Detection only:
 // accounts that still have it are forced to change it at next sign-in.
@@ -69,17 +70,18 @@ export function ensureUsersSeeded() {
     }
     db.prepare("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('legacy_password_check_done', '1')").run();
     if (flagged > 0)
-      console.log(`✓ ${flagged} account(s) still on the old default password must change it at next sign-in.`);
+      logger.info(`✓ ${flagged} account(s) still on the old default password must change it at next sign-in.`);
   }
 
   if (created.length > 0) {
+    // Printed straight to the console, not the structured log: shown once to the operator.
     console.log('================================================================');
     console.log(' New user accounts created. Temporary passwords (shown ONCE):');
     for (const c of created) console.log(`   ${c.email}  ${c.password}`);
     console.log(' Each user must change their password at first sign-in.');
     console.log('================================================================');
   }
-  console.log('✓ User accounts synchronized for authentication.');
+  logger.info('✓ User accounts synchronized for authentication.');
 }
 
 /** Clears all project records, stages, milestones, issues, updates, and notifications for a clean slate. */
@@ -97,7 +99,7 @@ export function clearAllProjectData() {
   });
 
   tx();
-  console.log('✓ All project data removed. Database is now empty and ready for fresh input.');
+  logger.info('✓ All project data removed. Database is now empty and ready for fresh input.');
 }
 
 /** Default entry point: ensures authentic users exist, does not force demo data. */

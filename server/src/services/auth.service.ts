@@ -4,6 +4,7 @@ import { checkPasswordPolicy, generateTemporaryPassword, hashPassword, verifyPas
 import { revokeAllSessions } from '../utils/session.js';
 import { writeAudit } from '../utils/audit.js';
 import { HttpError, badRequest, conflict, notFound } from '../utils/http-error.js';
+import { logger } from '../logger.js';
 
 // One message for every failure (unknown email, wrong password, locked account)
 // so responses do not reveal which accounts exist or are locked.
@@ -51,7 +52,7 @@ export function authenticate(email: string, password: string, ip: string | undef
           failed_attempts: 0,
           locked_until: new Date(Date.now() + LOCKOUT_MS).toISOString(),
         });
-        console.warn(
+        logger.warn(
           `[Auth] Account ${normalizedEmail} locked for 15 minutes after ${attempts} failed attempts (ip ${ip})`,
         );
         writeAudit({ userId: user.id, action: 'account_locked', entityType: 'user', entityId: user.id, ip });
@@ -59,7 +60,7 @@ export function authenticate(email: string, password: string, ip: string | undef
         usersRepo.update(user.id, { failed_attempts: attempts });
       }
     }
-    console.warn(`[Auth] Failed login for ${normalizedEmail} from ${ip}${locked ? ' (account locked)' : ''}`);
+    logger.warn(`[Auth] Failed login for ${normalizedEmail} from ${ip}${locked ? ' (account locked)' : ''}`);
     writeAudit({
       userId: user?.id ?? null,
       action: 'login_failed',
@@ -110,7 +111,7 @@ export function resetPassword(targetId: string, actor: { id: string; email: stri
   });
   revokeAllSessions(target.id);
   writeAudit({ userId: actor.id, action: 'password_reset', entityType: 'user', entityId: target.id, ip });
-  console.log(`[Auth] ${actor.email} reset the password for ${target.email}`);
+  logger.info(`[Auth] ${actor.email} reset the password for ${target.email}`);
   return temporaryPassword;
 }
 

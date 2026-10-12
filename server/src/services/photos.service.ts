@@ -10,6 +10,7 @@ import { projectsRepo } from '../repositories/projects.repo.js';
 import type { PhotoRow } from '../repositories/rows.js';
 import { broadcastNotification } from '../utils/notify.js';
 import { badRequest, notFound } from '../utils/http-error.js';
+import { logger } from '../logger.js';
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const FULL_SIZE_PX = 2000;
@@ -62,7 +63,7 @@ function removeUploadFile(url: string | null | undefined) {
   try {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   } catch (e) {
-    console.warn(`[Photos] Could not remove ${filePath}:`, e);
+    logger.warn({ err: e }, `[Photos] Could not remove ${filePath}`);
   }
 }
 
@@ -154,7 +155,7 @@ export async function uploadPhotos(
     }
   } catch (err) {
     discardWritten();
-    console.warn('[Photos] Image processing failed:', err);
+    logger.warn({ err }, '[Photos] Image processing failed');
     throw badRequest('One of the images could not be read. Please check the files and try again.');
   }
 

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { db } from '../db/database.js';
+import { logger } from '../logger.js';
 
 let afterCommitQueue: (() => void)[] | null = null;
 
@@ -38,7 +39,7 @@ export function transactional<Req extends Request = Request>(handler: (req: Req,
       try {
         fn();
       } catch (err) {
-        console.error('[afterCommit]', err);
+        logger.error({ err }, '[afterCommit]');
       }
     }
   };

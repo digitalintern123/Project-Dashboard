@@ -142,7 +142,8 @@ describe('versioned migration runner', () => {
     expect(mem.pragma('foreign_keys', { simple: true })).toBe(1);
     expect(runMigrations(mem, dir)).toEqual([]);
 
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { logger } = await import('../src/logger.js');
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
     fs.appendFileSync(path.join(dir, '002_rebuild_parent.sql'), '\n-- edited');
     runMigrations(mem, dir);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('changed after it was applied'));

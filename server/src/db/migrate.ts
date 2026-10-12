@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { migrationsDir } from '../paths.js';
 import type Database from 'better-sqlite3';
+import { logger } from '../logger.js';
 
 /**
  * Versioned schema migrations.
@@ -140,11 +141,11 @@ export function adoptLegacySchema(db: Database.Database, initialSql: string) {
   const usersSql = tableSql(db, 'users');
   if (!usersSql.includes('stakeholder') || !usersSql.includes('coordinator')) {
     rebuildTable(db, 'users', createStatementFrom(initialSql, 'users'));
-    console.log('✓ Migrated users table to support coordinator and stakeholder roles.');
+    logger.info('✓ Migrated users table to support coordinator and stakeholder roles.');
   }
   if (!tableSql(db, 'projects').includes("'On Hold'")) {
     rebuildTable(db, 'projects', createStatementFrom(initialSql, 'projects'));
-    console.log("✓ Migrated projects table to allow the 'On Hold' status.");
+    logger.info("✓ Migrated projects table to allow the 'On Hold' status.");
   }
 }
 
@@ -171,7 +172,7 @@ export function runMigrations(db: Database.Database, dir = MIGRATIONS_DIR): numb
     const previous = applied.get(migration.version);
     if (previous !== undefined) {
       if (previous !== migration.checksum) {
-        console.warn(
+        logger.warn(
           `[Migrations] ${migration.version}_${migration.name}.sql changed after it was applied. Add a new migration instead.`,
         );
       }
@@ -194,7 +195,7 @@ export function runMigrations(db: Database.Database, dir = MIGRATIONS_DIR): numb
       if (foreignKeysOff) db.pragma('foreign_keys = ON');
     }
     ran.push(migration.version);
-    console.log(`✓ Applied migration ${String(migration.version).padStart(3, '0')}_${migration.name}`);
+    logger.info(`✓ Applied migration ${String(migration.version).padStart(3, '0')}_${migration.name}`);
   }
   return ran;
 }

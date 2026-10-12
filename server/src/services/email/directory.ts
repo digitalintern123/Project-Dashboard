@@ -1,6 +1,7 @@
 import { usersRepo } from '../../repositories/users.repo.js';
 import { getGraphConfig } from './settings.js';
 import { acquireGraphAccessToken } from './transport.js';
+import { logger } from '../../logger.js';
 
 export interface DirectoryUser {
   id: string;
@@ -53,7 +54,7 @@ export async function searchEncalmDirectory(searchQuery: string = ''): Promise<D
     const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
-      console.warn(`[Microsoft Graph Directory] Query failed (${res.status}): ${errText}`);
+      logger.warn(`[Microsoft Graph Directory] Query failed (${res.status}): ${errText}`);
       return [];
     }
 
@@ -81,12 +82,12 @@ export async function searchEncalmDirectory(searchQuery: string = ''): Promise<D
         try {
           usersRepo.upsertDirectoryUser({ ...user, name });
         } catch (err) {
-          console.warn('[Microsoft Graph Directory] Could not save directory user:', err);
+          logger.warn({ err }, '[Microsoft Graph Directory] Could not save directory user');
         }
         return user;
       });
   } catch (err) {
-    console.error('[Microsoft Graph Directory Error]', err);
+    logger.error({ err }, '[Microsoft Graph Directory Error]');
     return [];
   }
 }

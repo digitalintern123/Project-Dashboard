@@ -3,6 +3,7 @@ import path from 'node:path';
 import { db, dataDir } from '../db/database.js';
 import type { ProjectRow } from '../repositories/rows.js';
 import { projectsRepo, type ProjectChildren } from '../repositories/projects.repo.js';
+import { logger } from '../logger.js';
 
 /**
  * Disaster Recovery & Export Backup Snapshot.
@@ -286,9 +287,9 @@ export function saveDatabaseSnapshot(): void {
     };
 
     fs.writeFileSync(SNAPSHOT_FILE_PATH, JSON.stringify(snapshot, null, 2), 'utf-8');
-    console.log(`[Backup] Saved snapshot with ${projects.length} projects to ${SNAPSHOT_FILE_PATH}`);
+    logger.info(`[Backup] Saved snapshot with ${projects.length} projects to ${SNAPSHOT_FILE_PATH}`);
   } catch (err) {
-    console.warn('[Backup] Failed to save snapshot:', err);
+    logger.warn({ err }, '[Backup] Failed to save snapshot');
   }
 }
 
@@ -518,15 +519,15 @@ export function autoRestoreSnapshotIfEmpty(): void {
         const raw = fs.readFileSync(SNAPSHOT_FILE_PATH, 'utf-8');
         const data = JSON.parse(raw);
         if (Array.isArray(data.projects) && data.projects.length >= 68) {
-          console.log(
+          logger.info(
             `[Auto-Restore] SQLite database has ${row.count} projects (< 68). Auto-restoring ${data.projects.length} authentic facilities from ${SNAPSHOT_FILE_PATH}...`,
           );
           restoreDatabaseFromJSON(data);
-          console.log(`[Auto-Restore] Successfully restored full portfolio with ${data.projects.length} projects!`);
+          logger.info(`[Auto-Restore] Successfully restored full portfolio with ${data.projects.length} projects!`);
         }
       }
     }
   } catch (err) {
-    console.warn('[Auto-Restore] Check failed:', err);
+    logger.warn({ err }, '[Auto-Restore] Check failed');
   }
 }

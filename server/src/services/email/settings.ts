@@ -2,6 +2,7 @@ import { settingsRepo } from '../../repositories/settings.repo.js';
 import { ENCRYPTED_SETTING_KEYS, decryptSecret, encryptSecret, isEncrypted } from '../../utils/secrets.js';
 import { clearGraphTokenCache } from './transport.js';
 import type { EmailProvider, MicrosoftGraphConfig, SmtpConfig } from './types.js';
+import { logger } from '../../logger.js';
 
 /** What the settings form sends back for a secret it never saw. */
 const MASK = '••••••••';
@@ -105,7 +106,7 @@ export function encryptPlaintextSettings(): void {
       migrated++;
     }
   }
-  if (migrated > 0) console.log(`✓ Encrypted ${migrated} stored email secret(s) at rest.`);
+  if (migrated > 0) logger.info(`✓ Encrypted ${migrated} stored email secret(s) at rest.`);
 }
 
 export type EmailSettingsInput = {

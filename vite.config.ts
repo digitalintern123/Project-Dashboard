@@ -32,6 +32,8 @@ export default defineConfig({
           // make the two chunks import each other and crash at startup.
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor';
           if (/node_modules\/(recharts|d3-[^/]+|victory-vendor)\//.test(id)) return 'charts-vendor';
+          // Loaded on demand, only when Sentry is configured (src/lib/monitoring.ts).
+          if (/node_modules\/@sentry(-internal)?\//.test(id)) return 'sentry-vendor';
           if (id.includes('node_modules/@radix-ui/')) return 'radix-vendor';
           if (id.includes('node_modules/lucide-react/')) return 'icons-vendor';
           return 'vendor';

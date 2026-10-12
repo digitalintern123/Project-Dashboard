@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import { pinoHttp } from 'pino-http';
 
 import { uploadsDir } from './db/database.js';
 import { clientDistDir } from './paths.js';
@@ -14,6 +15,8 @@ import { envInt } from './config.js';
 import { requireAuth } from './middleware/auth.js';
 import { HttpError } from './utils/http-error.js';
 import { LARGE_JSON_PATHS } from './validation/large-json.js';
+import { logger, requestId } from './logger.js';
+import { appRelease, captureError, clientDsn, dsnOrigin, sentryEnvironment } from './sentry.js';
 
 import authRouter from './routes/auth.js';
 import projectsRouter from './routes/projects.js';
@@ -34,6 +37,30 @@ export function createApp() {
   // Trust reverse proxy (Nginx, Docker, Cloudflare, Traefik) for correct client IP detection
   app.set('trust proxy', 1);
 
+  // 0. Structured request logging with a request ID (X-Request-Id).
+  app.use(
+    pinoHttp({
+      logger,
+      genReqId: requestId,
+      // Health probes run every minute; logging each one is noise.
+      autoLogging: { ignore: (req) => req.url === '/api/system/ready' },
+      customLogLevel: (_req, res, err) =>
+        err || res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info',
+      // Method and path only: query strings can carry search terms and ids we don't need in logs.
+      serializers: {
+        req: (req: { id: string; method: string; url: string }) => ({
+          id: req.id,
+          method: req.method,
+          path: req.url.split('?')[0],
+        }),
+        res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  );
+
+  // Browsers may post error reports to Sentry only when a DSN is configured.
+  const sentryOrigin = dsnOrigin(clientDsn());
+
   // 1. Security headers
   app.use(
     helmet({
@@ -44,7 +71,7 @@ export function createApp() {
           imgSrc: ["'self'", 'data:', 'blob:'],
           styleSrc: ["'self'", "'unsafe-inline'"],
           scriptSrc: ["'self'"],
-          connectSrc: ["'self'"],
+          connectSrc: ["'self'", ...(sentryOrigin ? [sentryOrigin] : [])],
           fontSrc: ["'self'", 'data:'],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
@@ -152,17 +179,9 @@ export function createApp() {
     }),
   );
 
-  // 7. Request Logger
-  app.use((req, res, next) => {
-    const start = Date.now();
-    res.on('finish', () => {
-      const duration = Date.now() - start;
-      if (req.originalUrl.startsWith('/api')) {
-        const statusColor = res.statusCode >= 500 ? '🔴' : res.statusCode >= 400 ? '🟡' : '🟢';
-        console.log(`[API] ${statusColor} ${req.method} ${req.originalUrl} -> ${res.statusCode} (${duration}ms)`);
-      }
-    });
-    next();
+  // Browser runtime settings. Public: a Sentry DSN is designed to be exposed.
+  app.get('/api/client-config', (_req, res) => {
+    res.json({ sentryDsn: clientDsn() || null, environment: sentryEnvironment(), release: appRelease() ?? null });
   });
 
   // API caching: GETs may be kept by the user's browser but are revalidated on
@@ -233,7 +252,7 @@ export function createApp() {
   }
 
   // 11. Global Error Handler
-  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof HttpError) {
       return res.status(err.status).json({ error: err.message, ...err.extra });
     }
@@ -242,7 +261,8 @@ export function createApp() {
       // e.g. body-parser's 413 for oversized bodies
       return res.status(status).json({ error: (err as Error).message });
     }
-    console.error('[API Unhandled Error]', err);
+    req.log.error({ err }, 'Unhandled error');
+    captureError(err, { requestId: req.id, method: req.method, path: req.path });
     res.status(500).json({
       error: 'Internal Server Error',
       message: isProduction ? 'An unexpected error occurred.' : (err as Error)?.message,

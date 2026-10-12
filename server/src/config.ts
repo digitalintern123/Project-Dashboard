@@ -1,4 +1,5 @@
 import { parseSettingsKey } from './utils/secrets.js';
+import { logger } from './logger.js';
 
 /**
  * Startup configuration checks. In production the server refuses to start with
@@ -37,8 +38,8 @@ export function productionConfigErrors(env: NodeJS.ProcessEnv = process.env): st
 export function assertProductionConfig(): void {
   const errors = productionConfigErrors();
   if (errors.length > 0) {
-    for (const e of errors) console.error(`[Config] FATAL: ${e}`);
-    console.error(
+    for (const e of errors) logger.error(`[Config] FATAL: ${e}`);
+    logger.error(
       '[Config] Generate secrets with: openssl rand -base64 48 (JWT_SECRET), openssl rand -base64 32 (SETTINGS_ENCRYPTION_KEY)',
     );
     process.exit(1);

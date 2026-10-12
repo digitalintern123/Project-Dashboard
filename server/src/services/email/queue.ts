@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { emailRepo } from '../../repositories/email.repo.js';
 import { EmailNotConfiguredError, deliver } from './transport.js';
 import type { QueueResult, SendEmailOptions } from './types.js';
+import { logger } from '../../logger.js';
 
 /** Attempts per email before it is marked failed. */
 export const EMAIL_MAX_ATTEMPTS = 5;
@@ -17,7 +18,7 @@ const errorMessage = (err: unknown) => (err instanceof Error && err.message) || 
 
 /** Asks a running worker to look at the queue now instead of on its next tick. */
 function kickWorker() {
-  if (workerTimer) setImmediate(() => void processEmailQueue().catch((err) => console.error('[Email Queue]', err)));
+  if (workerTimer) setImmediate(() => void processEmailQueue().catch((err) => logger.error({ err }, '[Email Queue]')));
 }
 
 /**
@@ -61,7 +62,7 @@ export async function deliverQueuedEmail(logId: string, now = Date.now()): Promi
       html: job.html_content,
     });
     emailRepo.finishJob(logId, 'sent', null);
-    console.log(`[Email] Delivered "${job.subject}" to ${job.recipient_email}`);
+    logger.info(`[Email] Delivered "${job.subject}" to ${job.recipient_email}`);
     return { id: logId, status: 'sent' };
   } catch (err) {
     const message = errorMessage(err);
@@ -72,14 +73,14 @@ export async function deliverQueuedEmail(logId: string, now = Date.now()): Promi
     const attempts = job.attempts + 1;
     if (attempts >= job.max_attempts) {
       emailRepo.finishJob(logId, 'failed', message);
-      console.warn(
+      logger.warn(
         `[Email] Giving up on "${job.subject}" to ${job.recipient_email} after ${attempts} attempt(s): ${message}`,
       );
       return { id: logId, status: 'failed', error: message };
     }
     const retryAt = new Date(now + EMAIL_RETRY_BASE_MS * 2 ** (attempts - 1)).toISOString();
     emailRepo.scheduleRetry(logId, attempts, retryAt, message);
-    console.warn(`[Email] Attempt ${attempts} for ${job.recipient_email} failed (${message}); retrying at ${retryAt}`);
+    logger.warn(`[Email] Attempt ${attempts} for ${job.recipient_email} failed (${message}); retrying at ${retryAt}`);
     return { id: logId, status: 'queued', error: message };
   }
 }
@@ -102,7 +103,7 @@ export function startEmailWorker(intervalMs = 5000): void {
   if (workerTimer) return;
   emailRepo.unlockAll();
   workerTimer = setInterval(
-    () => void processEmailQueue().catch((err) => console.error('[Email Queue]', err)),
+    () => void processEmailQueue().catch((err) => logger.error({ err }, '[Email Queue]')),
     intervalMs,
   );
   workerTimer.unref();

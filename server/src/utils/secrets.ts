@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { logger } from '../logger.js';
 
 /**
  * AES-256-GCM encryption for secrets stored in system_settings (SMTP password,
@@ -31,7 +32,7 @@ function settingsKey(): Buffer {
   // Production refuses to start without a valid key (config.ts), so this is dev/test only.
   if (!warnedDevKey) {
     warnedDevKey = true;
-    console.warn('[Secrets] SETTINGS_ENCRYPTION_KEY not set; using a development-only key.');
+    logger.warn('[Secrets] SETTINGS_ENCRYPTION_KEY not set; using a development-only key.');
   }
   return crypto.createHash('sha256').update(DEV_KEY_SEED).digest();
 }
@@ -62,7 +63,7 @@ export function decryptSecret(stored: string | null | undefined): string {
     decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
     return Buffer.concat([decipher.update(Buffer.from(dataB64, 'base64')), decipher.final()]).toString('utf8');
   } catch {
-    console.error(
+    logger.error(
       '[Secrets] Could not decrypt a stored secret. Was SETTINGS_ENCRYPTION_KEY changed? Re-enter it in Email settings.',
     );
     return '';

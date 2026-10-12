@@ -3,6 +3,7 @@ import type { CookieOptions, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/database.js';
 import { ACCESS_COOKIE_NAME, JWT_SECRET } from '../middleware/auth.js';
+import { logger } from '../logger.js';
 
 export const ACCESS_COOKIE = ACCESS_COOKIE_NAME;
 export const REFRESH_COOKIE = 'encalm_rt';
@@ -97,7 +98,7 @@ export function rotateSession(res: Response, presentedToken: string | undefined)
     if (row.replaced_by && Date.now() - revokedAt < ROTATION_GRACE_MS) {
       return { status: 'raced' };
     }
-    console.warn(`[Auth] Refresh token reuse detected for user ${row.user_id}; revoking all sessions.`);
+    logger.warn(`[Auth] Refresh token reuse detected for user ${row.user_id}; revoking all sessions.`);
     revokeAllSessions(row.user_id);
     return { status: 'invalid' };
   }

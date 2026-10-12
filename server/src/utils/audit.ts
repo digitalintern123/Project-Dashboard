@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { auditRepo } from '../repositories/audit.repo.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
+import { logger } from '../logger.js';
 
 /** Columns never written to the audit log. */
 const REDACTED_COLUMNS = new Set(['password_hash', 'token_hash', 'html_content']);
@@ -40,7 +41,7 @@ export function writeAudit(entry: AuditEntry): void {
     });
   } catch (err) {
     // Auditing must never break the request it describes.
-    console.error('[Audit] Failed to write audit entry:', err);
+    logger.error({ err }, '[Audit] Failed to write audit entry');
   }
 }
 

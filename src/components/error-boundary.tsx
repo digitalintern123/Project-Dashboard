@@ -1,4 +1,5 @@
 import { Component, type ComponentType, type ErrorInfo, type ReactNode } from 'react';
+import { reportError } from '@/lib/monitoring';
 
 export interface ErrorFallbackProps {
   error: Error;
@@ -65,6 +66,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: unknown, info: ErrorInfo): void {
     console.error('ErrorBoundary caught an error:', toError(error), info.componentStack);
+    reportError(toError(error), { componentStack: info.componentStack });
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps): void {

@@ -8,6 +8,8 @@ import { createApp } from './app.js';
 import { fanOutLegacyNotifications } from './utils/notify.js';
 import { pruneExpiredRefreshTokens } from './utils/session.js';
 import { encryptPlaintextSettings, startEmailWorker, stopEmailWorker } from './services/email.js';
+import { logger } from './logger.js';
+import { appRelease, captureError, flushSentry, initSentry } from './sentry.js';
 
 assertProductionConfig();
 
@@ -25,6 +27,7 @@ let server: Server | null = null;
 
 async function startServer() {
   try {
+    await initSentry();
     initDatabase();
     seedDatabase(false);
     autoRestoreSnapshotIfEmpty();
@@ -34,15 +37,12 @@ async function startServer() {
     startEmailWorker();
 
     server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`===============================================`);
-      console.log(` Encalm Project Dashboard Server [${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}]`);
-      console.log(` Port:    http://0.0.0.0:${PORT}`);
-      console.log(` Health:  http://localhost:${PORT}/api/system/health`);
-      console.log(` Ready:   http://localhost:${PORT}/api/system/ready`);
-      console.log(`===============================================`);
+      logger.info({ port: PORT, release: appRelease() }, 'Encalm Project Dashboard listening');
     });
-  } catch (error) {
-    console.error('Failed to start server:', error);
+  } catch (err) {
+    logger.fatal({ err }, 'Failed to start server');
+    captureError(err);
+    await flushSentry();
     process.exit(1);
   }
 }
@@ -50,49 +50,51 @@ async function startServer() {
 // 13. Graceful Shutdown & Disaster Prevention
 let shuttingDown = false;
 
-function gracefulShutdown(signal: string) {
+function gracefulShutdown(signal: string, exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
 
-  console.log(`\n[Process] ${signal} signal received. Commencing graceful shutdown...`);
-
+  logger.info({ signal }, 'Shutting down');
   stopEmailWorker();
+
+  const exit = (code: number) => void flushSentry().finally(() => process.exit(code));
 
   if (server) {
     server.close(() => {
-      console.log('[Process] HTTP server closed.');
       try {
-        console.log('[Process] Checkpointing SQLite WAL and saving recovery snapshot...');
+        // Checkpoint the WAL and write the recovery snapshot before closing.
         db.pragma('wal_checkpoint(TRUNCATE)');
         saveDatabaseSnapshot();
         db.close();
-        console.log('[Process] SQLite database safely closed.');
-      } catch (dbErr) {
-        console.error('[Process] Error closing database during shutdown:', dbErr);
+        logger.info('Database closed; shutdown complete');
+      } catch (err) {
+        logger.error({ err }, 'Error closing the database during shutdown');
       }
-      process.exit(0);
+      exit(exitCode);
     });
 
     // Force exit if connections do not close in 10s
     setTimeout(() => {
-      console.error('[Process] Graceful shutdown timed out. Forcing process termination.');
+      logger.error('Graceful shutdown timed out; forcing exit');
       process.exit(1);
     }, 10000).unref();
   } else {
-    process.exit(0);
+    exit(exitCode);
   }
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[Process] Unhandled Promise Rejection at:', promise, 'reason:', reason);
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled promise rejection');
+  captureError(reason);
 });
 
-process.on('uncaughtException', (error) => {
-  console.error('[Process] Uncaught Exception thrown:', error);
-  gracefulShutdown('uncaughtException');
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught exception');
+  captureError(err);
+  gracefulShutdown('uncaughtException', 1);
 });
 
-startServer();
+void startServer();

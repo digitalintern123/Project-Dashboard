@@ -1,6 +1,7 @@
 import { db } from '../db/database.js';
 import { notificationsRepo } from '../repositories/notifications.repo.js';
 import { usersRepo } from '../repositories/users.repo.js';
+import { logger } from '../logger.js';
 
 /**
  * Creates one notification row per signed-in user so that read/delete state is
@@ -45,5 +46,5 @@ export function fanOutLegacyNotifications(): void {
     }
     notificationsRepo.deleteLegacy();
   })();
-  console.log(`✓ Migrated ${legacy.length} global notifications to per-user inboxes.`);
+  logger.info(`✓ Migrated ${legacy.length} global notifications to per-user inboxes.`);
 }

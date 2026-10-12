@@ -2,6 +2,7 @@ import dns from 'node:dns';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { getActiveEmailProvider, getGraphConfig, getSmtpConfig } from './settings.js';
 import type { MicrosoftGraphConfig, SmtpConfig } from './types.js';
+import { logger } from '../../logger.js';
 
 /**
  * Shared helper to create an IPv4-enforced nodemailer Transporter.
@@ -25,7 +26,7 @@ async function createSmtpTransporter(smtpCfg: SmtpConfig): Promise<Transporter> 
       }
     }
   } catch (err) {
-    console.warn(`[SMTP DNS] Failed to resolve IPv4 for ${originalHost}, falling back to hostname:`, err);
+    logger.warn({ err }, `[SMTP DNS] Failed to resolve IPv4 for ${originalHost}, falling back to hostname`);
     resolvedHost = originalHost;
   }
 
