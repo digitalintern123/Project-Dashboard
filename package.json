@@ -19,7 +19,8 @@
     "seed:all": "tsx server/src/scripts/restore-all-pdfs.ts",
     "test:unit": "vitest run --project unit --project web",
     "test:api": "vitest run --project server",
-    "coverage": "vitest run --project server --project unit --coverage"
+    "coverage": "vitest run --project server --project unit --coverage",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
@@ -90,6 +91,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/vite": "^4.1.14",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

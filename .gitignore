@@ -84,3 +84,5 @@ server/data/*.db-shm
 *.sqlite3
 !server/data/.gitkeep
 !server/data/portfolio-database.json
+playwright-report/
+test-results/

@@ -50,3 +50,19 @@ describe('role-based UI', () => {
     expect(deleteButton()).toBeInTheDocument();
   });
 });
+
+describe('dashboard resilience', () => {
+  it('renders projects whose category is outside the known list', async () => {
+    const { sampleProject } = await import('@/test/fake-server');
+    const original = sampleProject.category;
+    sampleProject.category = 'Airport Lounge';
+    try {
+      installFakeServer({ session: users.lead });
+      render(<App />);
+      expect(await screen.findAllByText('Delhi Lounge', undefined, { timeout: 3000 })).not.toHaveLength(0);
+      expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
+    } finally {
+      sampleProject.category = original;
+    }
+  });
+});
