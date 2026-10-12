@@ -30,8 +30,35 @@ export const usersRepo = {
   listPublic(): PublicUserRow[] {
     return db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users ORDER BY name`).all() as PublicUserRow[];
   },
+  /** Users who can sign in and therefore have a notification inbox. */
+  inboxUserIds(): string[] {
+    const rows = db.prepare("SELECT id FROM users WHERE role IN ('coordinator', 'lead', 'hod')").all() as {
+      id: string;
+    }[];
+    return rows.map((r) => r.id);
+  },
   listLeads(): PublicUserRow[] {
     return db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users WHERE role = 'lead' ORDER BY name`).all() as PublicUserRow[];
+  },
+  /** Every user, including directory-only stakeholders, for matching @mentions and directory results. */
+  listDirectory(): PublicUserRow[] {
+    return db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users`).all() as PublicUserRow[];
+  },
+  /** Saves a person found in the Microsoft directory; an existing row keeps its role and password. */
+  upsertDirectoryUser(user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    title: string;
+    initials: string;
+  }): void {
+    db.prepare(
+      `INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at)
+       VALUES (@id, @name, @email, '', @role, @title, @initials, datetime('now'))
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name, email = excluded.email, title = excluded.title, initials = excluded.initials`,
+    ).run(user);
   },
   insert(
     row: Pick<

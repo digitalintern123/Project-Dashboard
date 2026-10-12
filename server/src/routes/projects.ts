@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireRole, requireProjectAccess, type AuthenticatedRequest } from '../middleware/auth.js';
-import { removePhotoFiles } from './photos.js';
+import { removePhotoFiles } from '../services/photos.service.js';
 import { saveDatabaseSnapshot, restoreDatabaseFromJSON } from '../utils/backup.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
@@ -12,15 +12,10 @@ import {
   allotProject,
   createProject,
   deleteProject,
-  getProject,
   listProjects,
   requireProject,
   updateProject,
 } from '../services/projects.service.js';
-
-// Kept for routes that have not moved to services yet.
-export { parseTaggedUsers } from '../services/project-mapper.js';
-export const fetchFullProject = getProject;
 
 const router = Router();
 const projectId = (req: AuthenticatedRequest) => req.params.id as string;
