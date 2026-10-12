@@ -404,6 +404,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     api.auth.logout().catch(() => {});
     clearSession();
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `${import.meta.env.BASE_URL.replace(/\/$/, '')}/login`);
+    }
   }, [clearSession]);
 
   const markNotificationRead = useCallback(async (id: string) => {

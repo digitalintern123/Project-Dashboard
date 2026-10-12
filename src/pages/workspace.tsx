@@ -1819,7 +1819,7 @@ function NewProjectView() {
   const [form, setForm] = useState({
     name: '',
     location: 'Delhi' as Project['location'],
-    category: 'Airport Lounge' as Category,
+    category: 'Lounge' as Category,
     projectType: 'Premium Lounge',
     leadId: (role === 'lead' ? user?.id : leads[0]?.id) || user?.id || '',
     status: 'Yet to start' as ProjectStatus,
