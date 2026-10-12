@@ -1999,14 +1999,16 @@ export default function ProjectDetail() {
             <button type="button" onClick={() => setEditing((value) => !value)} className="flex items-center gap-2 rounded-xl bg-[#d6a95d] px-3.5 py-3 text-[10px] font-extrabold text-[#173e49] hover:bg-[#e2bd73] transition">
               <Pencil size={14} /> Edit project
             </button>
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-[10px] font-extrabold text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition"
-              title="Delete this project"
-            >
-              <Trash2 size={14} /> Delete project
-            </button>
+            {role === 'coordinator' && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-[10px] font-extrabold text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition"
+                title="Delete this project"
+              >
+                <Trash2 size={14} /> Delete project
+              </button>
+            )}
           </div>
         ) : (
           <span className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-3 font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">

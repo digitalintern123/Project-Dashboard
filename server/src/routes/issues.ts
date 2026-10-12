@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { db } from '../db/database.js';
-import { optionalAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
 import { fetchFullProject, parseTaggedUsers } from './projects.js';
+import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { dispatchTagNotifications, dispatchCriticalIssueAlert } from '../services/notifications.js';
 
 const router = Router({ mergeParams: true });
 
 // POST add issue
-router.post('/', optionalAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -69,10 +70,9 @@ router.post('/', optionalAuth, async (req: AuthenticatedRequest, res) => {
 
   // 2. High severity / Critical issue alerts
   if (body.severity === 'High') {
-    db.prepare(`
-      INSERT INTO notifications (id, type, title, message, project_id, link, read, created_at)
-      VALUES (?, 'high_issue', ?, ?, ?, ?, 0, datetime('now'))
-    `).run(
+    broadcastNotification(
+      'high_issue',
+      
       `notif-iss-${issueId}`,
       `Critical Issue: ${body.title}`,
       `High priority issue logged on ${project.name}: ${body.detail}`,
@@ -99,7 +99,7 @@ router.post('/', optionalAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // PATCH update issue
-router.patch('/:issueId', optionalAuth, async (req: AuthenticatedRequest, res) => {
+router.patch('/:issueId', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
   const issue = db.prepare('SELECT * FROM issues WHERE id = ? AND project_id = ?').get(issueId, projectId) as any;
@@ -181,7 +181,7 @@ router.patch('/:issueId', optionalAuth, async (req: AuthenticatedRequest, res) =
 });
 
 // DELETE issue
-router.delete('/:issueId', optionalAuth, (req: AuthenticatedRequest, res) => {
+router.delete('/:issueId', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
   db.prepare('DELETE FROM issues WHERE id = ? AND project_id = ?').run(issueId, projectId);

@@ -2,7 +2,8 @@ import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { db, uploadsDir } from '../db/database.js';
-import { optionalAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
+import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { fetchFullProject } from './projects.js';
 
@@ -142,12 +143,9 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: any) {
       ? `${uploaderName} uploaded a new site photograph for ${project.name}`
       : `${uploaderName} uploaded ${createdPhotos.length} site photographs for ${project.name}`;
 
-    db.prepare(`
-      INSERT INTO notifications (id, type, title, message, project_id, link, read, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 0, datetime('now'))
-    `).run(
-      notifId,
+    broadcastNotification(
       'system',
+      notifId,
       'Site Photograph Updated',
       notifMessage,
       projectId,
@@ -171,13 +169,13 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: any) {
   }
 }
 
-projectPhotosRouter.post('/', optionalAuth, handlePhotoUpload);
-projectPhotosRouter.post('/batch', optionalAuth, handlePhotoUpload);
+projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), handlePhotoUpload);
+projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), handlePhotoUpload);
 
 /**
  * Delete a specific site photograph
  */
-projectPhotosRouter.delete('/:photoId', optionalAuth, async (req: AuthenticatedRequest, res) => {
+projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
   try {
     const projectId = req.params.id as string;
     const photoId = req.params.photoId as string;
@@ -219,7 +217,7 @@ projectPhotosRouter.delete('/:photoId', optionalAuth, async (req: AuthenticatedR
 /**
  * Get all photos for a project
  */
-projectPhotosRouter.get('/', optionalAuth, (req, res) => {
+projectPhotosRouter.get('/', requireAuth, (req, res) => {
   const projectId = req.params.id as string;
   const rows = db.prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC').all(projectId);
   res.json({ photos: rows });
@@ -228,7 +226,7 @@ projectPhotosRouter.get('/', optionalAuth, (req, res) => {
 /**
  * Global portfolio photographs endpoint
  */
-globalPhotosRouter.get('/', optionalAuth, (req, res) => {
+globalPhotosRouter.get('/', requireAuth, (req, res) => {
   try {
     const rows = db.prepare(`
       SELECT 

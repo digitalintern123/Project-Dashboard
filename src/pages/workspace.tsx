@@ -62,7 +62,7 @@ function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; 
 }
 
 function ProjectTable({ rows }: { rows: Project[] }) {
-  const { deleteProject, canEditProject } = useAppState();
+  const { deleteProject, role } = useAppState();
   const { toast } = useToast();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -153,7 +153,7 @@ function ProjectTable({ rows }: { rows: Project[] }) {
                       </span>
                     </td>
                     <td className="py-3.5 pl-2 pr-5 text-right whitespace-nowrap">
-                      {canEditProject(project) ? (
+                      {role === 'coordinator' ? (
                         <button
                           type="button"
                           title={`Delete ${project.name}`}

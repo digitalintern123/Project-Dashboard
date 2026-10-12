@@ -476,16 +476,18 @@ export function AppShell({ children }: AppShellProps) {
               )}
             </button>
 
-            {/* Header Email Hub Button */}
-            <button
-              type="button"
-              aria-label="Open email outbox and settings"
-              onClick={() => setEmailHubOpen(true)}
-              className="rounded-lg border border-border bg-card p-2 text-muted-foreground hover:bg-muted"
-              title="Email Outbox & Delivery Radar"
-            >
-              <Mail size={16} />
-            </button>
+            {/* Header Email Hub Button (coordinator only: outbox and settings are coordinator-restricted) */}
+            {role === 'coordinator' && (
+              <button
+                type="button"
+                aria-label="Open email outbox and settings"
+                onClick={() => setEmailHubOpen(true)}
+                className="rounded-lg border border-border bg-card p-2 text-muted-foreground hover:bg-muted"
+                title="Email Outbox & Delivery Radar"
+              >
+                <Mail size={16} />
+              </button>
+            )}
 
             {/* Header Settings Button */}
             <button
@@ -793,6 +795,7 @@ export function AppShell({ children }: AppShellProps) {
               </div>
             </div>
 
+            {role === 'coordinator' && (
             <div className="mt-6 border-t border-border pt-5">
               <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Communications & Integration</p>
               <div className="mt-3 rounded-xl border border-border bg-white/70 p-3.5">
@@ -819,6 +822,7 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
               </div>
             </div>
+            )}
 
             <div className="mt-6 border-t border-border pt-5">
               <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Database management & Backup</p>

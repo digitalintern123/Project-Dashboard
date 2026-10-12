@@ -52,13 +52,13 @@ router.post('/logout', (req, res) => {
   return res.json({ message: 'Logged out successfully' });
 });
 
-router.get('/users', (req, res) => {
+router.get('/users', requireAuth, (req, res) => {
   const users = db.prepare('SELECT id, name, email, role, title, initials FROM users ORDER BY name ASC').all();
   return res.json({ users });
 });
 
 // GET /api/auth/leads - List all project leads
-router.get('/leads', (_req, res) => {
+router.get('/leads', requireAuth, (_req, res) => {
   const leads = db.prepare('SELECT id, name, email, role, title, initials FROM users WHERE role = ? ORDER BY name ASC').all('lead');
   return res.json({ leads });
 });

@@ -110,6 +110,11 @@ export function requireProjectAccess(projectIdParam: string = 'id') {
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
+    const exists = db.prepare('SELECT 1 FROM projects WHERE id = ?').get(projectId);
+    if (!exists) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
     if (!canUserEditProject(projectId, req.user)) {
       return res.status(403).json({
         error: req.user.role === 'hod'

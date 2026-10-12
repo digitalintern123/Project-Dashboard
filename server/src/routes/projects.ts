@@ -2,8 +2,9 @@ import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { db, uploadsDir } from '../db/database.js';
-import { requireAuth, requireRole, requireProjectAccess, AuthenticatedRequest, optionalAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
 import { calculateProjectStatus } from '../utils/status.js';
+import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot, restoreDatabaseFromJSON } from '../utils/backup.js';
 
 const router = Router();
@@ -128,7 +129,7 @@ export function fetchFullProject(projectId: string) {
 }
 
 // GET all projects
-router.get('/', optionalAuth, (req, res) => {
+router.get('/', requireAuth, (req, res) => {
   const rows = db.prepare(`
     SELECT id FROM projects 
     ORDER BY 
@@ -147,7 +148,7 @@ router.get('/', optionalAuth, (req, res) => {
 });
 
 // GET single project
-router.get('/:id', optionalAuth, (req, res) => {
+router.get('/:id', requireAuth, (req, res) => {
   const id = req.params.id as string;
   const project = fetchFullProject(id);
   if (!project) {
@@ -157,7 +158,7 @@ router.get('/:id', optionalAuth, (req, res) => {
 });
 
 // POST bulk sync projects from client cache or external source
-router.post('/sync', optionalAuth, (req: AuthenticatedRequest, res) => {
+router.post('/sync', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
   const { projects, explicit } = req.body;
 
   // Protect clean database state from being contaminated by stale browser local caches
@@ -176,7 +177,7 @@ router.post('/sync', optionalAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // POST create project
-router.post('/', optionalAuth, (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireRole(['coordinator', 'lead']), (req: AuthenticatedRequest, res) => {
   const body = req.body;
   if (!body.name || !body.location || !body.category) {
     return res.status(400).json({ error: 'Name, location, and category are required' });
@@ -325,10 +326,9 @@ router.post('/', optionalAuth, (req: AuthenticatedRequest, res) => {
     }
 
     // Notify about new project
-    db.prepare(`
-      INSERT INTO notifications (id, type, title, message, project_id, link, read, created_at)
-      VALUES (?, 'system', ?, ?, ?, ?, 0, datetime('now'))
-    `).run(
+    broadcastNotification(
+      'system',
+      
       `notif-create-${id}`,
       `New Project Created: ${body.name}`,
       `${body.name} was added to the portfolio by ${req.user?.name || 'Project Lead'}.`,
@@ -345,7 +345,7 @@ router.post('/', optionalAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // PATCH allot project (Coordinator only)
-router.patch('/:id/allot', optionalAuth, (req: AuthenticatedRequest, res) => {
+router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string;
   const { leadId } = req.body;
   if (!leadId) {
@@ -371,10 +371,9 @@ router.patch('/:id/allot', optionalAuth, (req: AuthenticatedRequest, res) => {
   );
 
   // Add notification
-  db.prepare(`
-    INSERT INTO notifications (id, type, title, message, project_id, link, read, created_at)
-    VALUES (?, 'system', ?, ?, ?, ?, 0, datetime('now'))
-  `).run(
+  broadcastNotification(
+      'system',
+      
     `notif-allot-${id}-${Date.now()}`,
     `Project Allotted: ${project.name}`,
     `${project.name} has been assigned to ${lead.name} by ${req.user?.name || 'Coordinator'}.`,
@@ -389,7 +388,7 @@ router.patch('/:id/allot', optionalAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // PATCH update project
-router.patch('/:id', optionalAuth, (req: AuthenticatedRequest, res) => {
+router.patch('/:id', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string;
   const project = fetchFullProject(id);
   if (!project) {
@@ -397,6 +396,9 @@ router.patch('/:id', optionalAuth, (req: AuthenticatedRequest, res) => {
   }
 
   const patch = req.body;
+  if (patch.leadId !== undefined && patch.leadId !== project.leadId && req.user!.role !== 'coordinator') {
+    return res.status(403).json({ error: 'Forbidden: Only the coordinator can reassign a project lead' });
+  }
   const todayFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
   const updates: string[] = ['last_updated = ?'];
@@ -462,7 +464,7 @@ router.patch('/:id', optionalAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // DELETE project
-router.delete('/:id', optionalAuth, (req, res) => {
+router.delete('/:id', requireAuth, requireRole(['coordinator']), (req, res) => {
   const id = req.params.id as string;
 
   // Unlink physical photo files from disk

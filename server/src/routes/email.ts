@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db/database.js';
-import { requireAuth, optionalAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/auth.js';
 import {
   getActiveEmailProvider,
   saveActiveEmailProvider,
@@ -20,7 +20,7 @@ import { fetchFullProject } from './projects.js';
 const router = Router();
 
 // GET live Encalm corporate directory search via Microsoft Graph API
-router.get('/directory', optionalAuth, async (req, res) => {
+router.get('/directory', requireAuth, async (req, res) => {
   try {
     const query = ((req.query.q as string) || '').trim();
     const directoryUsers = await searchEncalmDirectory(query);
@@ -33,7 +33,7 @@ router.get('/directory', optionalAuth, async (req, res) => {
 
 
 // GET email logs / outbox
-router.get('/logs', optionalAuth, (req, res) => {
+router.get('/logs', requireAuth, requireRole(['coordinator']), (req, res) => {
   const projectId = req.query.projectId as string | undefined;
   const limit = Math.min(100, parseInt((req.query.limit as string) || '50', 10));
 
@@ -67,7 +67,7 @@ router.get('/logs', optionalAuth, (req, res) => {
 });
 
 // GET email settings (supports SMTP & Microsoft Graph API with masked passwords)
-router.get('/settings', optionalAuth, (req, res) => {
+router.get('/settings', requireAuth, requireRole(['coordinator']), (req, res) => {
   const provider = getActiveEmailProvider();
   const smtpConfig = getSmtpConfig();
   const graphConfig = getGraphConfig();
@@ -108,7 +108,7 @@ router.get('/settings', optionalAuth, (req, res) => {
 });
 
 // POST save email settings (SMTP and/or Microsoft Graph API)
-router.post('/settings', optionalAuth, (req: AuthenticatedRequest, res) => {
+router.post('/settings', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
   const { provider, smtp, graph, tenantId, clientId, clientSecret, senderEmail, saveToSentItems } = req.body;
 
   if (provider === 'smtp' || provider === 'microsoft_graph') {
@@ -185,7 +185,7 @@ router.post('/settings', optionalAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // POST send test email via active provider (SMTP or Microsoft Graph)
-router.post('/test', optionalAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/test', requireAuth, requireRole(['coordinator']), async (req: AuthenticatedRequest, res) => {
   const { to, recipientName, provider: reqProvider, smtp, graph } = req.body;
 
   if (reqProvider === 'smtp' || reqProvider === 'microsoft_graph') {
@@ -242,7 +242,7 @@ router.post('/test', optionalAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // POST resend log entry
-router.post('/resend/:id', optionalAuth, async (req, res) => {
+router.post('/resend/:id', requireAuth, requireRole(['coordinator']), async (req, res) => {
   const id = req.params.id as string;
   const result = await resendEmailLog(id);
   return res.json(result);

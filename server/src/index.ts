@@ -3,6 +3,7 @@ import { db, initDatabase } from './db/database.js';
 import { seedDatabase } from './db/seed.js';
 import { autoRestoreSnapshotIfEmpty, saveDatabaseSnapshot } from './utils/backup.js';
 import { createApp } from './app.js';
+import { fanOutLegacyNotifications } from './utils/notify.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = Number(
@@ -21,6 +22,7 @@ async function startServer() {
     initDatabase();
     seedDatabase(false);
     autoRestoreSnapshotIfEmpty();
+    fanOutLegacyNotifications();
 
     server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`===============================================`);

@@ -190,7 +190,6 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id, date);
     CREATE INDEX IF NOT EXISTS idx_issues_project ON issues(project_id, severity);
     CREATE INDEX IF NOT EXISTS idx_updates_project ON updates(project_id, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_photos_project ON photos(project_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs(created_at DESC);
   `);
@@ -241,6 +240,7 @@ export function initDatabase() {
     if (!notificationColNames.has('recipient_id')) {
       db.prepare("ALTER TABLE notifications ADD COLUMN recipient_id TEXT").run();
     }
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_id, read, created_at DESC)').run();
 
     // Safe migration of legacy 'Build & install' phase names to 'Execution'
     db.prepare("UPDATE phases SET name = 'Execution' WHERE name IN ('Build & install', 'Build and install', 'Build & installation')").run();

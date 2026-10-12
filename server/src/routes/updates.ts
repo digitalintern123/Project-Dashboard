@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db/database.js';
-import { optionalAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
 import { fetchFullProject } from './projects.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 
@@ -8,7 +8,7 @@ export const projectUpdatesRouter = Router({ mergeParams: true });
 export const globalUpdatesRouter = Router();
 
 // GET all updates across the portfolio
-globalUpdatesRouter.get('/', (req, res) => {
+globalUpdatesRouter.get('/', requireAuth, (req, res) => {
   const rows = db.prepare(`
     SELECT u.*, p.name as project_name, p.code as project_code, p.id as project_id
     FROM updates u
@@ -36,7 +36,7 @@ globalUpdatesRouter.get('/', (req, res) => {
 });
 
 // GET updates for a specific project
-projectUpdatesRouter.get('/', (req: any, res) => {
+projectUpdatesRouter.get('/', requireAuth, (req: any, res) => {
   const projectId = req.params.id as string;
   const rows = db.prepare(`
     SELECT * FROM updates
@@ -48,7 +48,7 @@ projectUpdatesRouter.get('/', (req: any, res) => {
 });
 
 // POST add update to project
-projectUpdatesRouter.post('/', optionalAuth, (req: AuthenticatedRequest, res) => {
+projectUpdatesRouter.post('/', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });

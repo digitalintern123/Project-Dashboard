@@ -3,7 +3,7 @@ import { db } from '../db/database.js';
 import { clearAllProjectData } from '../db/seed.js';
 import { getFullProjectRecord, restoreDatabaseFromJSON, saveDatabaseSnapshot } from '../utils/backup.js';
 import { restoreAllPdfDataToDatabase } from '../scripts/restore-all-pdfs.js';
-import { requireAuth, requireRole, optionalAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
 const isProduction = process.env.NODE_ENV === 'production';
@@ -103,16 +103,16 @@ router.get('/ready', (req, res) => {
   try {
     const ping = db.prepare('SELECT 1 as alive').get() as { alive: number };
     if (ping?.alive === 1) {
-      return res.status(200).json({ status: 'ready', uptime: Math.round(process.uptime()) });
+      return res.status(200).json({ status: 'ready' });
     }
-    return res.status(503).json({ status: 'not_ready', error: 'Database ping returned invalid result' });
+    return res.status(503).json({ status: 'not_ready' });
   } catch (err: any) {
-    return res.status(503).json({ status: 'not_ready', error: err.message });
+    return res.status(503).json({ status: 'not_ready' });
   }
 });
 
 // GET system health and statistics (Liveness probe)
-router.get('/health', (req, res) => {
+router.get('/health', requireAuth, requireRole(['coordinator']), (req, res) => {
   try {
     const projectCount = db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number };
     const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };

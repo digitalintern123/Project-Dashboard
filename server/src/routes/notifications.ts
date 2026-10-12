@@ -1,18 +1,22 @@
 import { Router } from 'express';
 import { db } from '../db/database.js';
-import { optionalAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
 
-// GET all notifications
-router.get('/', optionalAuth, (req: AuthenticatedRequest, res) => {
+router.use(requireAuth);
+
+// GET the signed-in user's notifications
+router.get('/', (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
   const notifications = db.prepare(`
     SELECT * FROM notifications
+    WHERE recipient_id = ?
     ORDER BY created_at DESC
     LIMIT 50
-  `).all() as any[];
+  `).all(userId) as any[];
 
-  const unreadCount = db.prepare('SELECT COUNT(*) as count FROM notifications WHERE read = 0').get() as { count: number };
+  const unreadCount = db.prepare('SELECT COUNT(*) as count FROM notifications WHERE recipient_id = ? AND read = 0').get(userId) as { count: number };
 
   return res.json({
     notifications: notifications.map((n) => ({
@@ -29,23 +33,23 @@ router.get('/', optionalAuth, (req: AuthenticatedRequest, res) => {
   });
 });
 
-// PATCH mark notification as read
-router.patch('/:id/read', optionalAuth, (req, res) => {
-  const { id } = req.params;
-  db.prepare('UPDATE notifications SET read = 1 WHERE id = ?').run(id);
+// PATCH mark one of the user's notifications as read
+router.patch('/:id/read', (req: AuthenticatedRequest, res) => {
+  const result = db.prepare('UPDATE notifications SET read = 1 WHERE id = ? AND recipient_id = ?').run(req.params.id, req.user!.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Notification not found' });
   return res.json({ success: true });
 });
 
-// POST mark all as read
-router.post('/read-all', optionalAuth, (req, res) => {
-  db.prepare('UPDATE notifications SET read = 1 WHERE read = 0').run();
+// POST mark all of the user's notifications as read
+router.post('/read-all', (req: AuthenticatedRequest, res) => {
+  db.prepare('UPDATE notifications SET read = 1 WHERE recipient_id = ? AND read = 0').run(req.user!.id);
   return res.json({ success: true });
 });
 
-// DELETE notification
-router.delete('/:id', optionalAuth, (req, res) => {
-  const { id } = req.params;
-  db.prepare('DELETE FROM notifications WHERE id = ?').run(id);
+// DELETE one of the user's notifications
+router.delete('/:id', (req: AuthenticatedRequest, res) => {
+  const result = db.prepare('DELETE FROM notifications WHERE id = ? AND recipient_id = ?').run(req.params.id, req.user!.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Notification not found' });
   return res.json({ success: true });
 });
 

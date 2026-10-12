@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { db } from '../db/database.js';
-import { optionalAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
 import { fetchFullProject, parseTaggedUsers } from './projects.js';
+import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { dispatchTagNotifications, dispatchMilestoneApprovalAlert } from '../services/notifications.js';
 
 const router = Router({ mergeParams: true });
 
 // POST add milestone
-router.post('/', optionalAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -61,10 +62,9 @@ router.post('/', optionalAuth, async (req: AuthenticatedRequest, res) => {
 
   // 2. If requires approval, alert Coordinator
   if (body.approvalRequired) {
-    db.prepare(`
-      INSERT INTO notifications (id, type, title, message, project_id, link, read, created_at)
-      VALUES (?, 'approval_required', ?, ?, ?, ?, 0, datetime('now'))
-    `).run(
+    broadcastNotification(
+      'approval_required',
+      
       `notif-appr-${milestoneId}`,
       `Approval Requested: ${body.title}`,
       `${project.name} requires milestone approval from Coordinator.`,
@@ -90,7 +90,7 @@ router.post('/', optionalAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // PATCH update milestone
-router.patch('/:milestoneId', optionalAuth, async (req: AuthenticatedRequest, res) => {
+router.patch('/:milestoneId', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
   const milestone = db.prepare('SELECT * FROM milestones WHERE id = ? AND project_id = ?').get(milestoneId, projectId) as any;
@@ -156,7 +156,7 @@ router.patch('/:milestoneId', optionalAuth, async (req: AuthenticatedRequest, re
 });
 
 // DELETE milestone
-router.delete('/:milestoneId', optionalAuth, (req: AuthenticatedRequest, res) => {
+router.delete('/:milestoneId', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
   db.prepare('DELETE FROM milestones WHERE id = ? AND project_id = ?').run(milestoneId, projectId);
