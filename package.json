@@ -70,7 +70,7 @@
     "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "date-fns": "^3.6.0",
+    "date-fns": "^4.4.0",
     "dotenv": "^18.0.3",
     "embla-carousel-react": "^8.6.0",
     "express": "^5.2.1",
