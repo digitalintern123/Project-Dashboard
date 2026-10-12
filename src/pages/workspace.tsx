@@ -35,6 +35,7 @@ import {
 import { categories, formatCrore, healthOptions, locations, projectStatuses, issueCategories, type Category, type Health, type Project, type ProjectStatus, type IssueCategory, type IssueStatus, type ProjectIssue, type SitePhoto, type PhotoCategory, photoCategories, type ArchitecturalAreaProgram } from '@/data/projects';
 import { AreaProgramEditorModal, emptyAreaProgram } from '@/components/project-area-program';
 import { useAppState } from '@/state/app-state';
+import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { CRORE } from '@/data/projects';
 import { formatFullDate, isValidIsoDate, todayIso, todayLabel } from '@/lib/date';
@@ -2471,16 +2472,30 @@ function TeamView() {
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('encalm');
+  const [password, setPassword] = useState('');
   const [title, setTitle] = useState('Project Lead');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [allottingProjectId, setAllottingProjectId] = useState<string | null>(null);
 
+  const handleResetPassword = async (lead: { id: string; name: string }) => {
+    if (!window.confirm(`Reset the password for ${lead.name}? They will have to choose a new one at next sign-in.`)) return;
+    try {
+      const res = await api.auth.resetPassword(lead.id);
+      window.prompt(`Temporary password for ${lead.name}. Copy it now and share it securely; it will not be shown again.`, res.temporaryPassword);
+    } catch (err: any) {
+      toast({ title: 'Password reset failed', description: err.message || 'Please try again.', variant: 'destructive' });
+    }
+  };
+
   const handleCreateLead = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !password.trim()) {
       setError('Please provide a name, email, and password.');
+      return;
+    }
+    if (password.trim().length < 10 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      setError('The temporary password must be at least 10 characters and include letters and numbers.');
       return;
     }
     setError('');
@@ -2495,11 +2510,11 @@ function TeamView() {
       if (res.success && res.lead) {
         toast({
           title: 'Project Lead Created',
-          description: `Account created for ${res.lead.name}. They can now sign in with ${res.lead.email}.`,
+          description: `Account created for ${res.lead.name}. They sign in with ${res.lead.email} and must set a new password at first sign-in.`,
         });
         setName('');
         setEmail('');
-        setPassword('encalm');
+        setPassword('');
         setTitle('Project Lead');
       } else {
         setError(res.error || 'Failed to create lead account');
@@ -2591,7 +2606,7 @@ function TeamView() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
+                  placeholder="Temporary password (10+ chars, letters and numbers)"
                   className="h-10 w-full rounded-xl border border-border bg-background px-3 text-[12px] font-mono outline-none focus:border-[#d6a95d]"
                 />
               </label>
@@ -2647,9 +2662,20 @@ function TeamView() {
                             <p className="font-mono text-[9px] text-muted-foreground">{lead.email}</p>
                           </div>
                         </div>
-                        <span className="rounded-full bg-[#eef0ed] px-2 py-0.5 font-mono text-[9px] font-bold text-muted-foreground">
-                          {assignedProjects.length} {assignedProjects.length === 1 ? 'project' : 'projects'}
-                        </span>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <span className="rounded-full bg-[#eef0ed] px-2 py-0.5 font-mono text-[9px] font-bold text-muted-foreground">
+                            {assignedProjects.length} {assignedProjects.length === 1 ? 'project' : 'projects'}
+                          </span>
+                          {role === 'coordinator' && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetPassword(lead)}
+                              className="text-[9px] font-bold text-[#9a711f] hover:underline"
+                            >
+                              Reset password
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {assignedProjects.length > 0 && (

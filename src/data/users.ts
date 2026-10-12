@@ -11,6 +11,8 @@ export type User = {
   role: UserRole;
   title: string;
   initials: string;
+  /** Set by the server when the user must change their password before continuing. */
+  mustChangePassword?: boolean;
 };
 
 export const DEFAULT_HOD_ID = 'user-ruchika-chauhan';

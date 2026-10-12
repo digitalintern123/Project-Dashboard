@@ -157,18 +157,24 @@ async function runTestSuite() {
   });
 
   // --- Auth APIs ---
-  await testApi('List System Users', 'Auth', 'GET', '/api/auth/users', undefined, 200, (d) => {
-    return Array.isArray(d.users) && d.users.length >= 3;
-  });
-
+  const liveEmail = process.env.LIVE_TEST_EMAIL || 'chinmay.saxena@encalm.com';
+  const livePassword = process.env.LIVE_TEST_PASSWORD;
+  if (!livePassword) {
+    console.error('Set LIVE_TEST_PASSWORD (and optionally LIVE_TEST_EMAIL) to run the live API checks.');
+    process.exit(1);
+  }
   await testApi('Login with Lead Account', 'Auth', 'POST', '/api/auth/login', {
-    email: 'chinmay.saxena@encalm.com',
-    password: 'encalm',
+    email: liveEmail,
+    password: livePassword,
   }, 200, (d) => {
     if (d.token) {
       authToken = d.token;
     }
-    return Boolean(d.token && d.user?.email === 'chinmay.saxena@encalm.com');
+    return Boolean(d.token && d.user?.email === liveEmail);
+  });
+
+  await testApi('List System Users', 'Auth', 'GET', '/api/auth/users', undefined, 200, (d) => {
+    return Array.isArray(d.users) && d.users.length >= 3;
   });
 
   // --- Projects APIs ---

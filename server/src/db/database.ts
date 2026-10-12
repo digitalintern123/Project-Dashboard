@@ -48,7 +48,8 @@ export function initDatabase() {
       role TEXT NOT NULL CHECK(role IN ('hod', 'lead', 'coordinator', 'stakeholder')),
       title TEXT NOT NULL,
       initials TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      must_change_password INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS projects (
@@ -242,6 +243,12 @@ export function initDatabase() {
     }
     db.prepare('CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_id, read, created_at DESC)').run();
 
+    const userColumns = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+    const userColNames = new Set(userColumns.map((c) => c.name));
+    if (!userColNames.has('must_change_password')) {
+      db.prepare("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0").run();
+    }
+
     // Safe migration of legacy 'Build & install' phase names to 'Execution'
     db.prepare("UPDATE phases SET name = 'Execution' WHERE name IN ('Build & install', 'Build and install', 'Build & installation')").run();
 
@@ -259,11 +266,12 @@ export function initDatabase() {
           role TEXT NOT NULL CHECK(role IN ('hod', 'lead', 'coordinator', 'stakeholder')),
           title TEXT NOT NULL,
           initials TEXT NOT NULL,
-          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          must_change_password INTEGER NOT NULL DEFAULT 0
         );
 
-        INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at)
-        SELECT id, name, email, password_hash, role, title, initials, created_at FROM users_old;
+        INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at, must_change_password)
+        SELECT id, name, email, password_hash, role, title, initials, created_at, must_change_password FROM users_old;
 
         DROP TABLE users_old;
       `);

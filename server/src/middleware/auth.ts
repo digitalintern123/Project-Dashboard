@@ -18,7 +18,22 @@ export type UserPayload = {
   role: 'hod' | 'lead' | 'coordinator';
   title: string;
   initials: string;
+  mustChangePassword?: boolean;
 };
+
+// Routes a user may still call while their password must be changed.
+const PASSWORD_CHANGE_ALLOWED = new Set(['/api/auth/me', '/api/auth/change-password', '/api/auth/logout']);
+
+type UserRow = Omit<UserPayload, 'mustChangePassword'> & { must_change_password: number };
+
+function loadUser(id: string): UserPayload | undefined {
+  const row = db
+    .prepare('SELECT id, name, email, role, title, initials, must_change_password FROM users WHERE id = ?')
+    .get(id) as UserRow | undefined;
+  if (!row) return undefined;
+  const { must_change_password, ...rest } = row;
+  return { ...rest, mustChangePassword: Boolean(must_change_password) };
+}
 
 export interface AuthenticatedRequest extends Request {
   user?: UserPayload;
@@ -35,9 +50,13 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
     
     // Check if user still exists in database
-    const user = db.prepare('SELECT id, name, email, role, title, initials FROM users WHERE id = ?').get(decoded.id) as UserPayload | undefined;
+    const user = loadUser(decoded.id);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized: User not found' });
+    }
+
+    if (user.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.has(`${req.baseUrl}${req.path}`)) {
+      return res.status(403).json({ error: 'You must change your password before continuing.', code: 'PASSWORD_CHANGE_REQUIRED' });
     }
 
     req.user = user;
@@ -61,25 +80,6 @@ export function requireRole(allowedRoles: ('hod' | 'lead' | 'coordinator')[]) {
 
     next();
   };
-}
-
-export function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next();
-  }
-
-  const token = authHeader.substring(7);
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
-    const user = db.prepare('SELECT id, name, email, role, title, initials FROM users WHERE id = ?').get(decoded.id) as UserPayload | undefined;
-    if (user) {
-      req.user = user;
-    }
-  } catch {
-    // Ignore invalid token in optional auth
-  }
-  next();
 }
 
 /**

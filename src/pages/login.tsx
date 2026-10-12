@@ -1,10 +1,12 @@
 import { FormEvent, useState } from 'react';
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, Loader2 } from 'lucide-react';
+import { useLocation } from 'wouter';
 import { useAppState } from '@/state/app-state';
 import { BrandLogo } from '@/components/brand-logo';
 
 export default function Login() {
   const { login } = useAppState();
+  const [location, navigate] = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,6 +20,8 @@ export default function Login() {
       const res = await login(loginEmail, loginPass);
       if (!res.success) {
         setError(res.error || 'Invalid email or password.');
+      } else if (location === '/login') {
+        navigate('/', { replace: true });
       }
     } catch (err: any) {
       setError(err.message || 'Unable to connect to server.');
@@ -29,12 +33,6 @@ export default function Login() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     handleLogin(email, password);
-  };
-
-  const selectDemoAccount = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('encalm');
-    handleLogin(demoEmail, 'encalm');
   };
 
   return (
@@ -144,56 +142,6 @@ export default function Login() {
                 )}
               </button>
             </form>
-
-            <div className="mt-8 border-t border-border pt-5">
-              <p className="font-mono text-[9px] uppercase tracking-[.15em] text-muted-foreground">
-                One-click demo sign in
-              </p>
-              <div className="mt-3 grid gap-2">
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => selectDemoAccount('hod@encalm.com')}
-                  className="rounded-xl border border-border bg-white p-3 text-left transition hover:border-[#c9a04e] hover:bg-[#fffdf9]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="block text-[11px] font-bold text-[#173e49]">Ruchika Chauhan</span>
-                    <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">HOD</span>
-                  </div>
-                  <span className="mt-1 block font-mono text-[9px] uppercase tracking-[.08em] text-muted-foreground">
-                    Project HOD · Strict View-Only Portfolio
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => selectDemoAccount('digital.intern@encalm.com')}
-                  className="rounded-xl border border-[#d6a95d]/60 bg-[#fffcf5] p-3 text-left transition hover:border-[#c9a04e] hover:bg-[#fff9eb]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="block text-[11px] font-bold text-[#173e49]">Praveen Pal</span>
-                    <span className="rounded bg-[#ebdcb9] px-1.5 py-0.5 text-[9px] font-semibold text-[#664b14]">Coordinator</span>
-                  </div>
-                  <span className="mt-1 block font-mono text-[9px] uppercase tracking-[.08em] text-[#9a711f]">
-                    Project Coordinator · Create Leads & Allot Projects
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => selectDemoAccount('lead@encalm.com')}
-                  className="rounded-xl border border-border bg-white p-3 text-left transition hover:border-[#c9a04e] hover:bg-[#fffdf9]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="block text-[11px] font-bold text-[#173e49]">Chinmay Saxena</span>
-                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-800">Lead</span>
-                  </div>
-                  <span className="mt-1 block font-mono text-[9px] uppercase tracking-[.08em] text-muted-foreground">
-                    Project Lead · Manage Stages, Milestones & Issues
-                  </span>
-                </button>
-              </div>
-            </div>
 
             <div className="mt-6 border-t border-border pt-4 text-center">
               <p className="text-[11px] text-muted-foreground">

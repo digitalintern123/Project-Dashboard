@@ -1,11 +1,12 @@
-import bcrypt from 'bcryptjs';
-import { db } from '../db/database.js';
+import 'dotenv/config';
+import { db, initDatabase } from '../db/database.js';
+import { checkPasswordPolicy, hashPassword } from '../utils/passwords.js';
 
 // CLI script to create or update users with role and password
 // Usage:
 //   npm run create-user -- "Name" "email@encalm.com" "password" "role" "title"
 // Example:
-//   npm run create-user -- "Amit Sharma" "amit@encalm.com" "secret123" "lead" "Senior Project Lead"
+//   npm run create-user -- "Amit Sharma" "amit@encalm.com" "Temp-pass-2026" "lead" "Senior Project Lead"
 
 const args = process.argv.slice(2);
 
@@ -21,14 +22,15 @@ Usage:
 Arguments:
   Name      : Full name of the user (e.g. "Amit Sharma")
   Email     : Corporate email (e.g. "amit@encalm.com")
-  Password  : Password for sign in
+  Password  : Temporary password (min 10 chars, letters and numbers);
+              the user must change it at first sign-in
   Role      : One of 'lead', 'coordinator', 'hod' (Default: 'lead')
   Title     : Job title (Default: 'Project Lead', 'Project Coordinator', or 'Project HOD')
 
 Examples:
-  npm run create-user -- "Amit Sharma" "amit@encalm.com" "encalm123" "lead" "Project Lead"
-  npm run create-user -- "Priya Verma" "priya@encalm.com" "encalm123" "coordinator" "Project Coordinator"
-  npm run create-user -- "Executive User" "director@encalm.com" "encalm123" "hod" "Director - PMO"
+  npm run create-user -- "Amit Sharma" "amit@encalm.com" "<temporary-password>" "lead" "Project Lead"
+  npm run create-user -- "Priya Verma" "priya@encalm.com" "<temporary-password>" "coordinator" "Project Coordinator"
+  npm run create-user -- "Executive User" "director@encalm.com" "<temporary-password>" "hod" "Director - PMO"
 =====================================================
 `);
   process.exit(1);
@@ -57,7 +59,14 @@ if (parts.length >= 2) {
 }
 
 const id = `user-${role}-${Date.now()}`;
-const passwordHash = bcrypt.hashSync(password, 10);
+const policyError = checkPasswordPolicy(password);
+if (policyError) {
+  console.error(`❌ ${policyError}`);
+  process.exit(1);
+}
+const passwordHash = hashPassword(password);
+
+initDatabase();
 
 try {
   // Check if user exists
@@ -66,7 +75,7 @@ try {
   if (existing) {
     db.prepare(`
       UPDATE users
-      SET name = ?, role = ?, title = ?, initials = ?, password_hash = ?
+      SET name = ?, role = ?, title = ?, initials = ?, password_hash = ?, must_change_password = 1
       WHERE LOWER(email) = ?
     `).run(name, role, title, initials, passwordHash, email);
 
@@ -77,8 +86,8 @@ try {
     console.log(`   Password: (updated)\n`);
   } else {
     db.prepare(`
-      INSERT INTO users (id, name, email, role, title, initials, password_hash)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, name, email, role, title, initials, password_hash, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
     `).run(id, name, email, role, title, initials, passwordHash);
 
     console.log(`\n✅ User "${email}" created successfully!`);

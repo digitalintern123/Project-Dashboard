@@ -8,6 +8,8 @@ import Dashboard from '@/pages/dashboard';
 import ProjectDetail from '@/pages/project-detail';
 import { AppShell } from '@/components/app-shell';
 import Login from '@/pages/login';
+import ChangePassword from '@/pages/change-password';
+import { Loader2 } from 'lucide-react';
 import { AppStateProvider, useAppState } from '@/state/app-state';
 import Workspace from '@/pages/workspace';
 import AreaSheet from '@/pages/area-sheet';
@@ -21,8 +23,16 @@ import {
 const queryClient = new QueryClient();
 
 function Router() {
-  const { role } = useAppState();
+  const { role, user, authReady } = useAppState();
+  if (!authReady) {
+    return (
+      <main className="grid min-h-[100dvh] place-items-center bg-[#173e49]">
+        <Loader2 aria-label="Loading" className="animate-spin text-[#d6a95d]" size={28} />
+      </main>
+    );
+  }
   if (!role) return <Login />;
+  if (user?.mustChangePassword) return <ChangePassword />;
 
   return (
     // Keep a shared shell (sidebar, navbar) outside the boundary so it

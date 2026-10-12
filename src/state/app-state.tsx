@@ -18,22 +18,16 @@ import {
   type SitePhoto,
   type PhotoCategory,
 } from '@/data/projects';
-import { readJson, removeItem, writeJson } from '@/lib/storage';
+import { removeItem } from '@/lib/storage';
 import { todayLabel } from '@/lib/date';
-import { DEFAULT_HOD_ID, DEFAULT_LEAD_ID, DEFAULT_COORDINATOR_ID, getUserById, users as defaultUsers, type User } from '@/data/users';
-import { api, getStoredToken, setStoredToken, type NotificationItem } from '@/lib/api';
+import { getUserById, users as defaultUsers, type User } from '@/data/users';
+import { api, getStoredToken, onUnauthorized, setStoredToken, type NotificationItem } from '@/lib/api';
 import { calculateWeightedProgress, sortProjectsIncompleteFirst } from '@/lib/calculations';
 import portfolioFallback from '@/data/portfolio-fallback.json';
 
 export type AppRole = 'hod' | 'lead' | 'coordinator';
 export type AuthUser = User;
 export type DemoUser = AuthUser;
-
-const defaultUserIds: Record<AppRole, string> = {
-  hod: DEFAULT_HOD_ID,
-  lead: DEFAULT_LEAD_ID,
-  coordinator: DEFAULT_COORDINATOR_ID,
-};
 
 const EDITOR_ROLES: readonly AppRole[] = ['lead', 'coordinator'];
 
@@ -53,7 +47,10 @@ type AppStateValue = {
   refreshLeads: () => Promise<void>;
   createLead: (data: { name: string; email: string; password: string; title?: string }) => Promise<{ success: boolean; error?: string; lead?: User }>;
   allotProject: (projectId: string, leadId: string) => Promise<{ success: boolean; error?: string }>;
-  login: (roleOrEmail: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  /** False until the stored session has been checked with the server. */
+  authReady: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshProjects: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
@@ -222,17 +219,11 @@ function hydrateProjects(): Project[] {
   return [];
 }
 
-function hydrateRole(): AppRole | null {
-  const saved = readJson<unknown>(ROLE_KEY);
-  return saved === 'hod' || saved === 'lead' || saved === 'coordinator' ? saved : null;
-}
-
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<AppRole | null>(hydrateRole);
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const saved = hydrateRole();
-    return saved ? getUserById(defaultUserIds[saved]) ?? null : null;
-  });
+  // Role and user always come from the server session, never from browser storage.
+  const [role, setRole] = useState<AppRole | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [projectState, setProjectState] = useState<Project[]>(hydrateProjects);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -240,10 +231,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [leads, setLeads] = useState<User[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>(() => [...defaultUsers]);
 
+  // Clear the role hint older versions stored; it is no longer trusted or used.
   useEffect(() => {
-    if (role) writeJson(ROLE_KEY, role);
-    else removeItem(ROLE_KEY);
-  }, [role]);
+    removeItem(ROLE_KEY);
+  }, []);
 
   // Fetch full project list from backend database (server is the sole source of truth)
   const refreshProjects = useCallback(async () => {
@@ -367,11 +358,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // Initial load & authentication check
+  const clearSession = useCallback(() => {
+    setStoredToken(null);
+    setRole(null);
+    setUser(null);
+  }, []);
+
+  // Any 401 from the API means the session is gone: return to the login screen.
   useEffect(() => {
-    const initAuthAndData = async () => {
-      let token = getStoredToken();
-      if (token) {
+    onUnauthorized(() => {
+      clearSession();
+      if (typeof window !== 'undefined' && !window.location.pathname.endsWith('/login')) {
+        window.history.replaceState(null, '', `${import.meta.env.BASE_URL.replace(/\/$/, '')}/login`);
+      }
+    });
+    return () => onUnauthorized(null);
+  }, [clearSession]);
+
+  // Restore an existing session on load.
+  useEffect(() => {
+    const restoreSession = async () => {
+      if (getStoredToken()) {
         try {
           const authData = await api.auth.me();
           if (authData.user) {
@@ -379,42 +386,24 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             setRole(authData.user.role);
           }
         } catch {
-          // Token expired or invalid
-          token = null;
-          setStoredToken(null);
+          clearSession();
         }
       }
-
-      // Seamless Auto-Authentication: acquire fresh session token for the active role if token is missing
-      if (!token && role) {
-        const loginEmail =
-          role === 'hod'
-            ? 'hod@encalm.com'
-            : role === 'lead'
-              ? 'chinmay.saxena@encalm.com'
-              : 'digital.intern@encalm.com';
-        try {
-          const authRes = await api.auth.login(loginEmail, 'encalm');
-          setStoredToken(authRes.token);
-          setUser(authRes.user);
-          setRole(authRes.user.role);
-        } catch {
-          // If auto-login fails, clear invalid role to prompt clean login
-          setRole(null);
-          setUser(null);
-          setStoredToken(null);
-        }
-      }
-
-      await refreshProjects();
-      await refreshNotifications();
-      await refreshLeads();
-      await refreshUsers();
+      setAuthReady(true);
     };
+    restoreSession();
+  }, [clearSession]);
 
-    initAuthAndData();
+  const sessionActive = role !== null && !user?.mustChangePassword;
 
-    // Periodic poll for real-time updates and notification sync
+  // Load data once signed in, then poll for updates.
+  useEffect(() => {
+    if (!sessionActive) return;
+    refreshProjects();
+    refreshNotifications();
+    refreshLeads();
+    refreshUsers();
+
     const interval = setInterval(() => {
       refreshProjects();
       refreshNotifications();
@@ -423,7 +412,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [role, refreshProjects, refreshNotifications, refreshLeads, refreshUsers]);
+  }, [sessionActive, refreshProjects, refreshNotifications, refreshLeads, refreshUsers]);
 
   const canEdit = role !== null && EDITOR_ROLES.includes(role);
 
@@ -446,47 +435,38 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
 
   const login = useCallback(
-    async (roleOrEmail: string, password = 'encalm'): Promise<{ success: boolean; error?: string }> => {
-      let email = roleOrEmail.trim().toLowerCase();
-      if (email === 'hod') email = 'hod@encalm.com';
-      if (email === 'lead') email = 'lead@encalm.com';
-      if (email === 'coordinator' || email === 'coordinator@encalm.com') email = 'digital.intern@encalm.com';
-
+    async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
       try {
-        const result = await api.auth.login(email, password);
+        const result = await api.auth.login(email.trim().toLowerCase(), password);
         setStoredToken(result.token);
         setUser(result.user);
         setRole(result.user.role);
         setIsConnected(true);
-        refreshProjects();
-        refreshNotifications();
-        refreshLeads();
-        refreshUsers();
         return { success: true };
       } catch (err: any) {
-        // Fallback for offline mode
-        const targetRole: AppRole | null =
-          email === 'hod@encalm.com' ? 'hod'
-          : email === 'lead@encalm.com' ? 'lead'
-          : (email === 'coordinator@encalm.com' || email === 'digital.intern@encalm.com') ? 'coordinator'
-          : null;
-        if (targetRole) {
-          setRole(targetRole);
-          setUser(getUserById(defaultUserIds[targetRole]) ?? null);
-          return { success: true };
-        }
         return { success: false, error: err.message || 'Login failed' };
       }
     },
-    [refreshProjects, refreshNotifications, refreshLeads, refreshUsers],
+    [],
+  );
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const result = await api.auth.changePassword(currentPassword, newPassword);
+        setUser(result.user);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message || 'Failed to change password' };
+      }
+    },
+    [],
   );
 
   const logout = useCallback(() => {
-    setStoredToken(null);
-    setRole(null);
-    setUser(null);
     api.auth.logout().catch(() => {});
-  }, []);
+    clearSession();
+  }, [clearSession]);
 
   const markNotificationRead = useCallback(async (id: string) => {
     setNotifications((prev) =>
@@ -1083,7 +1063,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       refreshLeads,
       createLead,
       allotProject,
+      authReady,
       login,
+      changePassword,
       logout,
       refreshProjects,
       refreshNotifications,
@@ -1127,7 +1109,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       refreshLeads,
       createLead,
       allotProject,
+      authReady,
       login,
+      changePassword,
       logout,
       refreshProjects,
       refreshNotifications,

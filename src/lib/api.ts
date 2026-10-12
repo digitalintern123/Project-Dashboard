@@ -23,6 +23,13 @@ export function setStoredToken(token: string | null): void {
   }
 }
 
+let unauthorizedHandler: (() => void) | null = null;
+
+/** Registers the callback run when the server rejects the session (HTTP 401). */
+export function onUnauthorized(handler: (() => void) | null): void {
+  unauthorizedHandler = handler;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const headers: Record<string, string> = {
@@ -37,43 +44,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
   const url = path.startsWith('http') ? path : `${apiBase}${path}`;
 
-  let response = await fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers,
   });
 
-  // Auto-recovery: if request failed with 401 Unauthorized (and this isn't login), attempt auto-refresh
-  if (response.status === 401 && !path.includes('/api/auth/login')) {
-    try {
-      const savedRole = (typeof localStorage !== 'undefined' ? localStorage.getItem('encalm-projects-role-v1') : null) || 'coordinator';
-      const cleanRole = savedRole.replace(/"/g, '');
-      const loginEmail =
-        cleanRole === 'hod'
-          ? 'hod@encalm.com'
-          : cleanRole === 'lead'
-            ? 'chinmay.saxena@encalm.com'
-            : 'digital.intern@encalm.com';
-
-      const authRes = await fetch(`${apiBase}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: 'encalm' }),
-      });
-
-      if (authRes.ok) {
-        const authData = await authRes.json();
-        if (authData.token) {
-          setStoredToken(authData.token);
-          headers['Authorization'] = `Bearer ${authData.token}`;
-          response = await fetch(url, {
-            ...options,
-            headers,
-          });
-        }
-      }
-    } catch {
-      // Ignore retry failure and proceed to normal error handler
-    }
+  // Session expired or revoked: drop the token and let the app return to the login screen.
+  if (response.status === 401 && !path.startsWith('/api/auth/login')) {
+    setStoredToken(null);
+    unauthorizedHandler?.();
   }
 
   const data = await response.json().catch(() => ({}));
@@ -147,6 +126,15 @@ export const api = {
         body: JSON.stringify({ email, password }),
       }),
     me: () => request<{ user: User }>('/api/auth/me'),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      request<{ message: string; user: User }>('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }),
+    resetPassword: (userId: string) =>
+      request<{ message: string; temporaryPassword: string }>(`/api/auth/users/${encodeURIComponent(userId)}/reset-password`, {
+        method: 'POST',
+      }),
     logout: () => request<{ message: string }>('/api/auth/logout', { method: 'POST' }),
     getUsers: () => request<{ users: User[] }>('/api/auth/users'),
     getLeads: () => request<{ leads: User[] }>('/api/auth/leads'),
@@ -336,6 +324,8 @@ export const api = {
   email: {
     getLogs: (projectId?: string) =>
       request<{ logs: EmailLogItem[] }>(`/api/email/logs${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`),
+    searchDirectory: (q: string) =>
+      request<{ users: User[] }>(`/api/email/directory?q=${encodeURIComponent(q)}`),
     getSettings: () => request<{ settings: EmailSettings }>('/api/email/settings'),
     saveSettings: (settings: Partial<EmailSettings>) =>
       request<{ message: string; settings: EmailSettings }>('/api/email/settings', {

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { User } from '@/data/users';
+import { api } from '@/lib/api';
 
 interface MentionTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
   value: string;
@@ -130,12 +131,9 @@ export function MentionTextarea({
     const timer = setTimeout(async () => {
       try {
         setSearchingAzure(true);
-        const res = await fetch(`/api/email/directory?q=${encodeURIComponent(q)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.users)) {
-            setAzureUsers(data.users);
-          }
+        const data = await api.email.searchDirectory(q);
+        if (Array.isArray(data.users)) {
+          setAzureUsers(data.users);
         }
       } catch (err) {
         console.warn('Failed to query Encalm directory:', err);
