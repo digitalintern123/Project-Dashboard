@@ -6,13 +6,22 @@ import { productionConfigErrors } from '../src/config.js';
 const app = makeApp();
 
 describe('production config', () => {
-  const prod = (JWT_SECRET?: string) => productionConfigErrors({ NODE_ENV: 'production', JWT_SECRET } as NodeJS.ProcessEnv);
+  const KEY = Buffer.alloc(32, 7).toString('base64');
+  const prod = (JWT_SECRET?: string, SETTINGS_ENCRYPTION_KEY: string | undefined = KEY) =>
+    productionConfigErrors({ NODE_ENV: 'production', JWT_SECRET, SETTINGS_ENCRYPTION_KEY } as NodeJS.ProcessEnv);
 
   it('rejects a missing, short or default JWT secret', () => {
     expect(prod(undefined)).not.toHaveLength(0);
     expect(prod('short-secret')).not.toHaveLength(0);
     expect(prod('encalm-secure-prod-jwt-key-change-me')).not.toHaveLength(0);
     expect(prod('replace-with-a-strong-random-secret-key-32-chars-minimum')).not.toHaveLength(0);
+  });
+
+  it('requires a valid 32-byte SETTINGS_ENCRYPTION_KEY', () => {
+    const good = 'k'.repeat(10) + 'Xy7-random-0123456789-abcdefghij';
+    expect(prod(good, '')).not.toHaveLength(0);
+    expect(prod(good, 'too-short')).not.toHaveLength(0);
+    expect(prod(good, 'ab'.repeat(32))).toHaveLength(0);
   });
 
   it('accepts a long random secret, and does not apply outside production', () => {

@@ -7,6 +7,7 @@ import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { dispatchTagNotifications } from '../services/notifications.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
+import { publicBaseUrl } from '../config.js';
 
 const router = Router({ mergeParams: true });
 
@@ -94,7 +95,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
     updated_at: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
   });
 
-  const origin = req.headers.origin || 'http://localhost:5173';
+  const origin = publicBaseUrl(req);
   const authorName = req.user?.name || body.owner || 'Project Lead';
 
   if (taggedUsers.length > 0) {
@@ -177,7 +178,7 @@ router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params
 
   db.prepare(`UPDATE phases SET ${updates.join(', ')} WHERE id = ? AND project_id = ?`).run(...values);
 
-  const origin = req.headers.origin || 'http://localhost:5173';
+  const origin = publicBaseUrl(req);
   const authorName = req.user?.name || phase.owner || 'Project Lead';
 
   // Notify newly tagged users only when explicitly requested

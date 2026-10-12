@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import dns from 'node:dns';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { db } from '../db/database.js';
+import { ENCRYPTED_SETTING_KEYS, decryptSecret, encryptSecret, isEncrypted } from '../utils/secrets.js';
 
 export type EmailProvider = 'smtp' | 'microsoft_graph';
 
@@ -79,7 +80,7 @@ export function getSmtpConfig(): SmtpConfig {
   const portStr = getSetting('smtp_port') || process.env.SMTP_PORT || '587';
   const secureStr = getSetting('smtp_secure') || process.env.SMTP_SECURE || 'false';
   const user = getSetting('smtp_user') || process.env.SMTP_USER || '';
-  const pass = getSetting('smtp_pass') || process.env.SMTP_PASS || '';
+  const pass = decryptSecret(getSetting('smtp_pass')) || process.env.SMTP_PASS || '';
   const fromName = getSetting('smtp_from_name') || process.env.SMTP_FROM_NAME || 'Encalm Project Dashboard';
   const fromEmail = getSetting('smtp_from_email') || process.env.SMTP_FROM_EMAIL || user || 'notifications@encalm.com';
 
@@ -110,7 +111,7 @@ export function saveSmtpConfig(config: Partial<SmtpConfig>): void {
     if (config.secure !== undefined) upsert.run('smtp_secure', String(config.secure));
     if (config.user !== undefined) upsert.run('smtp_user', config.user);
     if (config.pass !== undefined && config.pass !== '••••••••') {
-      upsert.run('smtp_pass', config.pass);
+      upsert.run('smtp_pass', config.pass ? encryptSecret(config.pass) : '');
     }
     if (config.fromName !== undefined) upsert.run('smtp_from_name', config.fromName);
     if (config.fromEmail !== undefined) upsert.run('smtp_from_email', config.fromEmail);
@@ -189,7 +190,7 @@ export function getGraphConfig(): MicrosoftGraphConfig {
 
   const tenantId = getSetting('graph_tenant_id') || process.env.AZURE_TENANT_ID || process.env.MS_GRAPH_TENANT_ID || '';
   const clientId = getSetting('graph_client_id') || process.env.AZURE_CLIENT_ID || process.env.MS_GRAPH_CLIENT_ID || '';
-  const clientSecret = getSetting('graph_client_secret') || process.env.AZURE_CLIENT_SECRET || process.env.MS_GRAPH_CLIENT_SECRET || '';
+  const clientSecret = decryptSecret(getSetting('graph_client_secret')) || process.env.AZURE_CLIENT_SECRET || process.env.MS_GRAPH_CLIENT_SECRET || '';
   const senderEmail = getSetting('graph_sender_email') || process.env.MS_GRAPH_SENDER_EMAIL || 'notifications@encalm.com';
   const saveToSentItemsStr = getSetting('graph_save_to_sent_items') || 'true';
 
@@ -216,7 +217,7 @@ export function saveGraphConfig(config: Partial<MicrosoftGraphConfig>): void {
     if (config.tenantId !== undefined) upsert.run('graph_tenant_id', config.tenantId);
     if (config.clientId !== undefined) upsert.run('graph_client_id', config.clientId);
     if (config.clientSecret !== undefined && config.clientSecret !== '••••••••') {
-      upsert.run('graph_client_secret', config.clientSecret);
+      upsert.run('graph_client_secret', config.clientSecret ? encryptSecret(config.clientSecret) : '');
     }
     if (config.senderEmail !== undefined) upsert.run('graph_sender_email', config.senderEmail);
     if (config.saveToSentItems !== undefined) upsert.run('graph_save_to_sent_items', String(config.saveToSentItems));
@@ -584,13 +585,37 @@ export async function resendEmailLog(id: string): Promise<{ success: boolean; st
 /*                          Branded HTML Templates                           */
 /* ========================================================================= */
 
+/** One-off migration: encrypts any secret still stored in plaintext. */
+export function encryptPlaintextSettings(): void {
+  const update = db.prepare("UPDATE system_settings SET value = ?, updated_at = datetime('now') WHERE key = ?");
+  let migrated = 0;
+  for (const key of ENCRYPTED_SETTING_KEYS) {
+    const row = db.prepare('SELECT value FROM system_settings WHERE key = ?').get(key) as { value: string } | undefined;
+    if (row?.value && !isEncrypted(row.value)) {
+      update.run(encryptSecret(row.value), key);
+      migrated++;
+    }
+  }
+  if (migrated > 0) console.log(`✓ Encrypted ${migrated} stored email secret(s) at rest.`);
+}
+
+/** Escapes text for safe use in HTML element content and quoted attributes. */
+export function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function baseEmailWrapper(contentHtml: string, previewText: string = 'Encalm Projects Notification'): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${previewText}</title>
+  <title>${esc(previewText)}</title>
   <style>
     body {
       margin: 0;
@@ -714,13 +739,13 @@ export function buildTagNotificationHtml(data: {
   return baseEmailWrapper(`
     <div style="margin-bottom: 20px;">
       <p style="font-size: 16px; font-weight: 700; color: #173e49; margin: 0 0 6px 0;">
-        Hello ${data.recipientName},
+        Hello ${esc(data.recipientName)},
       </p>
       <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #2d3748;">
-        <strong>${data.taggedByName}</strong> from the Project Delivery Team has tagged you on a <strong>${data.entityType}</strong> in:
+        <strong>${esc(data.taggedByName)}</strong> from the Project Delivery Team has tagged you on a <strong>${esc(data.entityType)}</strong> in:
       </p>
       <p style="margin: 6px 0 0 0; font-size: 17px; font-weight: 800; color: #173e49;">
-        ${data.projectName} ${data.projectCode ? `<span style="font-size: 12px; font-weight: 600; color: #2e7c67; background: #edf5f0; padding: 2px 7px; border-radius: 4px; margin-left: 6px; border: 1px solid #cbe4d9;">${data.projectCode}</span>` : ''}
+        ${esc(data.projectName)} ${data.projectCode ? `<span style="font-size: 12px; font-weight: 600; color: #2e7c67; background: #edf5f0; padding: 2px 7px; border-radius: 4px; margin-left: 6px; border: 1px solid #cbe4d9;">${esc(data.projectCode)}</span>` : ''}
       </p>
     </div>
 
@@ -729,20 +754,20 @@ export function buildTagNotificationHtml(data: {
       <tbody>
         <tr style="border-bottom: 1px solid #eee8db;">
           <td style="padding: 10px 14px; color: #718096; font-weight: 600; width: 35%;">Facility / Location:</td>
-          <td style="padding: 10px 14px; color: #173e49; font-weight: 700;">${data.projectLocation || 'Encalm Airport Facility'}</td>
+          <td style="padding: 10px 14px; color: #173e49; font-weight: 700;">${esc(data.projectLocation || 'Encalm Airport Facility')}</td>
         </tr>
         <tr style="border-bottom: 1px solid #eee8db;">
           <td style="padding: 10px 14px; color: #718096; font-weight: 600;">Current Project Stage:</td>
-          <td style="padding: 10px 14px; color: #2e7c67; font-weight: 700;">${data.currentStage || 'Active Delivery'}</td>
+          <td style="padding: 10px 14px; color: #2e7c67; font-weight: 700;">${esc(data.currentStage || 'Active Delivery')}</td>
         </tr>
         <tr style="border-bottom: 1px solid #eee8db;">
-          <td style="padding: 10px 14px; color: #718096; font-weight: 600;">Tagged Item (${data.entityType}):</td>
-          <td style="padding: 10px 14px; color: #173e49; font-weight: 700;">${data.entityTitle}</td>
+          <td style="padding: 10px 14px; color: #718096; font-weight: 600;">Tagged Item (${esc(data.entityType)}):</td>
+          <td style="padding: 10px 14px; color: #173e49; font-weight: 700;">${esc(data.entityTitle)}</td>
         </tr>
         ${data.targetDate || data.entityContext ? `
         <tr>
           <td style="padding: 10px 14px; color: #718096; font-weight: 600;">Timeline / Target Date:</td>
-          <td style="padding: 10px 14px; color: #d19b35; font-weight: 700;">${data.targetDate || data.entityContext}</td>
+          <td style="padding: 10px 14px; color: #d19b35; font-weight: 700;">${esc(data.targetDate || data.entityContext)}</td>
         </tr>` : ''}
       </tbody>
     </table>
@@ -752,11 +777,11 @@ export function buildTagNotificationHtml(data: {
       <div style="background: #fffdf5; border: 2px solid #d19b35; border-radius: 10px; padding: 18px 20px; margin: 22px 0; box-shadow: 0 2px 8px rgba(209, 155, 53, 0.08);">
         <div style="margin-bottom: 8px;">
           <span style="font-size: 11px; font-weight: 800; color: #8c671b; text-transform: uppercase; letter-spacing: 0.8px;">
-            🚨 ACTION REQUIRED / COMMENT FROM ${data.taggedByName.toUpperCase()}:
+            🚨 ACTION REQUIRED / COMMENT FROM ${esc(data.taggedByName.toUpperCase())}:
           </span>
         </div>
         <div style="font-size: 15px; font-weight: 600; color: #173e49; line-height: 1.6; white-space: pre-wrap;">
-          "${data.comment.replace(/@([a-zA-Z0-9._-]+(?:\s+[a-zA-Z0-9._-]+)?)/g, '<span style="color: #2e7c67; font-weight: 700; background: #edf5f0; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbe4d9;">@$1</span>')}"
+          "${esc(data.comment).replace(/@([a-zA-Z0-9._-]+(?:\s+[a-zA-Z0-9._-]+)?)/g, '<span style="color: #2e7c67; font-weight: 700; background: #edf5f0; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbe4d9;">@$1</span>')}"
         </div>
       </div>
     ` : ''}
@@ -767,17 +792,17 @@ export function buildTagNotificationHtml(data: {
         ✉️ Zero-Login Required — Simply Hit "Reply" in Outlook
       </div>
       <div style="font-size: 12.5px; color: #235445; line-height: 1.5;">
-        You do not need to create an account or log into the dashboard. When you reply directly to this email in Outlook, your response will be delivered straight to <strong>${data.taggedByName}</strong> at <a href="mailto:${data.senderEmail || 'chinmay.saxena@encalm.com'}" style="color: #173e49; font-weight: 700;">${data.senderEmail || 'chinmay.saxena@encalm.com'}</a>.
+        You do not need to create an account or log into the dashboard. When you reply directly to this email in Outlook, your response will be delivered straight to <strong>${esc(data.taggedByName)}</strong> at <a href="mailto:${esc(data.senderEmail || 'chinmay.saxena@encalm.com')}" style="color: #173e49; font-weight: 700;">${esc(data.senderEmail || 'chinmay.saxena@encalm.com')}</a>.
       </div>
     </div>
 
     <!-- Optional Dashboard Link -->
     <div style="text-align: center; margin-top: 18px;">
-      <a href="${data.dashboardUrl}" style="color: #718096; font-size: 12px; text-decoration: underline;" target="_blank">
+      <a href="${esc(data.dashboardUrl)}" style="color: #718096; font-size: 12px; text-decoration: underline;" target="_blank">
         (Optional) Open Project Workspace in Dashboard →
       </a>
     </div>
-  `, `Action Required in ${data.projectName}: ${data.entityTitle}`);
+  `, `Action Required in ${esc(data.projectName)}: ${esc(data.entityTitle)}`);
 }
 
 /**
@@ -796,34 +821,34 @@ export function buildCriticalIssueHtml(data: {
   return baseEmailWrapper(`
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
       <span class="badge badge-red">CRITICAL ISSUE ALERT</span>
-      <span class="badge badge-gold">${data.projectName}</span>
+      <span class="badge badge-gold">${esc(data.projectName)}</span>
     </div>
 
     <p style="font-size: 16px; font-weight: 700; color: #b2473d; margin-top: 0;">
-      Attention ${data.recipientName},
+      Attention ${esc(data.recipientName)},
     </p>
     <p>
-      A high-severity issue requiring immediate leadership oversight has been logged on <strong>${data.projectName}</strong>.
+      A high-severity issue requiring immediate leadership oversight has been logged on <strong>${esc(data.projectName)}</strong>.
     </p>
 
     <div class="card-box" style="border-left: 4px solid #b2473d;">
       <div style="font-size: 15px; font-weight: 700; color: #173e49; margin-bottom: 6px;">
-        ${data.issueTitle}
+        ${esc(data.issueTitle)}
       </div>
       <div style="font-size: 12px; color: #718096; margin-bottom: 12px;">
-        Severity: <strong style="color: #b2473d;">${data.severity}</strong> &nbsp;•&nbsp; 
-        Category: <strong>${data.category || 'General'}</strong>
-        ${data.raisedBy ? ` &nbsp;•&nbsp; Raised by: <strong>${data.raisedBy}</strong>` : ''}
+        Severity: <strong style="color: #b2473d;">${esc(data.severity)}</strong> &nbsp;•&nbsp; 
+        Category: <strong>${esc(data.category || 'General')}</strong>
+        ${data.raisedBy ? ` &nbsp;•&nbsp; Raised by: <strong>${esc(data.raisedBy)}</strong>` : ''}
       </div>
       <p style="margin: 0; font-size: 13px; color: #2d3748; background: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2ddd3;">
-        ${data.detail}
+        ${esc(data.detail)}
       </p>
     </div>
 
     <div style="text-align: center;">
-      <a href="${data.dashboardUrl}" class="btn" style="background: #b2473d;" target="_blank">Review Critical Issue →</a>
+      <a href="${esc(data.dashboardUrl)}" class="btn" style="background: #b2473d;" target="_blank">Review Critical Issue →</a>
     </div>
-  `, `Critical Issue Alert: ${data.projectName}`);
+  `, `Critical Issue Alert: ${esc(data.projectName)}`);
 }
 
 /**
@@ -839,10 +864,10 @@ export function buildMilestoneApprovalHtml(data: {
 }): string {
   return baseEmailWrapper(`
     <p style="font-size: 16px; font-weight: 700; color: #173e49; margin-top: 0;">
-      Dear ${data.recipientName},
+      Dear ${esc(data.recipientName)},
     </p>
     <p>
-      A milestone requiring governance sign-off on <strong>${data.projectName}</strong> is waiting for review.
+      A milestone requiring governance sign-off on <strong>${esc(data.projectName)}</strong> is waiting for review.
     </p>
 
     <div class="card-box">
@@ -850,20 +875,20 @@ export function buildMilestoneApprovalHtml(data: {
         Milestone Pending Approval
       </div>
       <div style="font-size: 16px; font-weight: 700; color: #173e49; margin-bottom: 8px;">
-        ${data.milestoneTitle}
+        ${esc(data.milestoneTitle)}
       </div>
       <div style="font-size: 12px; color: #4a5568;">
-        Target Date: <strong>${data.targetDate}</strong> 
-        ${data.stage ? `&nbsp;•&nbsp; Stage: <strong>${data.stage}</strong>` : ''}
+        Target Date: <strong>${esc(data.targetDate)}</strong> 
+        ${data.stage ? `&nbsp;•&nbsp; Stage: <strong>${esc(data.stage)}</strong>` : ''}
       </div>
     </div>
 
     <p>As Project Coordinator, please log in to approve or reject this milestone milestone request.</p>
 
     <div style="text-align: center;">
-      <a href="${data.dashboardUrl}" class="btn" target="_blank">Review & Sign Off Milestone →</a>
+      <a href="${esc(data.dashboardUrl)}" class="btn" target="_blank">Review & Sign Off Milestone →</a>
     </div>
-  `, `Milestone Approval: ${data.milestoneTitle}`);
+  `, `Milestone Approval: ${esc(data.milestoneTitle)}`);
 }
 
 /**
@@ -881,41 +906,41 @@ export function buildProjectSummaryHtml(data: {
 }): string {
   return baseEmailWrapper(`
     <p style="font-size: 16px; font-weight: 700; color: #173e49; margin-top: 0;">
-      Hello ${data.recipientName},
+      Hello ${esc(data.recipientName)},
     </p>
     <p>
-      <strong>${data.senderName}</strong> has shared an executive project status update for <strong>${data.projectName}</strong>.
+      <strong>${esc(data.senderName)}</strong> has shared an executive project status update for <strong>${esc(data.projectName)}</strong>.
     </p>
 
     <div class="card-box">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <span style="font-size: 16px; font-weight: 700; color: #173e49;">${data.projectName}</span>
-        <span class="badge badge-teal">${data.status}</span>
+        <span style="font-size: 16px; font-weight: 700; color: #173e49;">${esc(data.projectName)}</span>
+        <span class="badge badge-teal">${esc(data.status)}</span>
       </div>
       
       <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0;">
         <tr>
           <td style="padding: 6px 0; color: #718096;">Progress:</td>
-          <td style="padding: 6px 0; font-weight: 700; text-align: right; color: #2e7c67;">${data.progress}% Completed</td>
+          <td style="padding: 6px 0; font-weight: 700; text-align: right; color: #2e7c67;">${esc(data.progress)}% Completed</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; color: #718096;">Health:</td>
-          <td style="padding: 6px 0; font-weight: 700; text-align: right;">${data.health}</td>
+          <td style="padding: 6px 0; font-weight: 700; text-align: right;">${esc(data.health)}</td>
         </tr>
       </table>
 
       ${data.customNote ? `
         <div style="margin-top: 12px; padding: 12px; background: #ffffff; border-radius: 6px; border: 1px solid #e2ddd3;">
           <div style="font-size: 11px; text-transform: uppercase; color: #718096; font-weight: 700; margin-bottom: 4px;">Executive Note:</div>
-          <div style="font-size: 13px; color: #2d3748; white-space: pre-wrap;">${data.customNote}</div>
+          <div style="font-size: 13px; color: #2d3748; white-space: pre-wrap;">${esc(data.customNote)}</div>
         </div>
       ` : ''}
     </div>
 
     <div style="text-align: center;">
-      <a href="${data.dashboardUrl}" class="btn" target="_blank">Open Project in Dashboard →</a>
+      <a href="${esc(data.dashboardUrl)}" class="btn" target="_blank">Open Project in Dashboard →</a>
     </div>
-  `, `Project Update: ${data.projectName}`);
+  `, `Project Update: ${esc(data.projectName)}`);
 }
 
 /**
@@ -927,7 +952,7 @@ export function buildTestEmailHtml(recipientName: string): string {
       ✓ SMTP Integration Connected Successfully!
     </p>
     <p>
-      Hello <strong>${recipientName}</strong>,
+      Hello <strong>${esc(recipientName)}</strong>,
     </p>
     <p>
       This is a test notification confirming that the Encalm Project Dashboard email service is operational and properly authenticated with your SMTP server.

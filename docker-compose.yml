@@ -13,6 +13,8 @@ services:
       - API_PORT=5000
       # Required: the server refuses to start without a strong secret (32+ chars).
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -base64 48)}
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY:?Set SETTINGS_ENCRYPTION_KEY in .env (openssl rand -base64 32)}
+      - APP_BASE_URL=${APP_BASE_URL:-}
       - COOKIE_DOMAIN=${COOKIE_DOMAIN:-}
       - CORS_ORIGIN=${CORS_ORIGIN:-}
       - DATA_DIR=/app/server/data

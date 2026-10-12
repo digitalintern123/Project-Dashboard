@@ -6,6 +6,7 @@ import { autoRestoreSnapshotIfEmpty, saveDatabaseSnapshot } from './utils/backup
 import { createApp } from './app.js';
 import { fanOutLegacyNotifications } from './utils/notify.js';
 import { pruneExpiredRefreshTokens } from './utils/session.js';
+import { encryptPlaintextSettings } from './services/email.js';
 
 assertProductionConfig();
 
@@ -28,6 +29,7 @@ async function startServer() {
     autoRestoreSnapshotIfEmpty();
     fanOutLegacyNotifications();
     pruneExpiredRefreshTokens();
+    encryptPlaintextSettings();
 
     server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`===============================================`);

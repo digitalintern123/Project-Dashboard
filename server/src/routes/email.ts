@@ -18,6 +18,7 @@ import {
 import { fetchFullProject } from './projects.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
+import { publicBaseUrl } from '../config.js';
 
 const router = Router();
 
@@ -287,7 +288,7 @@ router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectU
     return res.status(400).json({ error: 'No valid recipient email addresses provided.' });
   }
 
-  const origin = req.headers.origin || 'http://localhost:5173';
+  const origin = publicBaseUrl(req);
   const dashboardUrl = `${origin}/project/${projectId}`;
 
   const dispatchResults: any[] = [];
@@ -448,7 +449,7 @@ router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBod
   // Anti-Spoofing Security: Strictly bind sender identity to the authenticated user from JWT token
   const sender = req.user.name;
   const senderEmail = req.user.email;
-  const origin = req.headers.origin || 'http://localhost:5173';
+  const origin = publicBaseUrl(req);
   const dashboardUrl = `${origin}/project/${projectId}`;
 
   const dispatchResults: Array<{

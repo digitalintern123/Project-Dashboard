@@ -953,9 +953,14 @@ export function EmailHubModal({
               </div>
 
               <div className="flex-1 overflow-auto bg-[#f7f5ef] p-4">
-                <div
-                  className="rounded-xl border border-[#e2ddd3] bg-white p-4 shadow-sm"
-                  dangerouslySetInnerHTML={{ __html: selectedPreview.htmlContent }}
+                {/* Rendered in a fully sandboxed iframe: no scripts, no same-origin access,
+                    no forms or navigation, and its styles cannot leak into the app. */}
+                <iframe
+                  title={`Email preview: ${selectedPreview.subject}`}
+                  sandbox=""
+                  referrerPolicy="no-referrer"
+                  srcDoc={selectedPreview.htmlContent}
+                  className="h-[60vh] w-full rounded-xl border border-[#e2ddd3] bg-white shadow-sm"
                 />
               </div>
 

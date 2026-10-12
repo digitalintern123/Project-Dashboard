@@ -7,6 +7,7 @@ import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { dispatchTagNotifications, dispatchCriticalIssueAlert } from '../services/notifications.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
+import { publicBaseUrl } from '../config.js';
 
 const router = Router({ mergeParams: true });
 
@@ -53,7 +54,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
     order_index: nextOrder,
   });
 
-  const origin = req.headers.origin || 'http://localhost:5173';
+  const origin = publicBaseUrl(req);
   const authorName = req.user?.name || body.owner || 'Project Lead';
 
   // 1. Notify tagged users if any
@@ -145,7 +146,7 @@ router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params
     db.prepare(`UPDATE issues SET ${updates.join(', ')} WHERE id = ? AND project_id = ?`).run(...values);
   }
 
-  const origin = req.headers.origin || 'http://localhost:5173';
+  const origin = publicBaseUrl(req);
   const authorName = req.user?.name || issue.owner || 'Project Lead';
 
   // Notify newly tagged users only when explicitly requested

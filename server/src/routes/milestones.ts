@@ -7,6 +7,7 @@ import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { dispatchTagNotifications, dispatchMilestoneApprovalAlert } from '../services/notifications.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
+import { publicBaseUrl } from '../config.js';
 
 const router = Router({ mergeParams: true });
 
@@ -45,7 +46,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
     order_index: nextOrder,
   });
 
-  const origin = req.headers.origin || 'http://localhost:5173';
+  const origin = publicBaseUrl(req);
   const authorName = req.user?.name || body.owner || 'Project Lead';
 
   // 1. Notify tagged users
@@ -134,7 +135,7 @@ router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ pa
     db.prepare(`UPDATE milestones SET ${updates.join(', ')} WHERE id = ? AND project_id = ?`).run(...values);
   }
 
-  const origin = req.headers.origin || 'http://localhost:5173';
+  const origin = publicBaseUrl(req);
   const authorName = req.user?.name || milestone.owner || 'Project Lead';
 
   // Notify newly tagged users only when explicitly requested
