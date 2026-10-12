@@ -513,7 +513,9 @@ How it works: iisnode starts `server.cjs` and passes a named pipe (such as `\\.\
 
 ### 15.1 Code
 
-Plesk → the domain → **Git**: add the repository, branch `main`, deployed to the domain folder (here `/projects.encalmhospitality.com`, the folder that will contain `package.json`).
+Plesk → the domain → **Git**: add the repository, branch **`main`**, deployed to the folder that will contain `package.json` (for example `httpdocs`). If that folder is `httpdocs`, the Document Root **must** be `httpdocs\dist` (15.3): otherwise IIS would serve the source code and the `iisnode` logs to anyone.
+
+`dist\` and `node_modules\` are not in git; **NPM install** and the build create them on the server (15.5). Plesk does not pull new commits by itself: after each push, click **Pull Updates** (and **Deploy Now** if the deployment mode is *Manual*), or add Plesk's **Webhook URL** to GitHub → repository → **Settings → Webhooks** so pushes to `main` are pulled automatically.
 
 ### 15.2 Data folder
 
@@ -527,9 +529,9 @@ Plesk → the domain → **Node.js**:
 |---|---|
 | Node.js Version | 22.x (e.g. 22.23.2) |
 | Package Manager | npm |
-| Document Root | `/projects.encalmhospitality.com/dist` |
+| Document Root | the Application Root + `/dist`, e.g. `/httpdocs/dist` |
 | Application Mode | production |
-| Application Root | `/projects.encalmhospitality.com` (the folder containing `package.json`) |
+| Application Root | the folder containing `package.json`, e.g. `/httpdocs` |
 | Application Startup File | `server.cjs` |
 
 ### 15.4 Custom environment variables
