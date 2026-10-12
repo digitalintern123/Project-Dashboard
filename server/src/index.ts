@@ -10,18 +10,11 @@ import { pruneExpiredRefreshTokens } from './utils/session.js';
 import { encryptPlaintextSettings, startEmailWorker, stopEmailWorker } from './services/email.js';
 import { logger } from './logger.js';
 import { appRelease, captureError, flushSentry, initSentry } from './sentry.js';
+import { listenTarget } from './listen.js';
 
 assertProductionConfig();
 
-const isProduction = process.env.NODE_ENV === 'production';
-const PORT = Number(
-  process.env.API_PORT ||
-    process.env.BACKEND_PORT ||
-    (isProduction && process.env.PORT && process.env.PORT !== '5173' ? process.env.PORT : 5000),
-);
-
-// Behind Nginx set HOST=127.0.0.1 so the app port is not reachable from outside.
-const HOST = process.env.HOST || '0.0.0.0';
+const target = listenTarget();
 
 const app = createApp();
 
@@ -39,9 +32,9 @@ async function startServer() {
     encryptPlaintextSettings();
     startEmailWorker();
 
-    server = app.listen(PORT, HOST, () => {
-      logger.info({ host: HOST, port: PORT, release: appRelease() }, 'Encalm Project Dashboard listening');
-    });
+    const onListening = () => logger.info({ ...target, release: appRelease() }, 'Encalm Project Dashboard listening');
+    server =
+      'pipe' in target ? app.listen(target.pipe, onListening) : app.listen(target.port, target.host, onListening);
   } catch (err) {
     logger.fatal({ err }, 'Failed to start server');
     captureError(err);
