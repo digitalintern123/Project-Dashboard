@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { db, uploadsDir } from '../db/database.js';
@@ -169,8 +169,10 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: any) {
   }
 }
 
-projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), handlePhotoUpload);
-projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), handlePhotoUpload);
+// Base64 photo uploads need a larger body than the global 1 MB limit.
+const photoJson = express.json({ limit: '50mb' });
+projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), photoJson, handlePhotoUpload);
+projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), photoJson, handlePhotoUpload);
 
 /**
  * Delete a specific site photograph

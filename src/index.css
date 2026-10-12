@@ -1,4 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap');
+/* Fonts are self-hosted (bundled from npm) so the CSP can stay 'self'-only. */
+@import '@fontsource/dm-mono/400.css';
+@import '@fontsource/dm-mono/500.css';
+@import '@fontsource-variable/manrope/index.css';
+@import '@fontsource-variable/newsreader/opsz.css';
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -141,8 +145,8 @@
   --chart-4: 21 75% 63%;
   --chart-5: 194 15% 47%;
 
-  --app-font-sans: 'Manrope', sans-serif;
-  --app-font-serif: 'Newsreader', Georgia, serif;
+  --app-font-sans: 'Manrope Variable', 'Manrope', sans-serif;
+  --app-font-serif: 'Newsreader Variable', 'Newsreader', Georgia, serif;
   --app-font-mono: 'DM Mono', monospace;
   --radius: 0.5rem; /* 8px */
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0); /*replace with H S L */

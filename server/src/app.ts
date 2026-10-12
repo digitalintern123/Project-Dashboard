@@ -10,6 +10,7 @@ import cookieParser from 'cookie-parser';
 
 import { uploadsDir } from './db/database.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './utils/session.js';
+import { envInt } from './config.js';
 
 import authRouter from './routes/auth.js';
 import projectsRouter from './routes/projects.js';
@@ -30,46 +31,58 @@ export function createApp() {
   // Trust reverse proxy (Nginx, Docker, Cloudflare, Traefik) for correct client IP detection
   app.set('trust proxy', 1);
 
-  // 1. Security Headers via Helmet
+  // 1. Security headers
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Disabled to allow internal media, SVGs, and base64 canvases without CSP breakage
+      contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+          defaultSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'", 'data:'],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+      strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
       crossOriginEmbedderPolicy: false,
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginResourcePolicy: { policy: 'same-origin' },
     })
   );
 
   // 2. HTTP Compression (Gzip / Deflate)
   app.use(compression());
 
-  // 3. CORS Configuration
-  const allowedOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-    : null;
+  // 3. CORS. Same-origin requests need no CORS headers. In production only the
+  // origins listed in CORS_ORIGIN get them; in development only localhost does.
+  // Other origins simply get no CORS headers, so browsers block the response.
+  const allowedOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const isLocalhost = (origin: string) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
-        if (!origin) return callback(null, true);
-        if (!isProduction) return callback(null, true);
-        if (allowedOrigins && allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        if (!allowedOrigins) {
-          // If no CORS_ORIGIN specified in production, allow same host or reflect
-          return callback(null, true);
-        }
-        return callback(new Error(`CORS policy blocked access from origin: ${origin}`));
+        if (!origin) return callback(null, false);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (!isProduction && isLocalhost(origin)) return callback(null, true);
+        return callback(null, false);
       },
       credentials: true,
     })
   );
 
-  // 4. Rate Limiting
+  // 4. Rate Limiting (limits configurable for tests and unusual deployments)
   const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 600, // Limit each IP to 600 requests per 15 minutes
+    windowMs: 15 * 60 * 1000,
+    max: envInt('API_RATE_LIMIT', 600),
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests from this IP, please try again after 15 minutes.' },
@@ -77,15 +90,15 @@ export function createApp() {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 30, // 30 login attempts per 15 min
+    max: envInt('LOGIN_RATE_LIMIT', 10),
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Too many login attempts, please try again after 15 minutes.' },
+    message: { error: 'Too many sign-in attempts from this network. Please try again in 15 minutes.' },
   });
 
   const emailLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100, // 100 email notifications per 15 min
+    max: envInt('EMAIL_RATE_LIMIT', 100),
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Email dispatch rate limit reached. Please try again shortly.' },
@@ -93,12 +106,16 @@ export function createApp() {
 
   app.use('/api', apiLimiter);
   app.use('/api/auth/login', authLimiter);
-  app.use('/api/email/test-smtp', emailLimiter);
+  app.use('/api/email/test', emailLimiter);
+  app.use('/api/email/send-project-update', emailLimiter);
   app.use('/api/email/tag-and-comment', emailLimiter);
 
-  // 5. Body Parsers
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+  // 5. Body parsers: 1 MB for JSON and forms. Photo uploads parse their own
+  // (larger) bodies in routes/photos.ts.
+  const isPhotoUpload = (req: express.Request) => req.method === 'POST' && /^\/api\/projects\/[^/]+\/photos(\/batch)?\/?$/.test(req.path);
+  const jsonParser = express.json({ limit: '1mb' });
+  app.use((req, res, next) => (isPhotoUpload(req) ? next() : jsonParser(req, res, next)));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   app.use(cookieParser());
 

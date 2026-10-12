@@ -2,14 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/database.js';
 
-const isProduction = process.env.NODE_ENV === 'production';
-const DEFAULT_JWT_SECRET = 'encalm-secret-jwt-key-2026';
+// Development-only fallback. In production the server refuses to start without a
+// strong JWT_SECRET (see config.ts).
+const DEV_JWT_SECRET = 'encalm-secret-jwt-key-2026';
 
-if (isProduction && (!process.env.JWT_SECRET || process.env.JWT_SECRET === DEFAULT_JWT_SECRET)) {
-  console.warn('[SECURITY WARNING] Running in production mode with default or unset JWT_SECRET! Please define a strong JWT_SECRET in your .env file.');
-}
-
-export const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
+export const JWT_SECRET = process.env.JWT_SECRET || DEV_JWT_SECRET;
 
 export type UserPayload = {
   id: string;
