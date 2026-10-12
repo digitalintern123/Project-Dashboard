@@ -23,7 +23,6 @@ import { todayLabel } from '@/lib/date';
 import { getUserById, users as defaultUsers, type User } from '@/data/users';
 import { api, getStoredToken, onUnauthorized, setStoredToken, type NotificationItem } from '@/lib/api';
 import { calculateWeightedProgress, sortProjectsIncompleteFirst } from '@/lib/calculations';
-import portfolioFallback from '@/data/portfolio-fallback.json';
 
 export type AppRole = 'hod' | 'lead' | 'coordinator';
 export type AuthUser = User;
@@ -205,26 +204,12 @@ function isProjectLike(value: unknown): value is Project {
   );
 }
 
-function seedState(): Project[] {
-  if (Array.isArray(portfolioFallback?.projects) && portfolioFallback.projects.length > 0) {
-    return sortProjectsIncompleteFirst((portfolioFallback.projects as unknown as Project[]).map(normaliseProject));
-  }
-  return [];
-}
-
-function hydrateProjects(): Project[] {
-  if (Array.isArray(portfolioFallback?.projects) && portfolioFallback.projects.length > 0) {
-    return sortProjectsIncompleteFirst((portfolioFallback.projects as unknown as Project[]).map(normaliseProject));
-  }
-  return [];
-}
-
 export function AppStateProvider({ children }: { children: ReactNode }) {
   // Role and user always come from the server session, never from browser storage.
   const [role, setRole] = useState<AppRole | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [projectState, setProjectState] = useState<Project[]>(hydrateProjects);
+  const [projectState, setProjectState] = useState<Project[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
@@ -240,35 +225,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const refreshProjects = useCallback(async () => {
     try {
       const data = await api.projects.getAll();
-      if (Array.isArray(data.projects) && data.projects.length >= 68) {
-        setProjectState(data.projects.map(normaliseProject));
-        setIsConnected(true);
-      } else if (Array.isArray(data.projects) && data.projects.length > 0 && data.projects.length < 68) {
-        // Backend has partial data (e.g. only 2 hotels); auto-trigger restoration of all 68
-        console.warn(`[AppState] Backend only returned ${data.projects.length} projects (< 68). Triggering restore of all 3 PDFs...`);
-        try {
-          await api.system.restoreAllPdfs();
-          const refreshed = await api.projects.getAll();
-          if (Array.isArray(refreshed.projects) && refreshed.projects.length >= 68) {
-            setProjectState(refreshed.projects.map(normaliseProject));
-            setIsConnected(true);
-            return;
-          }
-        } catch {}
-        // Fallback to complete 68 snapshot
-        if (Array.isArray(portfolioFallback?.projects) && portfolioFallback.projects.length >= 68) {
-          setProjectState((portfolioFallback.projects as unknown as Project[]).map(normaliseProject));
-        }
-      } else if (Array.isArray(data.projects)) {
+      if (Array.isArray(data.projects)) {
         setProjectState(data.projects.map(normaliseProject));
         setIsConnected(true);
       }
     } catch {
       setIsConnected(false);
-      // When offline or disconnected, ensure full 68-facility fallback is active
-      if (Array.isArray(portfolioFallback?.projects) && portfolioFallback.projects.length >= 68) {
-        setProjectState((prev) => (prev.length < 68 ? (portfolioFallback.projects as unknown as Project[]).map(normaliseProject) : prev));
-      }
     }
   }, []);
 
