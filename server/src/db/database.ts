@@ -1,13 +1,10 @@
 import Database from 'better-sqlite3';
 import path from 'node:path';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { defaultDataDir } from '../paths.js';
 import { runMigrations } from './migrate.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export const dataDir = process.env.DATA_DIR || path.resolve(__dirname, '../../data');
+export const dataDir = process.env.DATA_DIR || defaultDataDir;
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }

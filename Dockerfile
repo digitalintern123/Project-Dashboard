@@ -1,60 +1,40 @@
 # ==============================================================================
-# ENCALM PROJECT DASHBOARD - PRODUCTION DOCKERFILE
-# Multi-stage build for minimal image size, high security, and fast cold-starts
+# ENCALM PROJECT DASHBOARD - PRODUCTION IMAGE
+# Stage 1 builds the SPA and compiles the server; stage 2 runs plain Node with
+# production dependencies only (no TypeScript tooling).
 # ==============================================================================
 
-# Stage 1: Build the client assets
 FROM node:22-alpine AS builder
-
 WORKDIR /app
-
-# Install dependencies needed for node native modules (better-sqlite3)
+# Toolchain for native modules (better-sqlite3)
 RUN apk add --no-cache python3 make g++
-
 COPY package.json package-lock.json ./
 RUN npm ci
-
 COPY . .
+RUN npm run build
 
-# Build Vite frontend bundle
-RUN npm run build:client
-
-# Stage 2: Production runtime
 FROM node:22-alpine AS runner
-
 WORKDIR /app
-
-# Ensure runtime dependencies for SQLite native bindings
+# sqlite: CLI for scripts/backup.sh; dumb-init: forwards signals for graceful shutdown
 RUN apk add --no-cache sqlite dumb-init
 
 ENV NODE_ENV=production
 ENV PORT=5000
 ENV API_PORT=5000
 
-# Install production dependencies only
 COPY package.json package-lock.json ./
-RUN apk add --no-cache python3 make g++ \
-    && npm ci --omit=dev \
-    && apk del python3 make g++
+RUN apk add --no-cache --virtual .build python3 make g++ \
+    && npm ci --omit=dev --no-audit --no-fund \
+    && apk del .build
 
-# Copy built frontend assets
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server/dist ./server/dist
+COPY scripts/backup.sh scripts/restore.sh ./scripts/
 
-# Copy backend source code and seed files
-COPY server ./server
-COPY tsconfig.json ./
+RUN mkdir -p /app/server/data/uploads && chown -R node:node /app/server/data
+USER node
 
-# Create persistent storage directory for SQLite database and photo uploads
-RUN mkdir -p /app/server/data/uploads
-
-# Expose HTTP port
 EXPOSE 5000
-
-# Volume declaration for data persistence
 VOLUME ["/app/server/data"]
-
-# Use dumb-init to properly forward SIGTERM/SIGINT signals to Node
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-
-# Launch Express production server
-CMD ["npx", "tsx", "server/src/index.ts"]
+CMD ["node", "--enable-source-maps", "server/dist/index.js"]

@@ -10,3 +10,10 @@ scratch
 npm-debug.log*
 .DS_Store
 Thumbs.db
+# Never bake live data, build output or test artefacts into the image
+server/data
+server/dist
+coverage
+playwright-report
+test-results
+.husky

@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { migrationsDir } from '../paths.js';
 import type Database from 'better-sqlite3';
 
 /**
@@ -16,7 +16,7 @@ import type Database from 'better-sqlite3';
  * must leave `PRAGMA foreign_key_check` clean.
  */
 
-export const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
+export const MIGRATIONS_DIR = migrationsDir;
 
 type MigrationFile = { version: number; name: string; sql: string; checksum: string };
 

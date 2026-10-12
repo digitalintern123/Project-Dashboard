@@ -2,13 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 
 import { uploadsDir } from './db/database.js';
+import { clientDistDir } from './paths.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './utils/session.js';
 import { envInt } from './config.js';
 import { requireAuth } from './middleware/auth.js';
@@ -187,9 +187,7 @@ export function createApp() {
   });
 
   // 10. Serve Frontend Static Build
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const distPath = path.resolve(__dirname, '../../dist');
+  const distPath = clientDistDir;
 
   if (fs.existsSync(distPath)) {
     // Serve hashed assets with immutable 1-year caching
