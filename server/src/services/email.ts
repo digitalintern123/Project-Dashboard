@@ -328,13 +328,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<{
     try {
       const transporter = await createSmtpTransporter(smtpCfg);
 
-      const fromAddress = smtpCfg.fromName
-        ? `"${smtpCfg.fromName}" <${smtpCfg.fromEmail || smtpCfg.user}>`
-        : smtpCfg.fromEmail || smtpCfg.user;
+      // Address objects let nodemailer quote display names safely.
+      const fromAddress = { name: smtpCfg.fromName || '', address: smtpCfg.fromEmail || smtpCfg.user };
 
       await transporter.sendMail({
         from: fromAddress,
-        to: options.recipientName ? `"${options.recipientName}" <${options.to}>` : options.to,
+        to: { name: options.recipientName || '', address: options.to },
         replyTo: options.replyTo,
         subject: options.subject,
         html: options.html,
@@ -509,13 +508,12 @@ export async function resendEmailLog(id: string): Promise<{ success: boolean; st
     try {
       const transporter = await createSmtpTransporter(smtpCfg);
 
-      const fromAddress = smtpCfg.fromName
-        ? `"${smtpCfg.fromName}" <${smtpCfg.fromEmail || smtpCfg.user}>`
-        : smtpCfg.fromEmail || smtpCfg.user;
+      // Address objects let nodemailer quote display names safely.
+      const fromAddress = { name: smtpCfg.fromName || '', address: smtpCfg.fromEmail || smtpCfg.user };
 
       await transporter.sendMail({
         from: fromAddress,
-        to: row.recipient_name ? `"${row.recipient_name}" <${row.recipient_email}>` : row.recipient_email,
+        to: { name: row.recipient_name || '', address: row.recipient_email },
         subject: row.subject,
         html: row.html_content,
       });

@@ -16,8 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "create-user": "tsx server/src/scripts/create-user.ts",
     "restore:all": "tsx server/src/scripts/restore-all-pdfs.ts",
-    "seed:all": "tsx server/src/scripts/restore-all-pdfs.ts",
-    "test:live": "tsx server/src/scripts/test-all-apis.ts"
+    "seed:all": "tsx server/src/scripts/restore-all-pdfs.ts"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
@@ -103,6 +102,7 @@
     "@types/react-dom": "^19.2.0",
     "@types/supertest": "^7.2.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "@vitest/coverage-v8": "^5.0.3",
     "concurrently": "^10.0.6",
     "supertest": "^7.3.1",
     "tailwindcss": "^4.1.14",

@@ -441,6 +441,10 @@ router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBod
     }
   }
 
+  if (!db.prepare('SELECT 1 FROM projects WHERE id = ?').get(projectId)) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
   const finalUserIds = Array.from(combinedUserIds);
 
   if (finalUserIds.length === 0) {

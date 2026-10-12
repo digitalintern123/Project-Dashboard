@@ -12,3 +12,9 @@ process.env.NODE_ENV = 'test';
 // Many logins per test file come from the same address; keep the limiters out of the way.
 process.env.LOGIN_RATE_LIMIT = '100000';
 process.env.API_RATE_LIMIT = '100000';
+// Never let tests reach a real mail server or Microsoft Graph: with nothing
+// configured, every email lands in the in-app outbox.
+for (const key of Object.keys(process.env)) {
+  if (/^(SMTP_|MS_GRAPH_|AZURE_)/.test(key)) delete process.env[key];
+}
+delete process.env.APP_BASE_URL;

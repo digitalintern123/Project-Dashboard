@@ -10,7 +10,6 @@ import { largeJson } from '../validation/large-json.js';
 import { audited } from '../utils/audit.js';
 
 const router = Router();
-const isProduction = process.env.NODE_ENV === 'production';
 
 // GET export database as JSON (Coordinator or Lead required)
 router.get('/export', requireAuth, requireRole(['coordinator', 'lead']), (req: AuthenticatedRequest, res) => {
@@ -52,7 +51,7 @@ router.post('/import', requireAuth, requireRole(['coordinator']), largeJson, val
 
 // Helper to check production wipe safeguards
 function assertResetAllowed(res: any): boolean {
-  if (isProduction && process.env.ALLOW_SYSTEM_RESET !== 'true') {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SYSTEM_RESET !== 'true') {
     res.status(403).json({
       error: 'Destructive system resets are disabled in production mode. Set ALLOW_SYSTEM_RESET=true in server environment to override.',
     });

@@ -52,7 +52,6 @@ Open <http://localhost:5173>. The frontend Vite dev server automatically proxies
 | `npm run seed` | Re-seeds SQLite database with the standard 20 projects |
 | `npm run build` | Builds frontend production bundle to `dist/` |
 | `npm run typecheck` | Full TypeScript type check across both frontend and backend |
-| `node scripts/test-e2e.mjs` | Runs automated E2E smoke tests against backend REST endpoints |
 
 Run `npm run typecheck` before committing — `npm run build` does not fail on type
 errors.
