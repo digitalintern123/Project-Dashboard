@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 
 import { uploadsDir } from './db/database.js';
+import { ACCESS_COOKIE, REFRESH_COOKIE } from './utils/session.js';
 
 import authRouter from './routes/auth.js';
 import projectsRouter from './routes/projects.js';
@@ -97,6 +99,22 @@ export function createApp() {
   // 5. Body Parsers
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  app.use(cookieParser());
+
+  // CSRF protection for cookie sessions: state-changing API requests must carry a
+  // custom header, which a cross-site form or image cannot set and a cross-site
+  // fetch cannot send without passing CORS. Requests with no session cookie have
+  // nothing to forge and fall through to the normal 401.
+  app.use('/api', (req, res, next) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+    const hasSession = Boolean(req.cookies?.[ACCESS_COOKIE] || req.cookies?.[REFRESH_COOKIE]);
+    const isSessionStart = req.path === '/auth/login' || req.path === '/auth/refresh';
+    if ((hasSession || isSessionStart) && req.get('X-Requested-With') !== 'XMLHttpRequest') {
+      return res.status(403).json({ error: 'Forbidden: missing CSRF header' });
+    }
+    next();
+  });
 
   // 6. Serve Uploaded Media with 1-day Cache
   app.use('/uploads', express.static(uploadsDir, { maxAge: '1d' }));

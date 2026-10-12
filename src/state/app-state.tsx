@@ -21,7 +21,7 @@ import {
 import { removeItem } from '@/lib/storage';
 import { todayLabel } from '@/lib/date';
 import { getUserById, users as defaultUsers, type User } from '@/data/users';
-import { api, getStoredToken, onUnauthorized, setStoredToken, type NotificationItem } from '@/lib/api';
+import { api, onUnauthorized, type NotificationItem } from '@/lib/api';
 import { calculateWeightedProgress, sortProjectsIncompleteFirst } from '@/lib/calculations';
 
 export type AppRole = 'hod' | 'lead' | 'coordinator';
@@ -321,7 +321,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
 
   const clearSession = useCallback(() => {
-    setStoredToken(null);
     setRole(null);
     setUser(null);
   }, []);
@@ -340,16 +339,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // Restore an existing session on load.
   useEffect(() => {
     const restoreSession = async () => {
-      if (getStoredToken()) {
-        try {
-          const authData = await api.auth.me();
-          if (authData.user) {
-            setUser(authData.user);
-            setRole(authData.user.role);
-          }
-        } catch {
-          clearSession();
+      // The session cookie is httpOnly, so ask the server who we are. An expired
+      // access token is refreshed transparently by the API client.
+      try {
+        const authData = await api.auth.me();
+        if (authData.user) {
+          setUser(authData.user);
+          setRole(authData.user.role);
         }
+      } catch {
+        clearSession();
       }
       setAuthReady(true);
     };
@@ -400,7 +399,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
       try {
         const result = await api.auth.login(email.trim().toLowerCase(), password);
-        setStoredToken(result.token);
         setUser(result.user);
         setRole(result.user.role);
         setIsConnected(true);

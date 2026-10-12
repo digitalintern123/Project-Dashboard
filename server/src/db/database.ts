@@ -49,8 +49,21 @@ export function initDatabase() {
       title TEXT NOT NULL,
       initials TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      must_change_password INTEGER NOT NULL DEFAULT 0
+      must_change_password INTEGER NOT NULL DEFAULT 0,
+      token_version INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      revoked_at TEXT,
+      replaced_by TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
@@ -248,6 +261,9 @@ export function initDatabase() {
     if (!userColNames.has('must_change_password')) {
       db.prepare("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0").run();
     }
+    if (!userColNames.has('token_version')) {
+      db.prepare("ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0").run();
+    }
 
     // Safe migration of legacy 'Build & install' phase names to 'Execution'
     db.prepare("UPDATE phases SET name = 'Execution' WHERE name IN ('Build & install', 'Build and install', 'Build & installation')").run();
@@ -267,11 +283,12 @@ export function initDatabase() {
           title TEXT NOT NULL,
           initials TEXT NOT NULL,
           created_at TEXT NOT NULL DEFAULT (datetime('now')),
-          must_change_password INTEGER NOT NULL DEFAULT 0
+          must_change_password INTEGER NOT NULL DEFAULT 0,
+          token_version INTEGER NOT NULL DEFAULT 0
         );
 
-        INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at, must_change_password)
-        SELECT id, name, email, password_hash, role, title, initials, created_at, must_change_password FROM users_old;
+        INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at, must_change_password, token_version)
+        SELECT id, name, email, password_hash, role, title, initials, created_at, must_change_password, token_version FROM users_old;
 
         DROP TABLE users_old;
       `);

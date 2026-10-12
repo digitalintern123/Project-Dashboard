@@ -1,7 +1,14 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
 import { db } from '../db/database.js';
-import { JWT_SECRET, requireAuth, requireRole, AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/auth.js';
+import {
+  REFRESH_COOKIE,
+  clearSessionCookies,
+  revokeAllSessions,
+  revokeSession,
+  rotateSession,
+  startSession,
+} from '../utils/session.js';
 import {
   checkPasswordPolicy,
   generateTemporaryPassword,
@@ -46,14 +53,23 @@ router.post('/login', (req, res) => {
     return res.status(401).json({ error: INVALID_CREDENTIALS });
   }
 
-  const userPayload = toPublicUser(user);
-  const token = jwt.sign(
-    { id: user.id, name: user.name, email: user.email, role: user.role, title: user.title, initials: user.initials },
-    JWT_SECRET,
-    { expiresIn: '7d' },
-  );
+  startSession(res, user.id);
+  return res.json({ user: toPublicUser(user) });
+});
 
-  return res.json({ token, user: userPayload });
+// POST /api/auth/refresh - rotate the refresh token and issue a new access token
+router.post('/refresh', (req, res) => {
+  const result = rotateSession(res, req.cookies?.[REFRESH_COOKIE]);
+  if (result.status === 'raced') {
+    // Another tab just rotated this token; its new cookies are already in the browser.
+    return res.json({ retry: true });
+  }
+  if (result.status === 'invalid') {
+    clearSessionCookies(res);
+    return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.userId);
+  return res.json({ user: toPublicUser(user) });
 });
 
 router.get('/me', requireAuth, (req: AuthenticatedRequest, res) => {
@@ -61,7 +77,16 @@ router.get('/me', requireAuth, (req: AuthenticatedRequest, res) => {
 });
 
 router.post('/logout', (req, res) => {
+  revokeSession(req.cookies?.[REFRESH_COOKIE]);
+  clearSessionCookies(res);
   return res.json({ message: 'Logged out successfully' });
+});
+
+// POST /api/auth/logout-all - end every session for the signed-in user, on all devices
+router.post('/logout-all', requireAuth, (req: AuthenticatedRequest, res) => {
+  revokeAllSessions(req.user!.id);
+  clearSessionCookies(res);
+  return res.json({ message: 'Signed out of all sessions' });
 });
 
 // POST /api/auth/change-password - the signed-in user changes their own password
@@ -86,6 +111,9 @@ router.post('/change-password', requireAuth, (req: AuthenticatedRequest, res) =>
     hashPassword(newPassword),
     user.id,
   );
+  // Sign out every other session, then give this browser a fresh one.
+  revokeAllSessions(user.id);
+  startSession(res, user.id);
   const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
   return res.json({ message: 'Password changed successfully', user: toPublicUser(updated) });
 });
@@ -104,6 +132,7 @@ router.post('/users/:id/reset-password', requireAuth, requireRole(['coordinator'
     hashPassword(temporaryPassword),
     target.id,
   );
+  revokeAllSessions(target.id);
   console.log(`[Auth] ${req.user!.email} reset the password for ${target.email}`);
 
   return res.json({

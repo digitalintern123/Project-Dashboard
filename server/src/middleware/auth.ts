@@ -22,17 +22,20 @@ export type UserPayload = {
 };
 
 // Routes a user may still call while their password must be changed.
-const PASSWORD_CHANGE_ALLOWED = new Set(['/api/auth/me', '/api/auth/change-password', '/api/auth/logout']);
+const PASSWORD_CHANGE_ALLOWED = new Set(['/api/auth/me', '/api/auth/change-password', '/api/auth/logout', '/api/auth/logout-all']);
 
-type UserRow = Omit<UserPayload, 'mustChangePassword'> & { must_change_password: number };
+/** Cookie holding the short-lived access JWT (set by utils/session.ts). */
+export const ACCESS_COOKIE_NAME = 'encalm_at';
 
-function loadUser(id: string): UserPayload | undefined {
+type UserRow = Omit<UserPayload, 'mustChangePassword'> & { must_change_password: number; token_version: number };
+
+function loadUser(id: string): (UserPayload & { tokenVersion: number }) | undefined {
   const row = db
-    .prepare('SELECT id, name, email, role, title, initials, must_change_password FROM users WHERE id = ?')
+    .prepare('SELECT id, name, email, role, title, initials, must_change_password, token_version FROM users WHERE id = ?')
     .get(id) as UserRow | undefined;
   if (!row) return undefined;
-  const { must_change_password, ...rest } = row;
-  return { ...rest, mustChangePassword: Boolean(must_change_password) };
+  const { must_change_password, token_version, ...rest } = row;
+  return { ...rest, mustChangePassword: Boolean(must_change_password), tokenVersion: token_version };
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -40,29 +43,32 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: Authentication token is required' });
+  const token = req.cookies?.[ACCESS_COOKIE_NAME] as string | undefined;
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: Authentication is required' });
   }
 
-  const token = authHeader.substring(7);
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
-    
-    // Check if user still exists in database
+    const decoded = jwt.verify(token, JWT_SECRET) as { id?: string; tv?: number };
+    if (!decoded.id || typeof decoded.tv !== 'number') {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
+    }
+
+    // The user must still exist and the token must not have been revoked.
     const user = loadUser(decoded.id);
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized: User not found' });
+    if (!user || user.tokenVersion !== decoded.tv) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
     }
 
     if (user.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.has(`${req.baseUrl}${req.path}`)) {
       return res.status(403).json({ error: 'You must change your password before continuing.', code: 'PASSWORD_CHANGE_REQUIRED' });
     }
 
-    req.user = user;
+    const { tokenVersion: _tv, ...publicUser } = user;
+    req.user = publicUser;
     next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
   }
 }
 

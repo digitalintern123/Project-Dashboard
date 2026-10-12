@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import request from 'supertest';
 import bcrypt from 'bcryptjs';
-import { makeApp, loginAs, TEST_PASSWORD, testUsers } from './helpers.js';
+import { makeApp, loginAs, anon, TEST_PASSWORD, testUsers } from './helpers.js';
 import { db } from '../src/db/database.js';
 import { ensureUsersSeeded } from '../src/db/seed.js';
 import { checkPasswordPolicy, generateTemporaryPassword } from '../src/utils/passwords.js';
@@ -28,13 +27,13 @@ describe('password policy', () => {
 
 describe('login', () => {
   it('no longer accepts the coordinator alias', async () => {
-    const res = await request(app).post('/api/auth/login').send({ email: 'coordinator', password: TEST_PASSWORD });
+    const res = await anon(app).post('/api/auth/login').send({ email: 'coordinator', password: TEST_PASSWORD });
     expect(res.status).toBe(401);
   });
 
   it('returns the same generic error for unknown users and wrong passwords', async () => {
-    const unknown = await request(app).post('/api/auth/login').send({ email: 'nobody@test.local', password: 'whatever123' });
-    const wrong = await request(app).post('/api/auth/login').send({ email: testUsers.hod.email, password: 'wrong-pass-123' });
+    const unknown = await anon(app).post('/api/auth/login').send({ email: 'nobody@test.local', password: 'whatever123' });
+    const wrong = await anon(app).post('/api/auth/login').send({ email: testUsers.hod.email, password: 'wrong-pass-123' });
     expect(unknown.status).toBe(401);
     expect(wrong.status).toBe(401);
     expect(unknown.body.error).toBe(wrong.body.error);
@@ -95,7 +94,7 @@ describe('coordinator password reset', () => {
     expect(res.status).toBe(200);
     expect(checkPasswordPolicy(res.body.temporaryPassword)).toBeNull();
 
-    const login = await request(app).post('/api/auth/login').send({ email: testUsers.hod.email, password: res.body.temporaryPassword });
+    const login = await anon(app).post('/api/auth/login').send({ email: testUsers.hod.email, password: res.body.temporaryPassword });
     expect(login.status).toBe(200);
     expect(login.body.user.mustChangePassword).toBe(true);
 

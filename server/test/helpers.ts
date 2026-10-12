@@ -48,15 +48,22 @@ export function insertProject(id: string, leadId: string | null) {
   `).run(`${id}-phase-0`, id);
 }
 
-/** Returns a supertest agent that is logged in as the given test user. */
+/** Returns a supertest agent with a cookie session for the given test user. */
 export async function loginAs(app: ReturnType<typeof createApp>, key: TestUserKey) {
   const agent = request.agent(app);
+  agent.set('X-Requested-With', 'XMLHttpRequest');
   const res = await agent
     .post('/api/auth/login')
     .send({ email: testUsers[key].email, password: TEST_PASSWORD });
   if (res.status !== 200) {
     throw new Error(`Login as ${key} failed: ${res.status} ${JSON.stringify(res.body)}`);
   }
-  agent.set('Authorization', `Bearer ${res.body.token}`);
+  return agent;
+}
+
+/** Bare request helper that sends the CSRF header, for unauthenticated calls. */
+export function anon(app: ReturnType<typeof createApp>) {
+  const agent = request.agent(app);
+  agent.set('X-Requested-With', 'XMLHttpRequest');
   return agent;
 }

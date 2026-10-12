@@ -1,58 +1,63 @@
 import type { Phase, Milestone, Project, ProjectIssue, ProjectUpdate, SitePhoto, PhotoCategory } from '@/data/projects';
 import type { User } from '@/data/users';
 
-const TOKEN_KEY = 'encalm-auth-token';
-
-export function getStoredToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setStoredToken(token: string | null): void {
-  try {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-    }
-  } catch {
-    // Ignore storage errors in restricted webviews
-  }
+// Sessions live in httpOnly cookies the browser sends automatically. Older
+// versions kept a bearer token in localStorage; remove any leftover copy.
+try {
+  localStorage.removeItem('encalm-auth-token');
+} catch {
+  // Storage can be unavailable in restricted webviews.
 }
 
 let unauthorizedHandler: (() => void) | null = null;
 
-/** Registers the callback run when the server rejects the session (HTTP 401). */
+/** Registers the callback run when the session cannot be refreshed (HTTP 401). */
 export function onUnauthorized(handler: (() => void) | null): void {
   unauthorizedHandler = handler;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getStoredToken();
+const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+function send(path: string, options: RequestInit): Promise<Response> {
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
+    // Required by the server's CSRF check on state-changing requests.
+    'X-Requested-With': 'XMLHttpRequest',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...((options.headers as Record<string, string>) || {}),
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
   const url = path.startsWith('http') ? path : `${apiBase}${path}`;
+  return fetch(url, { ...options, headers, credentials: 'include' });
+}
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+// One refresh at a time: concurrent 401s all wait on the same attempt.
+let refreshInFlight: Promise<boolean> | null = null;
 
-  // Session expired or revoked: drop the token and let the app return to the login screen.
-  if (response.status === 401 && !path.startsWith('/api/auth/login')) {
-    setStoredToken(null);
-    unauthorizedHandler?.();
+function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = send('/api/auth/refresh', { method: 'POST' })
+      .then((res) => res.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+const NO_REFRESH_PATHS = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout'];
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  let response = await send(path, options);
+
+  // Access token expired: refresh once and retry; if that fails the session is over.
+  if (response.status === 401 && !NO_REFRESH_PATHS.some((p) => path.startsWith(p))) {
+    if (await refreshSession()) {
+      response = await send(path, options);
+    }
+    if (response.status === 401) {
+      unauthorizedHandler?.();
+    }
   }
 
   const data = await response.json().catch(() => ({}));
@@ -121,7 +126,7 @@ export type EmailSettings = {
 export const api = {
   auth: {
     login: (email: string, password: string) =>
-      request<{ token: string; user: User }>('/api/auth/login', {
+      request<{ user: User }>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       }),
@@ -136,6 +141,7 @@ export const api = {
         method: 'POST',
       }),
     logout: () => request<{ message: string }>('/api/auth/logout', { method: 'POST' }),
+    logoutAll: () => request<{ message: string }>('/api/auth/logout-all', { method: 'POST' }),
     getUsers: () => request<{ users: User[] }>('/api/auth/users'),
     getLeads: () => request<{ leads: User[] }>('/api/auth/leads'),
     createLead: (data: { name: string; email: string; password: string; title?: string }) =>
