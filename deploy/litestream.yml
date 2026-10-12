@@ -1,0 +1,25 @@
+# Optional continuous replication of the SQLite database with Litestream
+# (https://litestream.io). Complements, not replaces, scripts/backup.sh:
+# Litestream streams every change off-server within seconds; the nightly
+# backup also captures uploaded photos and keeps 30 daily restore points.
+#
+# Install:  https://litestream.io/install/  (Debian/Ubuntu .deb)
+# Run:      litestream replicate -config /etc/litestream.yml   (systemd unit ships with the .deb)
+# Restore:  stop the app, then
+#           litestream restore -config /etc/litestream.yml -o /opt/encalm/server/data/encalm.db /opt/encalm/server/data/encalm.db
+#
+# Credentials come from the environment (e.g. /etc/default/litestream):
+#   LITESTREAM_ACCESS_KEY_ID=...  LITESTREAM_SECRET_ACCESS_KEY=...
+
+dbs:
+  - path: /opt/encalm/server/data/encalm.db
+    replicas:
+      # Any S3-compatible store works (AWS S3, Backblaze B2, Cloudflare R2, Wasabi).
+      - type: s3
+        bucket: encalm-db-replica
+        path: prod/encalm.db
+        endpoint: https://s3.eu-central-003.backblazeb2.com   # remove for AWS S3
+        region: eu-central-003
+        retention: 720h              # keep 30 days of history
+        snapshot-interval: 24h
+        sync-interval: 10s

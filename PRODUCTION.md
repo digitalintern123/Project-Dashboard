@@ -130,16 +130,48 @@ server {
 - **Readiness Probe**: `GET /api/system/ready`
   - Returns 200 when SQLite database is responsive to queries.
 
-### Automated Backups
-The database persists in two locations:
-1. `server/data/encalm.db` — Live SQLite database.
-2. `server/data/portfolio-database.json` — Automatic disaster-recovery snapshot exported on mutations.
+### Backups and restore
 
-**To create a manual backup**:
+Everything lives in `DATA_DIR` (default `server/data`): `encalm.db` (SQLite, WAL mode) and `uploads/` (photos).
+Do **not** `cp` or `tar` a live `encalm.db`: with WAL that can capture a torn copy. Use the scripts below.
+
+**Install once:** `sudo apt install sqlite3` (and `rclone` if you want off-server copies).
+
+**Nightly backup** (`scripts/backup.sh`): online-safe SQLite backup with `integrity_check`, gzip, a tarball of
+`uploads/`, SHA-256 checksums, 30-day local retention, and an optional rclone copy off the server.
+
 ```bash
-# Archive SQLite and uploads folder:
-tar -czvf encalm-backup-$(date +%Y%m%d).tar.gz server/data/
+# crontab -e   (as the app user)
+15 2 * * * cd /opt/encalm && DATA_DIR=/opt/encalm/server/data BACKUP_DIR=/var/backups/encalm RCLONE_REMOTE=b2:encalm-backups/prod ./scripts/backup.sh >> /var/log/encalm/backup.log 2>&1
 ```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATA_DIR` | `./server/data` | Where `encalm.db` and `uploads/` live |
+| `BACKUP_DIR` | `/var/backups/encalm` | Local backup folder |
+| `RETENTION_DAYS` | `30` | Local copies older than this are deleted |
+| `RCLONE_REMOTE` | (empty) | e.g. `b2:encalm-backups/prod`; set up with `rclone config` |
+| `RCLONE_RETENTION_DAYS` | `RETENTION_DAYS` | Remote copies older than this are deleted |
+
+**Restore** (`scripts/restore.sh`): verifies checksums and integrity, moves the current database and uploads
+aside to `DATA_DIR/pre-restore-<time>/` (nothing is deleted), then puts the backup in place.
+
+```bash
+pm2 stop encalm-dashboard            # or: docker compose stop
+./scripts/restore.sh                 # list backups
+./scripts/restore.sh latest          # or a specific stamp, e.g. 20261012T021500Z
+pm2 start encalm-dashboard
+```
+
+If the server itself is lost, first pull the files back: `rclone copy b2:encalm-backups/prod /var/backups/encalm --include 'encalm-<STAMP>*'`.
+
+**Verify the round trip** at any time (uses a throwaway directory): `npm run test:backup`.
+
+**Optional: continuous replication with Litestream.** For near-zero data loss between nightly backups, stream the
+database to S3-compatible storage with Litestream. A sample config is in `deploy/litestream.yml`.
+
+The JSON file `portfolio-database.json` is a convenience export of project data only (no users, sessions,
+audit log or settings). It is not a backup.
 
 ### Destructive System Operations Guard
 - `/api/system/reset`, `/clear`, `/import`, and `/restore-all-pdfs` are guarded by role authentication (Coordinator only).
