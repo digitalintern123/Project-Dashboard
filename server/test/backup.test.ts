@@ -6,6 +6,7 @@ import { db } from '../src/db/database.js';
 import {
   SNAPSHOT_FILE_PATH,
   autoRestoreSnapshotIfEmpty,
+  exportPortfolioProjects,
   getFullProjectRecord,
   restoreDatabaseFromJSON,
   saveDatabaseSnapshot,
@@ -39,6 +40,15 @@ describe('snapshots', () => {
   it('builds a full project record and returns null for unknown ids', () => {
     expect(getFullProjectRecord('bk-1')!.phases).toHaveLength(1);
     expect(getFullProjectRecord('nope')).toBeNull();
+  });
+
+  it('batch export matches the per-project record, ordered by name', () => {
+    insertProject('bk-0', 'u-lead-a');
+    db.prepare("UPDATE projects SET name = 'AAA first' WHERE id = 'bk-0'").run();
+    const all = exportPortfolioProjects();
+    expect(all.map((p) => p.id)).toEqual(['bk-0', 'bk-1']);
+    expect(all[1]).toEqual(getFullProjectRecord('bk-1'));
+    db.prepare("DELETE FROM projects WHERE id = 'bk-0'").run();
   });
 
   it('round-trips through restore, replacing children rather than duplicating them', () => {

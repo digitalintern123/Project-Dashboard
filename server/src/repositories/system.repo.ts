@@ -18,9 +18,6 @@ export const systemRepo = {
       ]),
     ) as Record<CountedTable, number>;
   },
-  projectIdsByName(): string[] {
-    return (db.prepare('SELECT id FROM projects ORDER BY name ASC').all() as { id: string }[]).map((r) => r.id);
-  },
   recentNotifications(limit: number): NotificationRow[] {
     return db.prepare('SELECT * FROM notifications ORDER BY created_at DESC LIMIT ?').all(limit) as NotificationRow[];
   },

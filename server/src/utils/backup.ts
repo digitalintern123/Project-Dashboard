@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { db, dataDir } from '../db/database.js';
-import type { IssueRow, MilestoneRow, PhaseRow, PhotoRow, ProjectRow, UpdateRow } from '../repositories/rows.js';
+import type { ProjectRow } from '../repositories/rows.js';
+import { projectsRepo, type ProjectChildren } from '../repositories/projects.repo.js';
 
 /**
  * Disaster Recovery & Export Backup Snapshot.
@@ -157,25 +158,20 @@ export type ExportedProject = {
  * Fetch full project tree for a given project ID directly from database.
  */
 export function getFullProjectRecord(projectId: string) {
-  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as ProjectRow | undefined;
+  const row = projectsRepo.find(projectId);
   if (!row) return null;
+  return toExportRecord(row, projectsRepo.childrenFor([projectId]).get(projectId)!);
+}
 
-  const phases = db
-    .prepare('SELECT * FROM phases WHERE project_id = ? ORDER BY order_index ASC')
-    .all(projectId) as PhaseRow[];
-  const milestones = db
-    .prepare('SELECT * FROM milestones WHERE project_id = ? ORDER BY order_index ASC, date ASC')
-    .all(projectId) as MilestoneRow[];
-  const issues = db
-    .prepare('SELECT * FROM issues WHERE project_id = ? ORDER BY order_index ASC, id DESC')
-    .all(projectId) as IssueRow[];
-  const updates = db
-    .prepare('SELECT * FROM updates WHERE project_id = ? ORDER BY created_at DESC')
-    .all(projectId) as UpdateRow[];
-  const photos = db
-    .prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC')
-    .all(projectId) as PhotoRow[];
+/** Every project with its children, by name, loaded in a fixed number of queries. */
+export function exportPortfolioProjects() {
+  const rows = db.prepare('SELECT * FROM projects ORDER BY name ASC').all() as ProjectRow[];
+  const children = projectsRepo.childrenFor(rows.map((r) => r.id));
+  return rows.map((row) => toExportRecord(row, children.get(row.id)!));
+}
 
+/** A project in the export file format (camelCase, children inline). */
+function toExportRecord(row: ProjectRow, { phases, milestones, issues, updates, photos }: ProjectChildren) {
   return {
     id: row.id,
     name: row.name,
@@ -277,8 +273,7 @@ export function getFullProjectRecord(projectId: string) {
  */
 export function saveDatabaseSnapshot(): void {
   try {
-    const rows = db.prepare('SELECT id FROM projects ORDER BY name ASC').all() as { id: string }[];
-    const projects = rows.map((r) => getFullProjectRecord(r.id)).filter(Boolean);
+    const projects = exportPortfolioProjects();
 
     const notifications = db.prepare('SELECT * FROM notifications ORDER BY created_at DESC LIMIT 100').all();
 

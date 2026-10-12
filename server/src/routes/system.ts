@@ -1,6 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { clearAllProjectData } from '../db/seed.js';
-import { getFullProjectRecord, restoreDatabaseFromJSON, saveDatabaseSnapshot } from '../utils/backup.js';
+import { exportPortfolioProjects, restoreDatabaseFromJSON, saveDatabaseSnapshot } from '../utils/backup.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validate } from '../validation/validate.js';
 import { pageFrom } from '../utils/paging.js';
@@ -14,10 +14,7 @@ const router = Router();
 
 // Full portfolio as JSON
 router.get('/export', requireAuth, requireRole(['coordinator', 'lead']), (_req, res) => {
-  const projects = systemRepo
-    .projectIdsByName()
-    .map(getFullProjectRecord)
-    .filter((p) => p !== null);
+  const projects = exportPortfolioProjects();
   res.json({
     version: 1,
     exportedAt: new Date().toISOString(),
