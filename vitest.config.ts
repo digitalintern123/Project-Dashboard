@@ -26,6 +26,16 @@ export default defineConfig({
           environment: 'node',
         },
       },
+      {
+        resolve: { alias },
+        test: {
+          name: 'web',
+          include: ['src/**/*.test.tsx'],
+          environment: 'jsdom',
+          setupFiles: ['src/test/setup-dom.ts'],
+          env: { TZ: 'Asia/Kolkata' },
+        },
+      },
     ],
     coverage: {
       provider: 'v8',
