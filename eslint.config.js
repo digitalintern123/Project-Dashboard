@@ -6,7 +6,15 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'server/dist/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'node_modules/**'],
+    ignores: [
+      'dist/**',
+      'server/dist/**',
+      'coverage/**',
+      'playwright-report/**',
+      'lighthouse-report/**',
+      'test-results/**',
+      'node_modules/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

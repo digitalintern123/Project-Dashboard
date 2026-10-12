@@ -14,7 +14,11 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /lighthouse\.spec\.ts/ },
+    // Opt-in: npm run lighthouse
+    ...(process.env.LIGHTHOUSE ? [{ name: 'lighthouse', testMatch: /lighthouse\.spec\.ts/ }] : []),
+  ],
   webServer: {
     // The server serves the built SPA from dist/, so build it first.
     command: 'npm run build:client && npx tsx e2e/server.ts',

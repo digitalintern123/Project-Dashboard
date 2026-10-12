@@ -87,3 +87,6 @@ server/data/*.db-shm
 playwright-report/
 test-results/
 server/dist/
+
+# Lighthouse reports (npm run lighthouse)
+lighthouse-report/
