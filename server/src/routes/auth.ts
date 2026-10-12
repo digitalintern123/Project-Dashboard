@@ -15,6 +15,8 @@ import {
   hashPassword,
   verifyPassword,
 } from '../utils/passwords.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
 
 const router = Router();
 
@@ -41,7 +43,7 @@ function toPublicUser(user: any) {
   };
 }
 
-router.post('/login', (req, res) => {
+router.post('/login', validate({ body: S.loginBody }), (req, res) => {
   const { email, password } = req.body ?? {};
   if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -113,7 +115,7 @@ router.post('/logout-all', requireAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // POST /api/auth/change-password - the signed-in user changes their own password
-router.post('/change-password', requireAuth, (req: AuthenticatedRequest, res) => {
+router.post('/change-password', requireAuth, validate({ body: S.changePasswordBody }), (req: AuthenticatedRequest, res) => {
   const { currentPassword, newPassword } = req.body ?? {};
   const user = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user!.id) as
     | { id: string; password_hash: string }
@@ -142,7 +144,7 @@ router.post('/change-password', requireAuth, (req: AuthenticatedRequest, res) =>
 });
 
 // POST /api/auth/users/:id/reset-password - coordinator sets a temporary password
-router.post('/users/:id/reset-password', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.post('/users/:id/reset-password', requireAuth, requireRole(['coordinator']), validate({ params: S.idParams }), (req: AuthenticatedRequest, res) => {
   const target = db.prepare(
     "SELECT id, email FROM users WHERE id = ? AND role IN ('hod', 'lead', 'coordinator')",
   ).get(req.params.id) as { id: string; email: string } | undefined;
@@ -176,7 +178,7 @@ router.get('/leads', requireAuth, (_req, res) => {
 });
 
 // POST /api/auth/create-lead - Coordinator can create new Project Leads with real credentials
-router.post('/create-lead', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.post('/create-lead', requireAuth, requireRole(['coordinator']), validate({ body: S.createLeadBody }), (req: AuthenticatedRequest, res) => {
   const { name, email, password, title } = req.body ?? {};
 
   if (!name || !email || !password) {

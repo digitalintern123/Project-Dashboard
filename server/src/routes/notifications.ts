@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { db } from '../db/database.js';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
 
 const router = Router();
 
@@ -34,7 +36,7 @@ router.get('/', (req: AuthenticatedRequest, res) => {
 });
 
 // PATCH mark one of the user's notifications as read
-router.patch('/:id/read', (req: AuthenticatedRequest, res) => {
+router.patch('/:id/read', validate({ params: S.idParams }), (req: AuthenticatedRequest, res) => {
   const result = db.prepare('UPDATE notifications SET read = 1 WHERE id = ? AND recipient_id = ?').run(req.params.id, req.user!.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Notification not found' });
   return res.json({ success: true });
@@ -47,7 +49,7 @@ router.post('/read-all', (req: AuthenticatedRequest, res) => {
 });
 
 // DELETE one of the user's notifications
-router.delete('/:id', (req: AuthenticatedRequest, res) => {
+router.delete('/:id', validate({ params: S.idParams }), (req: AuthenticatedRequest, res) => {
   const result = db.prepare('DELETE FROM notifications WHERE id = ? AND recipient_id = ?').run(req.params.id, req.user!.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Notification not found' });
   return res.json({ success: true });

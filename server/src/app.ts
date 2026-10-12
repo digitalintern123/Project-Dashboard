@@ -12,6 +12,7 @@ import { uploadsDir } from './db/database.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './utils/session.js';
 import { envInt } from './config.js';
 import { requireAuth } from './middleware/auth.js';
+import { LARGE_JSON_PATHS } from './validation/large-json.js';
 
 import authRouter from './routes/auth.js';
 import projectsRouter from './routes/projects.js';
@@ -111,9 +112,11 @@ export function createApp() {
   app.use('/api/email/send-project-update', emailLimiter);
   app.use('/api/email/tag-and-comment', emailLimiter);
 
-  // 5. Body parsers: 1 MB for JSON and forms. Photo uploads are multipart and
-  // handled by multer in routes/photos.ts.
-  app.use(express.json({ limit: '1mb' }));
+  // 5. Body parsers: 1 MB for JSON and forms. Photo uploads are multipart
+  // (multer in routes/photos.ts); coordinator-only full-portfolio imports parse
+  // up to 10 MB after their auth checks (validation/large-json.ts).
+  const jsonParser = express.json({ limit: '1mb' });
+  app.use((req, res, next) => (LARGE_JSON_PATHS.has(req.path) ? next() : jsonParser(req, res, next)));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   app.use(cookieParser());

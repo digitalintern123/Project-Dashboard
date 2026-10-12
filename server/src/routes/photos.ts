@@ -10,6 +10,8 @@ import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../midd
 import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { fetchFullProject } from './projects.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
 
 export const projectPhotosRouter = Router({ mergeParams: true });
 export const globalPhotosRouter = Router();
@@ -217,13 +219,13 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
   });
 }
 
-projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), receivePhotos, handlePhotoUpload);
-projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), receivePhotos, handlePhotoUpload);
+projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams }), receivePhotos, handlePhotoUpload);
+projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), validate({ params: S.projectParams }), receivePhotos, handlePhotoUpload);
 
 /**
  * Delete a specific site photograph
  */
-projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
+projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), validate({ params: S.photoParams }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const photoId = req.params.photoId as string;
 
@@ -242,7 +244,7 @@ projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), (re
 /**
  * Get all photos for a project
  */
-projectPhotosRouter.get('/', requireAuth, (req, res) => {
+projectPhotosRouter.get('/', requireAuth, validate({ params: S.projectParams }), (req, res) => {
   const projectId = req.params.id as string;
   const rows = db.prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC').all(projectId);
   res.json({ photos: rows });

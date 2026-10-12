@@ -16,11 +16,13 @@ import {
   searchEncalmDirectory,
 } from '../services/email.js';
 import { fetchFullProject } from './projects.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
 
 const router = Router();
 
 // GET live Encalm corporate directory search via Microsoft Graph API
-router.get('/directory', requireAuth, async (req, res) => {
+router.get('/directory', requireAuth, validate({ query: S.directoryQuery }), async (req, res) => {
   try {
     const query = ((req.query.q as string) || '').trim();
     const directoryUsers = await searchEncalmDirectory(query);
@@ -33,7 +35,7 @@ router.get('/directory', requireAuth, async (req, res) => {
 
 
 // GET email logs / outbox
-router.get('/logs', requireAuth, requireRole(['coordinator']), (req, res) => {
+router.get('/logs', requireAuth, requireRole(['coordinator']), validate({ query: S.emailLogsQuery }), (req, res) => {
   const projectId = req.query.projectId as string | undefined;
   const limit = Math.min(100, parseInt((req.query.limit as string) || '50', 10));
 
@@ -108,7 +110,7 @@ router.get('/settings', requireAuth, requireRole(['coordinator']), (req, res) =>
 });
 
 // POST save email settings (SMTP and/or Microsoft Graph API)
-router.post('/settings', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.post('/settings', requireAuth, requireRole(['coordinator']), validate({ body: S.emailSettingsBody }), (req: AuthenticatedRequest, res) => {
   const { provider, smtp, graph, tenantId, clientId, clientSecret, senderEmail, saveToSentItems } = req.body;
 
   if (provider === 'smtp' || provider === 'microsoft_graph') {
@@ -185,7 +187,7 @@ router.post('/settings', requireAuth, requireRole(['coordinator']), (req: Authen
 });
 
 // POST send test email via active provider (SMTP or Microsoft Graph)
-router.post('/test', requireAuth, requireRole(['coordinator']), async (req: AuthenticatedRequest, res) => {
+router.post('/test', requireAuth, requireRole(['coordinator']), validate({ body: S.emailTestBody }), async (req: AuthenticatedRequest, res) => {
   const { to, recipientName, provider: reqProvider, smtp, graph } = req.body;
 
   if (reqProvider === 'smtp' || reqProvider === 'microsoft_graph') {
@@ -242,14 +244,14 @@ router.post('/test', requireAuth, requireRole(['coordinator']), async (req: Auth
 });
 
 // POST resend log entry
-router.post('/resend/:id', requireAuth, requireRole(['coordinator']), async (req, res) => {
+router.post('/resend/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.idParams }), async (req, res) => {
   const id = req.params.id as string;
   const result = await resendEmailLog(id);
   return res.json(result);
 });
 
 // POST send executive project update to stakeholders
-router.post('/send-project-update', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectUpdateBody }), async (req: AuthenticatedRequest, res) => {
   const { projectId, recipients, customNote } = req.body;
   if (!projectId) {
     return res.status(400).json({ error: 'Project ID is required' });
@@ -322,7 +324,7 @@ router.post('/send-project-update', requireAuth, async (req: AuthenticatedReques
 });
 
 // POST tag team member(s) with comment & dispatch automated email
-router.post('/tag-and-comment', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBody }), async (req: AuthenticatedRequest, res) => {
   const {
     projectId,
     entityType = 'Stage',

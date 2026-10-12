@@ -5,11 +5,13 @@ import { fetchFullProject, parseTaggedUsers } from './projects.js';
 import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { dispatchTagNotifications, dispatchMilestoneApprovalAlert } from '../services/notifications.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
 
 const router = Router({ mergeParams: true });
 
 // POST add milestone
-router.post('/', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createMilestoneBody }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -90,7 +92,7 @@ router.post('/', requireAuth, requireProjectAccess(), async (req: AuthenticatedR
 });
 
 // PATCH update milestone
-router.patch('/:milestoneId', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
+router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams, body: S.updateMilestoneBody }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
   const milestone = db.prepare('SELECT * FROM milestones WHERE id = ? AND project_id = ?').get(milestoneId, projectId) as any;
@@ -156,7 +158,7 @@ router.patch('/:milestoneId', requireAuth, requireProjectAccess(), async (req: A
 });
 
 // DELETE milestone
-router.delete('/:milestoneId', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
+router.delete('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
   db.prepare('DELETE FROM milestones WHERE id = ? AND project_id = ?').run(milestoneId, projectId);

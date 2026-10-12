@@ -5,11 +5,13 @@ import { fetchFullProject, parseTaggedUsers } from './projects.js';
 import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { dispatchTagNotifications, dispatchCriticalIssueAlert } from '../services/notifications.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
 
 const router = Router({ mergeParams: true });
 
 // POST add issue
-router.post('/', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createIssueBody }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -99,7 +101,7 @@ router.post('/', requireAuth, requireProjectAccess(), async (req: AuthenticatedR
 });
 
 // PATCH update issue
-router.patch('/:issueId', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
+router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams, body: S.updateIssueBody }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
   const issue = db.prepare('SELECT * FROM issues WHERE id = ? AND project_id = ?').get(issueId, projectId) as any;
@@ -181,7 +183,7 @@ router.patch('/:issueId', requireAuth, requireProjectAccess(), async (req: Authe
 });
 
 // DELETE issue
-router.delete('/:issueId', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
+router.delete('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
   db.prepare('DELETE FROM issues WHERE id = ? AND project_id = ?').run(issueId, projectId);

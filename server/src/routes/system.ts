@@ -4,6 +4,9 @@ import { clearAllProjectData } from '../db/seed.js';
 import { getFullProjectRecord, restoreDatabaseFromJSON, saveDatabaseSnapshot } from '../utils/backup.js';
 import { restoreAllPdfDataToDatabase } from '../scripts/restore-all-pdfs.js';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/auth.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
+import { largeJson } from '../validation/large-json.js';
 
 const router = Router();
 const isProduction = process.env.NODE_ENV === 'production';
@@ -29,7 +32,7 @@ router.get('/export', requireAuth, requireRole(['coordinator', 'lead']), (req: A
 });
 
 // POST import database from JSON (Coordinator only)
-router.post('/import', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.post('/import', requireAuth, requireRole(['coordinator']), largeJson, validate({ body: S.importBody }), (req: AuthenticatedRequest, res) => {
   try {
     const body = req.body;
     if (!body) {

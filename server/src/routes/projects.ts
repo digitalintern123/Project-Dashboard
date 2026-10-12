@@ -5,6 +5,9 @@ import { requireAuth, requireRole, requireProjectAccess, AuthenticatedRequest } 
 import { calculateProjectStatus } from '../utils/status.js';
 import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot, restoreDatabaseFromJSON } from '../utils/backup.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
+import { largeJson } from '../validation/large-json.js';
 
 const router = Router();
 
@@ -148,7 +151,7 @@ router.get('/', requireAuth, (req, res) => {
 });
 
 // GET single project
-router.get('/:id', requireAuth, (req, res) => {
+router.get('/:id', requireAuth, validate({ params: S.projectParams }), (req, res) => {
   const id = req.params.id as string;
   const project = fetchFullProject(id);
   if (!project) {
@@ -158,7 +161,7 @@ router.get('/:id', requireAuth, (req, res) => {
 });
 
 // POST bulk sync projects from client cache or external source
-router.post('/sync', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.post('/sync', requireAuth, requireRole(['coordinator']), largeJson, validate({ body: S.syncProjectsBody }), (req: AuthenticatedRequest, res) => {
   const { projects, explicit } = req.body;
 
   // Protect clean database state from being contaminated by stale browser local caches
@@ -177,7 +180,7 @@ router.post('/sync', requireAuth, requireRole(['coordinator']), (req: Authentica
 });
 
 // POST create project
-router.post('/', requireAuth, requireRole(['coordinator', 'lead']), (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireRole(['coordinator', 'lead']), validate({ body: S.createProjectBody }), (req: AuthenticatedRequest, res) => {
   const body = req.body;
   if (!body.name || !body.location || !body.category) {
     return res.status(400).json({ error: 'Name, location, and category are required' });
@@ -345,7 +348,7 @@ router.post('/', requireAuth, requireRole(['coordinator', 'lead']), (req: Authen
 });
 
 // PATCH allot project (Coordinator only)
-router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), (req: AuthenticatedRequest, res) => {
+router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams, body: S.allotProjectBody }), (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string;
   const { leadId } = req.body;
   if (!leadId) {
@@ -388,7 +391,7 @@ router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), (req: Auth
 });
 
 // PATCH update project
-router.patch('/:id', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
+router.patch('/:id', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.updateProjectBody }), (req: AuthenticatedRequest, res) => {
   const id = req.params.id as string;
   const project = fetchFullProject(id);
   if (!project) {
@@ -464,7 +467,7 @@ router.patch('/:id', requireAuth, requireProjectAccess(), (req: AuthenticatedReq
 });
 
 // DELETE project
-router.delete('/:id', requireAuth, requireRole(['coordinator']), (req, res) => {
+router.delete('/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams }), (req, res) => {
   const id = req.params.id as string;
 
   const projectPhotos = db.prepare('SELECT url, thumbnail_url FROM photos WHERE project_id = ?').all(id) as { url: string; thumbnail_url: string | null }[];

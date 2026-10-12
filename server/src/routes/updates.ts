@@ -3,6 +3,8 @@ import { db } from '../db/database.js';
 import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
 import { fetchFullProject } from './projects.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
 
 export const projectUpdatesRouter = Router({ mergeParams: true });
 export const globalUpdatesRouter = Router();
@@ -36,7 +38,7 @@ globalUpdatesRouter.get('/', requireAuth, (req, res) => {
 });
 
 // GET updates for a specific project
-projectUpdatesRouter.get('/', requireAuth, (req: any, res) => {
+projectUpdatesRouter.get('/', requireAuth, validate({ params: S.projectParams }), (req: any, res) => {
   const projectId = req.params.id as string;
   const rows = db.prepare(`
     SELECT * FROM updates
@@ -48,7 +50,7 @@ projectUpdatesRouter.get('/', requireAuth, (req: any, res) => {
 });
 
 // POST add update to project
-projectUpdatesRouter.post('/', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
+projectUpdatesRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createUpdateBody }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });

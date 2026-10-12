@@ -5,6 +5,8 @@ import { fetchFullProject, parseTaggedUsers } from './projects.js';
 import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { dispatchTagNotifications } from '../services/notifications.js';
+import { validate } from '../validation/validate.js';
+import * as S from '../validation/schemas.js';
 
 const router = Router({ mergeParams: true });
 
@@ -51,7 +53,7 @@ export function recomputeProjectProgress(projectId: string): number {
 }
 
 // POST add phase
-router.post('/', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createPhaseBody }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -115,7 +117,7 @@ router.post('/', requireAuth, requireProjectAccess(), async (req: AuthenticatedR
 });
 
 // PATCH update phase
-router.patch('/:phaseId', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
+router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams, body: S.updatePhaseBody }), async (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const phaseId = req.params.phaseId as string;
   const phase = db.prepare('SELECT * FROM phases WHERE id = ? AND project_id = ?').get(phaseId, projectId) as any;
@@ -199,7 +201,7 @@ router.patch('/:phaseId', requireAuth, requireProjectAccess(), async (req: Authe
 });
 
 // DELETE remove phase
-router.delete('/:phaseId', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
+router.delete('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const phaseId = req.params.phaseId as string;
   const count = db.prepare('SELECT COUNT(*) as count FROM phases WHERE project_id = ?').get(projectId) as { count: number };
@@ -225,7 +227,7 @@ router.delete('/:phaseId', requireAuth, requireProjectAccess(), (req: Authentica
 });
 
 // POST move phase order
-router.post('/move', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
+router.post('/move', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.movePhaseBody }), (req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const { phaseIndex, direction } = req.body;
 
