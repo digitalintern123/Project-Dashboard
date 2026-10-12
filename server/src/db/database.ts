@@ -50,7 +50,9 @@ export function initDatabase() {
       initials TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       must_change_password INTEGER NOT NULL DEFAULT 0,
-      token_version INTEGER NOT NULL DEFAULT 0
+      token_version INTEGER NOT NULL DEFAULT 0,
+      failed_attempts INTEGER NOT NULL DEFAULT 0,
+      locked_until TEXT
     );
 
     CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -264,6 +266,12 @@ export function initDatabase() {
     if (!userColNames.has('token_version')) {
       db.prepare("ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0").run();
     }
+    if (!userColNames.has('failed_attempts')) {
+      db.prepare("ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0").run();
+    }
+    if (!userColNames.has('locked_until')) {
+      db.prepare("ALTER TABLE users ADD COLUMN locked_until TEXT").run();
+    }
 
     // Safe migration of legacy 'Build & install' phase names to 'Execution'
     db.prepare("UPDATE phases SET name = 'Execution' WHERE name IN ('Build & install', 'Build and install', 'Build & installation')").run();
@@ -284,11 +292,13 @@ export function initDatabase() {
           initials TEXT NOT NULL,
           created_at TEXT NOT NULL DEFAULT (datetime('now')),
           must_change_password INTEGER NOT NULL DEFAULT 0,
-          token_version INTEGER NOT NULL DEFAULT 0
+          token_version INTEGER NOT NULL DEFAULT 0,
+          failed_attempts INTEGER NOT NULL DEFAULT 0,
+          locked_until TEXT
         );
 
-        INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at, must_change_password, token_version)
-        SELECT id, name, email, password_hash, role, title, initials, created_at, must_change_password, token_version FROM users_old;
+        INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at, must_change_password, token_version, failed_attempts, locked_until)
+        SELECT id, name, email, password_hash, role, title, initials, created_at, must_change_password, token_version, failed_attempts, locked_until FROM users_old;
 
         DROP TABLE users_old;
       `);

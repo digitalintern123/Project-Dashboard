@@ -18,7 +18,12 @@ import {
 
 const router = Router();
 
-const INVALID_CREDENTIALS = 'Invalid email or password';
+// One message for every failure (unknown email, wrong password, locked account)
+// so responses do not reveal which accounts exist or are locked.
+const INVALID_CREDENTIALS = 'Invalid email or password. After repeated failed attempts, sign-in is paused for 15 minutes.';
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
 
 // Compared against when the email is unknown so response timing does not reveal
 // which accounts exist.
@@ -48,9 +53,27 @@ router.post('/login', (req, res) => {
   ).get(normalizedEmail) as any;
 
   const passwordOk = verifyPassword(password, user?.password_hash || DUMMY_HASH);
-  if (!user || !passwordOk) {
-    console.warn(`[Auth] Failed login for ${normalizedEmail} from ${req.ip}`);
+  const locked = Boolean(user?.locked_until && new Date(user.locked_until).getTime() > Date.now());
+
+  if (!user || locked || !passwordOk) {
+    if (user && !locked) {
+      const attempts = (user.failed_attempts || 0) + 1;
+      if (attempts >= MAX_FAILED_ATTEMPTS) {
+        db.prepare('UPDATE users SET failed_attempts = 0, locked_until = ? WHERE id = ?').run(
+          new Date(Date.now() + LOCKOUT_MS).toISOString(),
+          user.id,
+        );
+        console.warn(`[Auth] Account ${normalizedEmail} locked for 15 minutes after ${attempts} failed attempts (ip ${req.ip})`);
+      } else {
+        db.prepare('UPDATE users SET failed_attempts = ? WHERE id = ?').run(attempts, user.id);
+      }
+    }
+    console.warn(`[Auth] Failed login for ${normalizedEmail} from ${req.ip}${locked ? ' (account locked)' : ''}`);
     return res.status(401).json({ error: INVALID_CREDENTIALS });
+  }
+
+  if (user.failed_attempts || user.locked_until) {
+    db.prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?').run(user.id);
   }
 
   startSession(res, user.id);
@@ -128,7 +151,7 @@ router.post('/users/:id/reset-password', requireAuth, requireRole(['coordinator'
   }
 
   const temporaryPassword = generateTemporaryPassword();
-  db.prepare('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?').run(
+  db.prepare('UPDATE users SET password_hash = ?, must_change_password = 1, failed_attempts = 0, locked_until = NULL WHERE id = ?').run(
     hashPassword(temporaryPassword),
     target.id,
   );

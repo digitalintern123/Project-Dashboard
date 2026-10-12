@@ -9,3 +9,6 @@ process.env.DATA_DIR = dir;
 process.env.DATABASE_PATH = path.join(dir, 'test.db');
 process.env.JWT_SECRET = 'test-secret-that-is-long-enough-for-the-checks-0123456789';
 process.env.NODE_ENV = 'test';
+// Many logins per test file come from the same address; keep the limiters out of the way.
+process.env.LOGIN_RATE_LIMIT = '100000';
+process.env.API_RATE_LIMIT = '100000';
