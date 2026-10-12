@@ -1,0 +1,112 @@
+name: Deploy
+
+# Manual deploys pick the environment and ref; pushing a v* tag deploys that
+# tag to production. The VPS script (deploy/deploy.sh) builds the release,
+# backs up, migrates, switches, health-checks, and rolls back on failure;
+# this job fails whenever the deploy did not end healthy on the new release.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [staging, production]
+        default: staging
+      ref:
+        description: Branch, tag or commit to deploy
+        type: string
+        default: main
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event.inputs.ref || github.ref_name }} to ${{ github.event.inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # GitHub environments: add required reviewers to "production" to gate deploys.
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    # Never run two deploys to the same environment at once.
+    concurrency:
+      group: deploy-${{ github.event.inputs.environment || 'production' }}
+      cancel-in-progress: false
+    env:
+      TARGET_ENV: ${{ github.event.inputs.environment || 'production' }}
+      TARGET_REF: ${{ github.event.inputs.ref || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_REF }}
+
+      - name: Check secrets and inputs
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          missing=""
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository or environment secrets:$missing (see PRODUCTION.md, 'GitHub deploy')"
+            exit 1
+          fi
+          # The ref ends up in a remote shell command: allow only plain ref characters.
+          if ! [[ "$TARGET_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$ ]]; then
+            echo "::error::Invalid ref: $TARGET_REF"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          port="${VPS_PORT:-22}"
+          if [ -n "$VPS_HOST_KEY" ]; then
+            # Pinned host key (recommended): output of `ssh-keyscan -t ed25519 <host>` on a trusted machine.
+            printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          else
+            echo "::warning::VPS_HOST_KEY is not set; trusting the host key presented now. Pin it to rule out interception."
+            ssh-keyscan -p "$port" -t ed25519 "$VPS_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $VPS_HOST
+            Port $port
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Deploy on the VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          # Pipe this commit's deploy script, so script and code always match.
+          ssh -l "$VPS_USER" vps "bash -s -- '$TARGET_ENV' '$TARGET_REF'" < deploy/deploy.sh
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deploy ${{ job.status }}"
+            echo ""
+            echo "- Environment: \`$TARGET_ENV\`"
+            echo "- Ref: \`$TARGET_REF\` ($(git rev-parse --short HEAD))"
+            echo "- On failure the VPS rolled back automatically; see the log above."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

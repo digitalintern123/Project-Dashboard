@@ -1,0 +1,22 @@
+# gitleaks configuration (CI runs `gitleaks git` over the full history).
+# Start from the default rules and allow only the known false positives below.
+title = "Encalm Project Dashboard"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Test fixtures: throwaway passwords and secrets for test databases"
+paths = [
+  '''^server/test/''',
+  '''^src/test/''',
+  '''^e2e/''',
+]
+
+[[allowlists]]
+# Public development fallback in server/src/middleware/auth.ts. Production
+# refuses to start with it (KNOWN_DEFAULT_JWT_SECRETS in server/src/config.ts),
+# so it can never sign real sessions. Any server that ran before that check
+# with this value must have its JWT_SECRET rotated.
+description = "Known, rejected development JWT secret"
+regexes = ['''encalm-secret-jwt-key-2026''']
