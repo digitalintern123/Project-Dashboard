@@ -127,6 +127,10 @@ SCHEMA_AFTER="$( [ -f "$DB_FILE" ] && sqlite3 "$DB_FILE" 'SELECT MAX(version) FR
 
 # 5. Switch and reload -----------------------------------------------------
 switch_to() {
+  # The PM2 process file travels with the release it describes.
+  if [ -f "$1/deploy/ecosystem.config.cjs" ]; then
+    run install -m 0644 "$1/deploy/ecosystem.config.cjs" "$ROOT/ecosystem.config.cjs"
+  fi
   run ln -sfn "$1" "$CURRENT.tmp"
   run mv -T "$CURRENT.tmp" "$CURRENT"
   # The ecosystem file reads the RELEASE file, so --update-env passes the new id.

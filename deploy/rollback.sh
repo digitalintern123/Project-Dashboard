@@ -67,6 +67,9 @@ if [ -n "$RESTORE_STAMP" ]; then
   run env DATA_DIR="$DATA_DIR" BACKUP_DIR="$BACKUP_DIR" "$RELEASES/$TARGET/scripts/restore.sh" "$RESTORE_STAMP" --yes
 fi
 
+if [ -f "$RELEASES/$TARGET/deploy/ecosystem.config.cjs" ]; then
+  run install -m 0644 "$RELEASES/$TARGET/deploy/ecosystem.config.cjs" "$ROOT/ecosystem.config.cjs"
+fi
 run ln -sfn "$RELEASES/$TARGET" "$CURRENT.tmp"
 run mv -T "$CURRENT.tmp" "$CURRENT"
 run pm2 startOrReload "$ROOT/ecosystem.config.cjs" --only "$PM2_APP" --update-env
