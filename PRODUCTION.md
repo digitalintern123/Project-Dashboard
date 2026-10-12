@@ -16,7 +16,8 @@ The one place for running the dashboard on a VPS (written for a GoDaddy Ubuntu V
 12. [Users and passwords](#12-users-and-passwords)
 13. [Incident checklist](#13-incident-checklist)
 14. [Docker (alternative)](#14-docker-alternative)
-15. [Reference](#15-reference)
+15. [Plesk on Windows (iisnode)](#15-plesk-on-windows-iisnode)
+16. [Reference](#16-reference)
 
 ---
 
@@ -504,7 +505,33 @@ A user's password: a coordinator resets it (section 12) and the user chooses a n
 
 ---
 
-## 15. Reference
+## 15. Plesk on Windows (iisnode)
+
+For a Plesk server on Windows, where IIS runs Node.js through iisnode, instead of the Linux VPS setup above. The `deploy/` scripts, the GitHub Deploy workflow and `scripts/backup.sh` are for Linux and do not apply here; Plesk's own Git, Node.js and backup tools take their place.
+
+How it works: iisnode starts `server.cjs` and passes a named pipe (such as `\\.\pipe\…`) in `PORT` instead of a port number. The app listens on that pipe and IIS forwards requests to it (`server/src/listen.ts`). `server.cjs` runs the compiled server in `server/dist/`.
+
+1. **Code:** Plesk → the domain → **Git**: add the repository (branch `main`) and deploy it to a folder, e.g. `encalm-app` next to `httpdocs` (not inside it).
+2. **Node.js:** Plesk → the domain → **Node.js**:
+   - Node.js version **22**; Application Mode **production**.
+   - Application Root: the repository folder. Application Startup File: **`server.cjs`**.
+   - Document Root: the repository's `dist` folder.
+3. **Environment variables** (same page, *Custom environment variables*; see `.env.example`):
+   - `NODE_ENV=production`
+   - `JWT_SECRET` and `SETTINGS_ENCRYPTION_KEY`: generate them on any machine with `openssl rand -base64 48` and `openssl rand -base64 32`.
+   - `APP_BASE_URL=https://<your domain>`
+   - `DATA_DIR`: a folder **outside** the web root, e.g. `C:\Inetpub\vhosts\<domain>\encalm-data`, writable by the application pool user. The database and photos live there.
+   - Leave `HOST` and `API_PORT` unset; iisnode supplies the pipe.
+4. **Install and build:** click **NPM install**, then **Run script** → `build`. The build needs the dev dependencies, so do not use a production-only install for this step.
+5. **Start:** click **Restart App**, then open `https://<domain>/api/system/ready`; it must show `{"status":"ready"}`.
+6. **First user:** in Plesk's **Run script** (or a shell in the application folder) run `create-user` with the arguments from [section 12](#12-users-and-passwords).
+7. **HTTPS:** Plesk → **SSL/TLS Certificates** → Let's Encrypt, and turn on *Redirect from HTTP to HTTPS*. Session cookies only work over HTTPS.
+8. **Updates:** **Git → Pull/Deploy**, then **NPM install**, **Run script → build**, **Restart App**. Migrations run automatically when the app starts. There is no automatic rollback here: before each update, back up `DATA_DIR`. To roll back, deploy the previous commit or tag and rebuild.
+9. **One process only:** keep iisnode's `nodeProcessCountPerApplication` at its default of 1. SQLite, the email worker and the login rate limiter assume a single process.
+10. **Backups:** include `DATA_DIR` in Plesk's **Backup Manager** (scheduled, with remote storage). For a copy guaranteed to be consistent, stop the app first, or copy `encalm.db` together with its `-wal` and `-shm` files.
+11. **Logs:** iisnode writes the app's JSON log lines to the `iisnode` folder in the application root (Plesk → Node.js → logs).
+
+## 16. Reference
 
 | Command | Purpose |
 |---|---|
