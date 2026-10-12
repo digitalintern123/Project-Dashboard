@@ -137,7 +137,8 @@ export function createApp() {
   });
 
   // 6. Uploaded photos: signed-in users only, never sniffed as another type, and
-  // cached only by the user's own browser.
+  // cached only by the user's own browser. File names are random UUIDs that are
+  // never reused, so a stored copy never goes stale.
   app.use(
     '/uploads',
     requireAuth,
@@ -145,7 +146,7 @@ export function createApp() {
       dotfiles: 'deny',
       index: false,
       setHeaders: (res) => {
-        res.setHeader('Cache-Control', 'private, max-age=86400');
+        res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
         res.setHeader('X-Content-Type-Options', 'nosniff');
       },
     }),
@@ -161,6 +162,15 @@ export function createApp() {
         console.log(`[API] ${statusColor} ${req.method} ${req.originalUrl} -> ${res.statusCode} (${duration}ms)`);
       }
     });
+    next();
+  });
+
+  // API caching: GETs may be kept by the user's browser but are revalidated on
+  // every use against the ETag Express adds, so an unchanged list costs a 304
+  // with no body. Auth responses and writes are never stored.
+  app.use('/api', (req, res, next) => {
+    const revalidate = req.method === 'GET' && !req.path.startsWith('/auth/');
+    res.setHeader('Cache-Control', revalidate ? 'private, no-cache' : 'no-store');
     next();
   });
 
@@ -197,8 +207,17 @@ export function createApp() {
       app.use('/assets', express.static(assetsPath, { maxAge: '1y', immutable: true }));
     }
 
-    // Serve root static files (favicon, logos, etc.)
-    app.use(express.static(distPath, { maxAge: '1h' }));
+    // Root static files (favicon, logos). index.html is left to the fallback
+    // below so a deploy is picked up at once instead of after a cached hour.
+    app.use(
+      express.static(distPath, {
+        maxAge: '1h',
+        index: false,
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+        },
+      }),
+    );
 
     // Client-side SPA routing fallback: always serve index.html with fresh no-cache headers
     app.get('/{*splat}', (_req, res) => {
