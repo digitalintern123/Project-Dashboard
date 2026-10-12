@@ -18,6 +18,7 @@ Requires Node.js **22** (20.19+ works) and npm 10.
 
 ```bash
 npm install
+npx husky                   # once per clone: enables the pre-commit hook (.npmrc skips install scripts)
 cp .env.example .env        # optional: everything has a development default
 npm run dev                 # API on :5000 and Vite on :5173 (proxying /api)
 ```

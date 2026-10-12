@@ -564,8 +564,9 @@ $b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create
 
 ### 15.5 Install, build, start
 
-1. Click **NPM install**.
-2. **Run script** → `build:plesk`. This installs the dev dependencies the build needs (Plesk's install skips them in production mode) and builds `dist/` and `server/dist/`.
+1. **Run script** → `build:plesk`. This installs all dependencies, including the dev dependencies the build needs (Plesk's **NPM install** skips them in production mode), and builds `dist/` and `server/dist/`. If you use Git **additional deployment actions**, make the action `npm run build:plesk`.
+   No Python or Visual Studio build tools are needed: the repository's `.npmrc` turns off dependency install scripts, so `better-sqlite3` uses its bundled Windows binary instead of compiling from source.
+   Stop the app first (Node.js page → **Disable Node.js**, or stop the site's application pool) when reinstalling: a running app locks files in `node_modules` and npm fails with `EPERM`.
 3. Click **Enable Node.js**, then **Restart App**.
 4. Open `https://projects.encalmhospitality.com/api/system/ready`: it must show `{"status":"ready"}`.
 5. **HTTPS:** Plesk → **SSL/TLS Certificates** → Let's Encrypt, and turn on *Redirect from HTTP to HTTPS*. Sign-in only works over HTTPS (secure cookies).
@@ -580,12 +581,14 @@ Open the domain's **Files** in Plesk → the `iisnode` folder inside the Applica
 | `[Config] FATAL: JWT_SECRET …` or `SETTINGS_ENCRYPTION_KEY …` | Add or correct that variable (15.4), Restart App. |
 | `SQLITE_CANTOPEN`, `EPERM` or `EACCES` on `C:\encalm-projects-data` | Folder missing or the domain user lacks Modify (15.2). |
 | `Cannot find module …server\dist\index.js` / `Failed to start server (did you run "npm run build"?)` | Run script `build:plesk` (15.5). |
-| `better_sqlite3.node` or `sharp` "could not load" / "was compiled against a different Node.js version" | Native modules do not match the Node version: delete `node_modules`, click **NPM install** again, then `build:plesk`. |
+| `better_sqlite3.node` or `sharp` "could not load" / "was compiled against a different Node.js version" | Native modules do not match the Node version: stop the app, delete `node_modules`, then Run script `build:plesk`. |
+| npm: `gyp ERR! find Python` / `node-gyp rebuild` failed for `better-sqlite3` | The install ran without the repository's `.npmrc` (an old checkout, or a command outside the application folder). Pull the latest `main`, then run `build:plesk` from the application folder. |
+| npm: `EPERM: operation not permitted, rmdir …node_modules…` | Files are locked by the running app: Disable Node.js (or stop the application pool), run the install again, then enable and Restart App. |
 | `ERR_ERL_UNDEFINED_IP_ADDRESS` (warning, not a 500) | iisnode is not forwarding client IPs, so all users share one rate limit. Check that `iisnode.yml` is next to `server.cjs`; if Plesk's `web.config` sets its own `<iisnode>` element, add `enableXFF="true"` to it. |
 
 ### 15.7 Updates, rollback, backups
 
-- **Update:** **Git → Pull/Deploy**, **NPM install**, **Run script → `build:plesk`**, **Restart App**. Migrations run automatically when the app starts.
+- **Update:** **Git → Pull/Deploy**, **Run script → `build:plesk`**, **Restart App**. Migrations run automatically when the app starts.
 - **Rollback:** there is no automatic rollback on Plesk. Before each update, back up `C:\encalm-projects-data`; to roll back, deploy the previous commit or tag, rebuild, and restore that backup if the update changed the database.
 - **Backups:** include `C:\encalm-projects-data` in Plesk's **Backup Manager** (scheduled, with remote storage). For a guaranteed-consistent copy, stop the app first, or copy `encalm.db` together with its `-wal` and `-shm` files.
 - **One process only:** `iisnode.yml` sets `nodeProcessCountPerApplication: 1`; do not raise it.
