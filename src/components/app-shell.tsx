@@ -389,9 +389,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Main Content Area */}
       <main
-        className={`min-h-[100dvh] transition-[padding] duration-300 ${
-          collapsed ? 'md:pl-[88px]' : 'md:pl-[256px]'
-        }`}
+        className={`min-h-[100dvh] transition-[padding] duration-300 ${collapsed ? 'md:pl-[88px]' : 'md:pl-[256px]'}`}
       >
         <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-border/70 bg-background/85 px-5 backdrop-blur-xl md:px-10">
           <div className="flex items-center gap-3">
@@ -420,7 +418,7 @@ export function AppShell({ children }: AppShellProps) {
                   ? 'Project view'
                   : location === '/'
                     ? 'Portfolio overview'
-                    : currentSectionLabel(location) ?? 'Workspace'}
+                    : (currentSectionLabel(location) ?? 'Workspace')}
               </span>
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground sm:hidden">
@@ -438,11 +436,7 @@ export function AppShell({ children }: AppShellProps) {
                     : 'bg-[#dbeef7] text-[#1a5068]'
               }`}
             >
-              {role === 'coordinator'
-                ? 'Project coordinator'
-                : isLead
-                  ? 'Project lead'
-                  : 'Project HOD · Read-only'}
+              {role === 'coordinator' ? 'Project coordinator' : isLead ? 'Project lead' : 'Project HOD · Read-only'}
             </span>
 
             {/* Live Server Sync Indicator */}
@@ -453,11 +447,7 @@ export function AppShell({ children }: AppShellProps) {
                   : 'border-[#eadcb1] bg-[#fbf1d8] text-[#9a711f]'
               }`}
             >
-              <span
-                className={`size-2 rounded-full ${
-                  isConnected ? 'bg-[#3d9a7e] animate-pulse' : 'bg-[#d19b35]'
-                }`}
-              />
+              <span className={`size-2 rounded-full ${isConnected ? 'bg-[#3d9a7e] animate-pulse' : 'bg-[#d19b35]'}`} />
               {isConnected ? 'Backend Active' : 'Connecting'}
             </span>
 
@@ -586,9 +576,7 @@ export function AppShell({ children }: AppShellProps) {
                     <div
                       key={notif.id}
                       className={`group relative rounded-xl border p-3.5 transition ${
-                        isUnread
-                          ? 'border-[#eadcb1] bg-white shadow-sm'
-                          : 'border-border/70 bg-white/60 opacity-80'
+                        isUnread ? 'border-[#eadcb1] bg-white shadow-sm' : 'border-border/70 bg-white/60 opacity-80'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -670,7 +658,10 @@ export function AppShell({ children }: AppShellProps) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono text-[9px] uppercase tracking-[.16em] text-[#9a711f]">Workspace settings</p>
-                <h2 id="settings-title" className="mt-2 font-serif text-[32px] leading-none tracking-[-.04em] text-[#173e49]">
+                <h2
+                  id="settings-title"
+                  className="mt-2 font-serif text-[32px] leading-none tracking-[-.04em] text-[#173e49]"
+                >
                   Settings
                 </h2>
               </div>
@@ -707,7 +698,9 @@ export function AppShell({ children }: AppShellProps) {
 
             {/* System / Database Status */}
             <div className="mt-6">
-              <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">System architecture</p>
+              <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+                System architecture
+              </p>
               <div className="mt-3 rounded-xl border border-border bg-white/70 p-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -742,7 +735,9 @@ export function AppShell({ children }: AppShellProps) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <strong className="block text-[11px]">Compact navigation</strong>
-                    <span className="mt-1 block text-[10px] text-muted-foreground">Keep the sidebar collapsed on desktop.</span>
+                    <span className="mt-1 block text-[10px] text-muted-foreground">
+                      Keep the sidebar collapsed on desktop.
+                    </span>
                   </span>
                   <span
                     className={`relative h-5 w-9 rounded-full transition ${
@@ -766,7 +761,9 @@ export function AppShell({ children }: AppShellProps) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <strong className="block text-[11px]">Update reminders</strong>
-                    <span className="mt-1 block text-[10px] text-muted-foreground">Keep project update reminders enabled.</span>
+                    <span className="mt-1 block text-[10px] text-muted-foreground">
+                      Keep project update reminders enabled.
+                    </span>
                   </span>
                   <span
                     className={`relative h-5 w-9 rounded-full transition ${
@@ -796,37 +793,41 @@ export function AppShell({ children }: AppShellProps) {
             </div>
 
             {role === 'coordinator' && (
-            <div className="mt-6 border-t border-border pt-5">
-              <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Communications & Integration</p>
-              <div className="mt-3 rounded-xl border border-border bg-white/70 p-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="grid size-7 place-items-center rounded-lg bg-[#edf5f0] text-[#2e7c67]">
-                      <Mail size={14} />
-                    </span>
-                    <div>
-                      <strong className="block text-[11px]">Email Radar & SMTP</strong>
-                      <span className="block text-[9px] text-muted-foreground">Outbox history & server setup</span>
+              <div className="mt-6 border-t border-border pt-5">
+                <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+                  Communications & Integration
+                </p>
+                <div className="mt-3 rounded-xl border border-border bg-white/70 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="grid size-7 place-items-center rounded-lg bg-[#edf5f0] text-[#2e7c67]">
+                        <Mail size={14} />
+                      </span>
+                      <div>
+                        <strong className="block text-[11px]">Email Radar & SMTP</strong>
+                        <span className="block text-[9px] text-muted-foreground">Outbox history & server setup</span>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmailHubOpen(true);
+                        closeSettings();
+                      }}
+                      className="rounded-lg border border-[#cbe4d9] bg-[#edf5f0] px-3 py-1.5 text-[10px] font-bold text-[#2e7c67] hover:bg-[#dfeee5]"
+                    >
+                      Manage
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmailHubOpen(true);
-                      closeSettings();
-                    }}
-                    className="rounded-lg border border-[#cbe4d9] bg-[#edf5f0] px-3 py-1.5 text-[10px] font-bold text-[#2e7c67] hover:bg-[#dfeee5]"
-                  >
-                    Manage
-                  </button>
                 </div>
               </div>
-            </div>
             )}
 
             <div className="mt-6 border-t border-border pt-5">
-              <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Database management & Backup</p>
-              
+              <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+                Database management & Backup
+              </p>
+
               <input
                 type="file"
                 ref={fileInputRef}
@@ -870,8 +871,9 @@ export function AppShell({ children }: AppShellProps) {
                 <div className="mt-3 rounded-xl border border-[#cbe4d9] bg-[#edf5f0] p-3.5">
                   <p className="text-[11px] font-bold text-[#1e5141]">Restore 3 PDF Master Data?</p>
                   <p className="mt-1 text-[10px] leading-4 text-[#3d6556]">
-                    This will synchronize all authentic records from the 3 source PDFs:
-                    Vizag Hotel & Suites (156 Keys / 168 Bays), Mopa Goa Hotel (220 Keys), and Master Project Area Sheet (66 facilities across Delhi, Hyderabad, Goa, Vizag).
+                    This will synchronize all authentic records from the 3 source PDFs: Vizag Hotel & Suites (156 Keys /
+                    168 Bays), Mopa Goa Hotel (220 Keys), and Master Project Area Sheet (66 facilities across Delhi,
+                    Hyderabad, Goa, Vizag).
                   </p>
                   <div className="mt-3 flex gap-2">
                     <button
@@ -921,7 +923,8 @@ export function AppShell({ children }: AppShellProps) {
                 <div className="mt-3 rounded-xl border border-[#f0c8c2] bg-[#fff5f2] p-3.5">
                   <p className="text-[11px] font-bold text-[#b2473d]">Clear all project data?</p>
                   <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-                    This removes all projects, stages, milestones, issues, and updates so you can enter everything from scratch.
+                    This removes all projects, stages, milestones, issues, and updates so you can enter everything from
+                    scratch.
                   </p>
                   <div className="mt-3 flex gap-2">
                     <button
@@ -963,11 +966,7 @@ export function AppShell({ children }: AppShellProps) {
       )}
 
       {/* Global Email Outbox & Settings Hub Modal */}
-      <EmailHubModal
-        isOpen={emailHubOpen}
-        onClose={() => setEmailHubOpen(false)}
-        defaultTab="outbox"
-      />
+      <EmailHubModal isOpen={emailHubOpen} onClose={() => setEmailHubOpen(false)} defaultTab="outbox" />
     </div>
   );
 }

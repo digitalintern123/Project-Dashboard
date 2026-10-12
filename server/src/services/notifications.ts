@@ -1,11 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/database.js';
-import {
-  queueEmail,
-  buildTagNotificationHtml,
-  buildCriticalIssueHtml,
-  buildMilestoneApprovalHtml,
-} from './email.js';
+import { queueEmail, buildTagNotificationHtml, buildCriticalIssueHtml, buildMilestoneApprovalHtml } from './email.js';
 
 interface TagNotificationParams {
   taggedUserIds: string[];
@@ -44,30 +39,30 @@ export function dispatchTagNotifications(params: TagNotificationParams): void {
 
     // Lookup user details from DB
     const user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(userId) as
-      | { id: string; name: string; email: string }
-      | undefined;
+      { id: string; name: string; email: string } | undefined;
 
     const recipientName = user?.name || userId;
     const recipientEmail = user?.email;
 
     // 1. Insert in-app notification with recipient_id
-    const messageBody = comment 
+    const messageBody = comment
       ? `${taggedBy} tagged you on ${entityType.toLowerCase()} "${entityTitle}" in ${projectName}: "${comment}"`
       : `${taggedBy} tagged you on ${entityType.toLowerCase()} "${entityTitle}" in ${projectName}`;
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO notifications (id, type, title, message, project_id, link, recipient_id, read, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
-    `).run(
+    `,
+    ).run(
       `notif-tag-${randomUUID()}`,
       notifType,
       `Tagged on ${entityType}: ${entityTitle}`,
       messageBody,
       projectId,
       `/project/${projectId}`,
-      userId
+      userId,
     );
-  
 
     // 2. Dispatch email (falls back to outbox if SMTP not configured)
     if (recipientEmail) {
@@ -109,7 +104,16 @@ interface CriticalIssueAlertParams {
  * Dispatches critical issue alert to HOD & Project Coordinators
  */
 export function dispatchCriticalIssueAlert(params: CriticalIssueAlertParams): void {
-  const { issueTitle, severity, category, detail, raisedBy, projectId, projectName, origin = 'http://localhost:5173' } = params;
+  const {
+    issueTitle,
+    severity,
+    category,
+    detail,
+    raisedBy,
+    projectId,
+    projectName,
+    origin = 'http://localhost:5173',
+  } = params;
   const dashboardUrl = `${origin}/project/${projectId}`;
 
   const leaders = db.prepare("SELECT id, name, email, role FROM users WHERE role IN ('hod', 'coordinator')").all() as {

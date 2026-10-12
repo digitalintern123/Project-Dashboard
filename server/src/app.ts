@@ -54,7 +54,7 @@ export function createApp() {
       strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
       crossOriginEmbedderPolicy: false,
       crossOriginResourcePolicy: { policy: 'same-origin' },
-    })
+    }),
   );
 
   // 2. HTTP Compression (Gzip / Deflate)
@@ -78,7 +78,7 @@ export function createApp() {
         return callback(null, false);
       },
       credentials: true,
-    })
+    }),
   );
 
   // 4. Rate Limiting (limits configurable for tests and unusual deployments)
@@ -147,7 +147,7 @@ export function createApp() {
         res.setHeader('Cache-Control', 'private, max-age=86400');
         res.setHeader('X-Content-Type-Options', 'nosniff');
       },
-    })
+    }),
   );
 
   // 7. Request Logger

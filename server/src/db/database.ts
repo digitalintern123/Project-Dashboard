@@ -39,7 +39,6 @@ db.pragma('synchronous = NORMAL');
 db.pragma('cache_size = -64000');
 db.pragma('busy_timeout = 5000');
 
-
 /** Creates or upgrades the schema by applying pending migrations (db/migrations). */
 export function initDatabase() {
   runMigrations(db);

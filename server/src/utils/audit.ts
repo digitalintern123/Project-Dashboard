@@ -28,10 +28,12 @@ export type AuditEntry = {
 
 export function writeAudit(entry: AuditEntry): void {
   try {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO audit_log (id, user_id, action, entity_type, entity_id, before_json, after_json, ip, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    `).run(
+    `,
+    ).run(
       crypto.randomUUID(),
       entry.userId,
       entry.action,
@@ -75,8 +77,8 @@ export function audited(spec: AuditSpec) {
         const after =
           spec.action === 'delete'
             ? null
-            : res.locals.auditAfter ??
-              (spec.table ? rowSnapshot(spec.table, entityId) : spec.details?.(req) ?? null);
+            : (res.locals.auditAfter ??
+              (spec.table ? rowSnapshot(spec.table, entityId) : (spec.details?.(req) ?? null)));
         writeAudit({
           userId: req.user?.id ?? null,
           action: spec.action,

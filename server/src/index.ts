@@ -13,8 +13,8 @@ assertProductionConfig();
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = Number(
   process.env.API_PORT ||
-  process.env.BACKEND_PORT ||
-  (isProduction && process.env.PORT && process.env.PORT !== '5173' ? process.env.PORT : 5000)
+    process.env.BACKEND_PORT ||
+    (isProduction && process.env.PORT && process.env.PORT !== '5173' ? process.env.PORT : 5000),
 );
 
 const app = createApp();

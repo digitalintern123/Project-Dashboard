@@ -42,7 +42,12 @@ function columnsOf(db: Database.Database, table: string): string[] {
 }
 
 function tableSql(db: Database.Database, table: string): string {
-  return (db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) as { sql?: string } | undefined)?.sql ?? '';
+  return (
+    (
+      db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) as
+        { sql?: string } | undefined
+    )?.sql ?? ''
+  );
 }
 
 /** The CREATE TABLE statement for a table as written in a migration file. */
@@ -61,7 +66,10 @@ function createStatementFrom(sql: string, table: string): string {
  */
 export function rebuildTable(db: Database.Database, table: string, createSql: string) {
   const tempName = `${table}__rebuild`;
-  const createTemp = createSql.replace(new RegExp(`CREATE TABLE (IF NOT EXISTS )?${table}\\b`), `CREATE TABLE ${tempName}`);
+  const createTemp = createSql.replace(
+    new RegExp(`CREATE TABLE (IF NOT EXISTS )?${table}\\b`),
+    `CREATE TABLE ${tempName}`,
+  );
 
   db.pragma('foreign_keys = OFF');
   try {
@@ -69,7 +77,9 @@ export function rebuildTable(db: Database.Database, table: string, createSql: st
       db.exec(`DROP TABLE IF EXISTS ${tempName}`);
       db.exec(createTemp);
       const newColumns = new Set(columnsOf(db, tempName));
-      const shared = columnsOf(db, table).filter((c) => newColumns.has(c)).join(', ');
+      const shared = columnsOf(db, table)
+        .filter((c) => newColumns.has(c))
+        .join(', ');
       db.exec(`INSERT INTO ${tempName} (${shared}) SELECT ${shared} FROM ${table}`);
       db.exec(`DROP TABLE ${table}`);
       db.exec(`ALTER TABLE ${tempName} RENAME TO ${table}`);
@@ -121,7 +131,9 @@ export function adoptLegacySchema(db: Database.Database, initialSql: string) {
       }
     }
     // Legacy phase name
-    db.prepare("UPDATE phases SET name = 'Execution' WHERE name IN ('Build & install', 'Build and install', 'Build & installation')").run();
+    db.prepare(
+      "UPDATE phases SET name = 'Execution' WHERE name IN ('Build & install', 'Build and install', 'Build & installation')",
+    ).run();
   })();
 
   // CHECK constraints only change by rebuilding the table.
@@ -148,10 +160,9 @@ export function runMigrations(db: Database.Database, dir = MIGRATIONS_DIR): numb
   `);
 
   const applied = new Map(
-    (db.prepare('SELECT version, checksum FROM schema_migrations').all() as { version: number; checksum: string }[]).map((r) => [
-      r.version,
-      r.checksum,
-    ]),
+    (
+      db.prepare('SELECT version, checksum FROM schema_migrations').all() as { version: number; checksum: string }[]
+    ).map((r) => [r.version, r.checksum]),
   );
   const record = db.prepare('INSERT INTO schema_migrations (version, name, checksum) VALUES (?, ?, ?)');
   const ran: number[] = [];
@@ -160,7 +171,9 @@ export function runMigrations(db: Database.Database, dir = MIGRATIONS_DIR): numb
     const previous = applied.get(migration.version);
     if (previous !== undefined) {
       if (previous !== migration.checksum) {
-        console.warn(`[Migrations] ${migration.version}_${migration.name}.sql changed after it was applied. Add a new migration instead.`);
+        console.warn(
+          `[Migrations] ${migration.version}_${migration.name}.sql changed after it was applied. Add a new migration instead.`,
+        );
       }
       continue;
     }

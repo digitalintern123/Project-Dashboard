@@ -17,7 +17,9 @@ beforeAll(async () => {
 
 /** Makes the next matching write fail inside the request, after earlier writes ran. */
 function failOn(table: string, event: 'INSERT' | 'DELETE' | 'UPDATE') {
-  db.exec(`CREATE TRIGGER fail_${table}_${event} BEFORE ${event} ON ${table} BEGIN SELECT RAISE(ABORT, 'injected failure'); END;`);
+  db.exec(
+    `CREATE TRIGGER fail_${table}_${event} BEFORE ${event} ON ${table} BEGIN SELECT RAISE(ABORT, 'injected failure'); END;`,
+  );
   return () => db.exec(`DROP TRIGGER fail_${table}_${event}`);
 }
 
@@ -27,20 +29,24 @@ describe('multi-table writes are atomic', () => {
   it('rolls back a new stage when its tag notification cannot be written', async () => {
     const restore = failOn('notifications', 'INSERT');
     try {
-      const res = await lead.post('/api/projects/proj-tx/phases').send({ id: 'tx-stage', name: 'Tx stage', taggedUsers: [testUsers.hod.id] });
+      const res = await lead
+        .post('/api/projects/proj-tx/phases')
+        .send({ id: 'tx-stage', name: 'Tx stage', taggedUsers: [testUsers.hod.id] });
       expect(res.status).toBe(500);
     } finally {
       restore();
     }
     expect(count("SELECT COUNT(*) c FROM phases WHERE id = 'tx-stage'")).toBe(0);
-    expect(count("SELECT COUNT(*) c FROM email_queue")).toBe(0);
+    expect(count('SELECT COUNT(*) c FROM email_queue')).toBe(0);
     expect(count("SELECT COUNT(*) c FROM audit_log WHERE entity_id = 'tx-stage'")).toBe(0);
   });
 
   it('rolls back a high-severity issue when its alert cannot be queued', async () => {
     const restore = failOn('email_queue', 'INSERT');
     try {
-      const res = await lead.post('/api/projects/proj-tx/issues').send({ id: 'tx-issue', title: 'Fire door', detail: 'Missing', severity: 'High' });
+      const res = await lead
+        .post('/api/projects/proj-tx/issues')
+        .send({ id: 'tx-issue', title: 'Fire door', detail: 'Missing', severity: 'High' });
       expect(res.status).toBe(500);
     } finally {
       restore();
@@ -51,7 +57,9 @@ describe('multi-table writes are atomic', () => {
 
   it('keeps a project, its photos and their files if the delete fails part-way', async () => {
     insertProject('proj-tx-del', 'u-lead-a');
-    const png = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#000' } }).png().toBuffer();
+    const png = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#000' } })
+      .png()
+      .toBuffer();
     const up = await lead.post('/api/projects/proj-tx-del/photos').attach('photos', png, 'a.png');
     const file = path.join(uploadsDir, path.basename(up.body.photo.url));
 
@@ -71,9 +79,13 @@ describe('multi-table writes are atomic', () => {
   });
 
   it('queues project-update emails all or nothing', async () => {
-    db.exec(`CREATE TRIGGER fail_second BEFORE INSERT ON email_logs WHEN NEW.recipient_email = 'b@test.local' BEGIN SELECT RAISE(ABORT, 'injected'); END;`);
+    db.exec(
+      `CREATE TRIGGER fail_second BEFORE INSERT ON email_logs WHEN NEW.recipient_email = 'b@test.local' BEGIN SELECT RAISE(ABORT, 'injected'); END;`,
+    );
     try {
-      const res = await lead.post('/api/email/send-project-update').send({ projectId: 'proj-tx', recipients: ['a@test.local', 'b@test.local'] });
+      const res = await lead
+        .post('/api/email/send-project-update')
+        .send({ projectId: 'proj-tx', recipients: ['a@test.local', 'b@test.local'] });
       expect(res.status).toBe(500);
     } finally {
       db.exec('DROP TRIGGER fail_second');

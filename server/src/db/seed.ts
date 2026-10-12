@@ -55,9 +55,11 @@ export function ensureUsersSeeded() {
   // password must change it at next sign-in. The password itself is left untouched.
   const checkDone = db.prepare("SELECT 1 FROM system_settings WHERE key = 'legacy_password_check_done'").get();
   if (!checkDone) {
-    const candidates = db.prepare(
-      "SELECT id, password_hash FROM users WHERE must_change_password = 0 AND COALESCE(password_hash, '') != ''",
-    ).all() as { id: string; password_hash: string }[];
+    const candidates = db
+      .prepare(
+        "SELECT id, password_hash FROM users WHERE must_change_password = 0 AND COALESCE(password_hash, '') != ''",
+      )
+      .all() as { id: string; password_hash: string }[];
     let flagged = 0;
     for (const c of candidates) {
       if (verifyPassword(LEGACY_DEFAULT_PASSWORD, c.password_hash)) {
@@ -66,7 +68,8 @@ export function ensureUsersSeeded() {
       }
     }
     db.prepare("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('legacy_password_check_done', '1')").run();
-    if (flagged > 0) console.log(`✓ ${flagged} account(s) still on the old default password must change it at next sign-in.`);
+    if (flagged > 0)
+      console.log(`✓ ${flagged} account(s) still on the old default password must change it at next sign-in.`);
   }
 
   if (created.length > 0) {

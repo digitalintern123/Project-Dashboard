@@ -26,61 +26,68 @@ export default function AreaSheet() {
 
   const [search, setSearch] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<'All' | Location>('All');
-  const [selectedSection, setSelectedSection] = useState<'All' | 'LOUNGES' | 'OFFICE, KITCHEN & MISC WORKS' | 'HOTELS'>('All');
+  const [selectedSection, setSelectedSection] = useState<'All' | 'LOUNGES' | 'OFFICE, KITCHEN & MISC WORKS' | 'HOTELS'>(
+    'All',
+  );
   const [selectedStatus, setSelectedStatus] = useState<string>('All');
 
   // Format projects into typed area sheet items
   const sheetItems = useMemo(() => {
-    return projects.map((p, idx) => {
-      const spec = p.specification;
-      const sheet = spec?.areaSheet;
+    return projects
+      .map((p, idx) => {
+        const spec = p.specification;
+        const sheet = spec?.areaSheet;
 
-      // Extract numeric sqft and sqm
-      let sqft: number | null = sheet?.areaSqft ?? null;
-      let sqm: number | null = sheet?.areaSqm ?? null;
+        // Extract numeric sqft and sqm
+        let sqft: number | null = sheet?.areaSqft ?? null;
+        let sqm: number | null = sheet?.areaSqm ?? null;
 
-      if (sqft === null && p.area) {
-        const sqftMatch = p.area.match(/([0-9,]+)\s*SQ\.FT/i);
-        if (sqftMatch) sqft = parseInt(sqftMatch[1].replace(/,/g, ''), 10);
-      }
-      if (sqm === null && p.area) {
-        const sqmMatch = p.area.match(/([0-9,]+)\s*SQ\.M/i);
-        if (sqmMatch) sqm = parseInt(sqmMatch[1].replace(/,/g, ''), 10);
-      }
+        if (sqft === null && p.area) {
+          const sqftMatch = p.area.match(/([0-9,]+)\s*SQ\.FT/i);
+          if (sqftMatch) sqft = parseInt(sqftMatch[1].replace(/,/g, ''), 10);
+        }
+        if (sqm === null && p.area) {
+          const sqmMatch = p.area.match(/([0-9,]+)\s*SQ\.M/i);
+          if (sqmMatch) sqm = parseInt(sqmMatch[1].replace(/,/g, ''), 10);
+        }
 
-      // Determine authentic section and SL No from sheet or category
-      let section: 'LOUNGES' | 'OFFICE, KITCHEN & MISC WORKS' | 'HOTELS' = 'LOUNGES';
-      let slNo = sheet?.slNo ?? idx + 1;
+        // Determine authentic section and SL No from sheet or category
+        let section: 'LOUNGES' | 'OFFICE, KITCHEN & MISC WORKS' | 'HOTELS' = 'LOUNGES';
+        let slNo = sheet?.slNo ?? idx + 1;
 
-      if (sheet?.section) {
-        section = sheet.section;
-      } else if (p.category === 'Hotel') {
-        section = 'HOTELS';
-        slNo = p.id === 'vizag-hotel-suites' ? 1 : 2;
-      } else if (p.category === 'Kitchen' || p.category === 'Other' || p.category === 'Encalm Eats') {
-        section = 'OFFICE, KITCHEN & MISC WORKS';
-      }
+        if (sheet?.section) {
+          section = sheet.section;
+        } else if (p.category === 'Hotel') {
+          section = 'HOTELS';
+          slNo = p.id === 'vizag-hotel-suites' ? 1 : 2;
+        } else if (p.category === 'Kitchen' || p.category === 'Other' || p.category === 'Encalm Eats') {
+          section = 'OFFICE, KITCHEN & MISC WORKS';
+        }
 
-      const sheetStatus =
-        sheet?.status ||
-        (p.status === 'Operational' ? 'Operational / Handed-over'
-        : p.status === 'Under Construction' ? 'Under Construction'
-        : (p.status as string) === 'On Hold' ? 'HOLD'
-        : p.status || 'Operational / Handed-over');
+        const sheetStatus =
+          sheet?.status ||
+          (p.status === 'Operational'
+            ? 'Operational / Handed-over'
+            : p.status === 'Under Construction'
+              ? 'Under Construction'
+              : (p.status as string) === 'On Hold'
+                ? 'HOLD'
+                : p.status || 'Operational / Handed-over');
 
-      return {
-        project: p,
-        slNo,
-        section,
-        location: p.location,
-        name: p.name,
-        code: p.code,
-        status: sheetStatus,
-        areaSqft: sqft,
-        areaSqm: sqm,
-        rawArea: p.area || (sqft ? `${sqft.toLocaleString()} SQ.FT.` : '—'),
-      };
-    }).sort((a, b) => a.slNo - b.slNo);
+        return {
+          project: p,
+          slNo,
+          section,
+          location: p.location,
+          name: p.name,
+          code: p.code,
+          status: sheetStatus,
+          areaSqft: sqft,
+          areaSqm: sqm,
+          rawArea: p.area || (sqft ? `${sqft.toLocaleString()} SQ.FT.` : '—'),
+        };
+      })
+      .sort((a, b) => a.slNo - b.slNo);
   }, [projects]);
 
   // Filtered items
@@ -147,7 +154,15 @@ export default function AreaSheet() {
       rows.push(['Generated Date', new Date().toLocaleDateString('en-GB')]);
       rows.push(['Total Facilities in Export', String(filtered.length)]);
       rows.push([]);
-      rows.push(['SL No', 'Section', 'Location', 'Project List (Facility)', 'Project Status', 'Area (SQ.FT.)', 'Area (SQ.M.)']);
+      rows.push([
+        'SL No',
+        'Section',
+        'Location',
+        'Project List (Facility)',
+        'Project Status',
+        'Area (SQ.FT.)',
+        'Area (SQ.M.)',
+      ]);
 
       filtered.forEach((item) => {
         rows.push([
@@ -233,7 +248,9 @@ export default function AreaSheet() {
             Project Area Sheet
           </h1>
           <p className="mt-3 max-w-[680px] text-[13px] leading-6 text-muted-foreground">
-            Complete facility register from the authentic master <strong>Project Area Sheet</strong>: 66 operational and under-construction lounges, wellness spas, central production kitchens, and infrastructure facilities, plus 2 airport hotels.
+            Complete facility register from the authentic master <strong>Project Area Sheet</strong>: 66 operational and
+            under-construction lounges, wellness spas, central production kitchens, and infrastructure facilities, plus
+            2 airport hotels.
           </p>
         </div>
 
@@ -259,12 +276,12 @@ export default function AreaSheet() {
       <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Total Portfolio</span>
+            <span className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+              Total Portfolio
+            </span>
             <Building2 size={16} className="text-muted-foreground/60" />
           </div>
-          <p className="mt-4 text-[28px] font-extrabold tracking-[-.04em] text-foreground">
-            {metrics.totalFacilities}
-          </p>
+          <p className="mt-4 text-[28px] font-extrabold tracking-[-.04em] text-foreground">{metrics.totalFacilities}</p>
           <p className="mt-1 font-mono text-[10px] text-[#2e7c67]">
             {metrics.operationalCount} Operational · {metrics.pipelineCount} Pipeline
           </p>
@@ -272,11 +289,14 @@ export default function AreaSheet() {
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Total Built-Up Area</span>
+            <span className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+              Total Built-Up Area
+            </span>
             <Maximize2 size={16} className="text-muted-foreground/60" />
           </div>
           <p className="mt-4 text-[24px] font-extrabold tracking-[-.04em] text-foreground">
-            {metrics.totalSqft.toLocaleString()} <span className="text-[14px] font-bold text-muted-foreground">SQ.FT.</span>
+            {metrics.totalSqft.toLocaleString()}{' '}
+            <span className="text-[14px] font-bold text-muted-foreground">SQ.FT.</span>
           </p>
           <p className="mt-1 font-mono text-[10px] text-muted-foreground">
             Approx. {metrics.totalSqm.toLocaleString()} SQ.M.
@@ -285,28 +305,30 @@ export default function AreaSheet() {
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Lounges & Wellness</span>
+            <span className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+              Lounges & Wellness
+            </span>
             <Activity size={16} className="text-[#2e7c67]" />
           </div>
           <p className="mt-4 text-[24px] font-extrabold tracking-[-.04em] text-[#173e49]">
-            {metrics.loungeSqft.toLocaleString()} <span className="text-[14px] font-bold text-muted-foreground">SQ.FT.</span>
+            {metrics.loungeSqft.toLocaleString()}{' '}
+            <span className="text-[14px] font-bold text-muted-foreground">SQ.FT.</span>
           </p>
-          <p className="mt-1 font-mono text-[10px] text-[#2e7c67]">
-            42 Facilities across Delhi, Hyd, Goa, Vizag
-          </p>
+          <p className="mt-1 font-mono text-[10px] text-[#2e7c67]">42 Facilities across Delhi, Hyd, Goa, Vizag</p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Kitchen & Misc Facilities</span>
+            <span className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+              Kitchen & Misc Facilities
+            </span>
             <CircleDollarSign size={16} className="text-[#9a711f]" />
           </div>
           <p className="mt-4 text-[24px] font-extrabold tracking-[-.04em] text-[#9a711f]">
-            {metrics.kitchenSqft.toLocaleString()} <span className="text-[14px] font-bold text-muted-foreground">SQ.FT.</span>
+            {metrics.kitchenSqft.toLocaleString()}{' '}
+            <span className="text-[14px] font-bold text-muted-foreground">SQ.FT.</span>
           </p>
-          <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-            24 Commissary, Kitchen & Back-Office Units
-          </p>
+          <p className="mt-1 font-mono text-[10px] text-muted-foreground">24 Commissary, Kitchen & Back-Office Units</p>
         </div>
       </div>
 
@@ -364,7 +386,9 @@ export default function AreaSheet() {
       </div>
 
       <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
-        <span>Showing {filtered.length} of {sheetItems.length} authentic facilities</span>
+        <span>
+          Showing {filtered.length} of {sheetItems.length} authentic facilities
+        </span>
         <span className="hidden sm:inline">Source: Project Area Sheet Master Blueprint</span>
       </div>
 
@@ -421,9 +445,7 @@ export default function AreaSheet() {
                           >
                             {item.name}
                           </Link>
-                          <span className="ml-2 font-mono text-[9px] text-muted-foreground">
-                            {item.code}
-                          </span>
+                          <span className="ml-2 font-mono text-[9px] text-muted-foreground">{item.code}</span>
                         </td>
                         <td className="px-3 py-3">{statusBadge(item.status)}</td>
                         <td className="px-3 py-3 text-right font-mono text-[11px] font-bold text-foreground">
@@ -514,9 +536,7 @@ export default function AreaSheet() {
                           >
                             {item.name}
                           </Link>
-                          <span className="ml-2 font-mono text-[9px] text-muted-foreground">
-                            {item.code}
-                          </span>
+                          <span className="ml-2 font-mono text-[9px] text-muted-foreground">{item.code}</span>
                         </td>
                         <td className="px-3 py-3">{statusBadge(item.status)}</td>
                         <td className="px-3 py-3 text-right font-mono text-[11px] font-bold text-foreground">

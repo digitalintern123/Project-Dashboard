@@ -40,7 +40,9 @@ describe('login cookies', () => {
 
 describe('CSRF', () => {
   it('rejects state-changing requests with a session cookie but no X-Requested-With header', async () => {
-    const login = await anon(app).post('/api/auth/login').send({ email: testUsers.leadA.email, password: TEST_PASSWORD });
+    const login = await anon(app)
+      .post('/api/auth/login')
+      .send({ email: testUsers.leadA.email, password: TEST_PASSWORD });
     const at = cookieValue(login, 'encalm_at')!;
     const res = await request(app).post('/api/notifications/read-all').set('Cookie', `encalm_at=${at}`);
     expect(res.status).toBe(403);
@@ -53,14 +55,18 @@ describe('CSRF', () => {
   });
 
   it('rejects login without the header', async () => {
-    const res = await request(app).post('/api/auth/login').send({ email: testUsers.hod.email, password: TEST_PASSWORD });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: testUsers.hod.email, password: TEST_PASSWORD });
     expect(res.status).toBe(403);
   });
 });
 
 describe('refresh rotation', () => {
   it('rotates the refresh token and detects reuse of an old one', async () => {
-    const login = await anon(app).post('/api/auth/login').send({ email: testUsers.leadA.email, password: TEST_PASSWORD });
+    const login = await anon(app)
+      .post('/api/auth/login')
+      .send({ email: testUsers.leadA.email, password: TEST_PASSWORD });
     const rt1 = cookieValue(login, 'encalm_rt')!;
 
     const r1 = await anon(app).post('/api/auth/refresh').set('Cookie', `encalm_rt=${rt1}`);
@@ -75,7 +81,9 @@ describe('refresh rotation', () => {
     expect(raced.body.retry).toBe(true);
 
     // Outside the grace window, reusing rt1 revokes every session for the user.
-    db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now', '-1 minute') WHERE revoked_at IS NOT NULL").run();
+    db.prepare(
+      "UPDATE refresh_tokens SET revoked_at = datetime('now', '-1 minute') WHERE revoked_at IS NOT NULL",
+    ).run();
     const reuse = await anon(app).post('/api/auth/refresh').set('Cookie', `encalm_rt=${rt1}`);
     expect(reuse.status).toBe(401);
 
@@ -120,7 +128,9 @@ describe('logout', () => {
     const other = await loginAs(app, 'coordinator');
     const current = await loginAs(app, 'coordinator');
 
-    const res = await current.post('/api/auth/change-password').send({ currentPassword: TEST_PASSWORD, newPassword: 'Another-pass-123' });
+    const res = await current
+      .post('/api/auth/change-password')
+      .send({ currentPassword: TEST_PASSWORD, newPassword: 'Another-pass-123' });
     expect(res.status).toBe(200);
     expect((await current.get('/api/auth/me')).status).toBe(200);
     expect((await other.get('/api/auth/me')).status).toBe(401);

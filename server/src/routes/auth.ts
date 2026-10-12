@@ -9,12 +9,7 @@ import {
   rotateSession,
   startSession,
 } from '../utils/session.js';
-import {
-  checkPasswordPolicy,
-  generateTemporaryPassword,
-  hashPassword,
-  verifyPassword,
-} from '../utils/passwords.js';
+import { checkPasswordPolicy, generateTemporaryPassword, hashPassword, verifyPassword } from '../utils/passwords.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { audited, writeAudit } from '../utils/audit.js';
@@ -24,7 +19,8 @@ const router = Router();
 
 // One message for every failure (unknown email, wrong password, locked account)
 // so responses do not reveal which accounts exist or are locked.
-const INVALID_CREDENTIALS = 'Invalid email or password. After repeated failed attempts, sign-in is paused for 15 minutes.';
+const INVALID_CREDENTIALS =
+  'Invalid email or password. After repeated failed attempts, sign-in is paused for 15 minutes.';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
@@ -52,9 +48,9 @@ router.post('/login', validate({ body: S.loginBody }), (req, res) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const user = db.prepare(
-    "SELECT * FROM users WHERE LOWER(email) = ? AND role IN ('hod', 'lead', 'coordinator')",
-  ).get(normalizedEmail) as any;
+  const user = db
+    .prepare("SELECT * FROM users WHERE LOWER(email) = ? AND role IN ('hod', 'lead', 'coordinator')")
+    .get(normalizedEmail) as any;
 
   const passwordOk = verifyPassword(password, user?.password_hash || DUMMY_HASH);
   const locked = Boolean(user?.locked_until && new Date(user.locked_until).getTime() > Date.now());
@@ -67,7 +63,9 @@ router.post('/login', validate({ body: S.loginBody }), (req, res) => {
           new Date(Date.now() + LOCKOUT_MS).toISOString(),
           user.id,
         );
-        console.warn(`[Auth] Account ${normalizedEmail} locked for 15 minutes after ${attempts} failed attempts (ip ${req.ip})`);
+        console.warn(
+          `[Auth] Account ${normalizedEmail} locked for 15 minutes after ${attempts} failed attempts (ip ${req.ip})`,
+        );
         writeAudit({ userId: user.id, action: 'account_locked', entityType: 'user', entityId: user.id, ip: req.ip });
       } else {
         db.prepare('UPDATE users SET failed_attempts = ? WHERE id = ?').run(attempts, user.id);
@@ -129,58 +127,67 @@ router.post('/logout-all', requireAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // POST /api/auth/change-password - the signed-in user changes their own password
-router.post('/change-password', requireAuth, validate({ body: S.changePasswordBody }), transactional((req: AuthenticatedRequest, res) => {
-  const { currentPassword, newPassword } = req.body ?? {};
-  const user = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user!.id) as
-    | { id: string; password_hash: string }
-    | undefined;
+router.post(
+  '/change-password',
+  requireAuth,
+  validate({ body: S.changePasswordBody }),
+  transactional((req: AuthenticatedRequest, res) => {
+    const { currentPassword, newPassword } = req.body ?? {};
+    const user = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user!.id) as
+      { id: string; password_hash: string } | undefined;
 
-  if (!user || typeof currentPassword !== 'string' || !verifyPassword(currentPassword, user.password_hash)) {
-    return res.status(400).json({ error: 'Current password is incorrect' });
-  }
-  const policyError = checkPasswordPolicy(newPassword);
-  if (policyError) {
-    return res.status(400).json({ error: policyError });
-  }
-  if (newPassword === currentPassword) {
-    return res.status(400).json({ error: 'New password must be different from the current password' });
-  }
+    if (!user || typeof currentPassword !== 'string' || !verifyPassword(currentPassword, user.password_hash)) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+    const policyError = checkPasswordPolicy(newPassword);
+    if (policyError) {
+      return res.status(400).json({ error: policyError });
+    }
+    if (newPassword === currentPassword) {
+      return res.status(400).json({ error: 'New password must be different from the current password' });
+    }
 
-  db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?').run(
-    hashPassword(newPassword),
-    user.id,
-  );
-  // Sign out every other session, then give this browser a fresh one.
-  revokeAllSessions(user.id);
-  startSession(res, user.id);
-  writeAudit({ userId: user.id, action: 'password_changed', entityType: 'user', entityId: user.id, ip: req.ip });
-  const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
-  return res.json({ message: 'Password changed successfully', user: toPublicUser(updated) });
-}));
+    db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?').run(
+      hashPassword(newPassword),
+      user.id,
+    );
+    // Sign out every other session, then give this browser a fresh one.
+    revokeAllSessions(user.id);
+    startSession(res, user.id);
+    writeAudit({ userId: user.id, action: 'password_changed', entityType: 'user', entityId: user.id, ip: req.ip });
+    const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+    return res.json({ message: 'Password changed successfully', user: toPublicUser(updated) });
+  }),
+);
 
 // POST /api/auth/users/:id/reset-password - coordinator sets a temporary password
-router.post('/users/:id/reset-password', requireAuth, requireRole(['coordinator']), validate({ params: S.idParams }), (req: AuthenticatedRequest, res) => {
-  const target = db.prepare(
-    "SELECT id, email FROM users WHERE id = ? AND role IN ('hod', 'lead', 'coordinator')",
-  ).get(req.params.id) as { id: string; email: string } | undefined;
-  if (!target) {
-    return res.status(404).json({ error: 'User not found' });
-  }
+router.post(
+  '/users/:id/reset-password',
+  requireAuth,
+  requireRole(['coordinator']),
+  validate({ params: S.idParams }),
+  (req: AuthenticatedRequest, res) => {
+    const target = db
+      .prepare("SELECT id, email FROM users WHERE id = ? AND role IN ('hod', 'lead', 'coordinator')")
+      .get(req.params.id) as { id: string; email: string } | undefined;
+    if (!target) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
-  const temporaryPassword = generateTemporaryPassword();
-  db.prepare('UPDATE users SET password_hash = ?, must_change_password = 1, failed_attempts = 0, locked_until = NULL WHERE id = ?').run(
-    hashPassword(temporaryPassword),
-    target.id,
-  );
-  revokeAllSessions(target.id);
-  writeAudit({ userId: req.user!.id, action: 'password_reset', entityType: 'user', entityId: target.id, ip: req.ip });
-  console.log(`[Auth] ${req.user!.email} reset the password for ${target.email}`);
+    const temporaryPassword = generateTemporaryPassword();
+    db.prepare(
+      'UPDATE users SET password_hash = ?, must_change_password = 1, failed_attempts = 0, locked_until = NULL WHERE id = ?',
+    ).run(hashPassword(temporaryPassword), target.id);
+    revokeAllSessions(target.id);
+    writeAudit({ userId: req.user!.id, action: 'password_reset', entityType: 'user', entityId: target.id, ip: req.ip });
+    console.log(`[Auth] ${req.user!.email} reset the password for ${target.email}`);
 
-  return res.json({
-    message: 'Temporary password set. Share it securely; the user must change it at next sign-in.',
-    temporaryPassword,
-  });
-});
+    return res.json({
+      message: 'Temporary password set. Share it securely; the user must change it at next sign-in.',
+      temporaryPassword,
+    });
+  },
+);
 
 router.get('/users', requireAuth, (req, res) => {
   const users = db.prepare('SELECT id, name, email, role, title, initials FROM users ORDER BY name ASC').all();
@@ -189,63 +196,74 @@ router.get('/users', requireAuth, (req, res) => {
 
 // GET /api/auth/leads - List all project leads
 router.get('/leads', requireAuth, (_req, res) => {
-  const leads = db.prepare('SELECT id, name, email, role, title, initials FROM users WHERE role = ? ORDER BY name ASC').all('lead');
+  const leads = db
+    .prepare('SELECT id, name, email, role, title, initials FROM users WHERE role = ? ORDER BY name ASC')
+    .all('lead');
   return res.json({ leads });
 });
 
 // POST /api/auth/create-lead - Coordinator can create new Project Leads with real credentials
-router.post('/create-lead', requireAuth, requireRole(['coordinator']), validate({ body: S.createLeadBody }), audited({ action: 'create', entityType: 'user', table: 'users' }), (req: AuthenticatedRequest, res) => {
-  const { name, email, password, title } = req.body ?? {};
+router.post(
+  '/create-lead',
+  requireAuth,
+  requireRole(['coordinator']),
+  validate({ body: S.createLeadBody }),
+  audited({ action: 'create', entityType: 'user', table: 'users' }),
+  (req: AuthenticatedRequest, res) => {
+    const { name, email, password, title } = req.body ?? {};
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Name, email, and password are required' });
-  }
-  const policyError = checkPasswordPolicy(password);
-  if (policyError) {
-    return res.status(400).json({ error: policyError });
-  }
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+    const policyError = checkPasswordPolicy(password);
+    if (policyError) {
+      return res.status(400).json({ error: policyError });
+    }
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const trimmedName = name.trim();
-  const leadTitle = (title && title.trim()) || 'Project Lead';
+    const normalizedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
+    const leadTitle = (title && title.trim()) || 'Project Lead';
 
-  // Check if email already exists
-  const existingUser = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(normalizedEmail);
-  if (existingUser) {
-    return res.status(409).json({ error: 'A user with this email address already exists' });
-  }
+    // Check if email already exists
+    const existingUser = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(normalizedEmail);
+    if (existingUser) {
+      return res.status(409).json({ error: 'A user with this email address already exists' });
+    }
 
-  // Derive initials
-  const parts = trimmedName.split(/\s+/).filter(Boolean);
-  let initials = 'PL';
-  if (parts.length >= 2) {
-    initials = `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-  } else if (parts.length === 1 && parts[0].length >= 2) {
-    initials = parts[0].substring(0, 2).toUpperCase();
-  }
+    // Derive initials
+    const parts = trimmedName.split(/\s+/).filter(Boolean);
+    let initials = 'PL';
+    if (parts.length >= 2) {
+      initials = `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    } else if (parts.length === 1 && parts[0].length >= 2) {
+      initials = parts[0].substring(0, 2).toUpperCase();
+    }
 
-  const id = `user-lead-${Date.now()}`;
-  res.locals.auditEntityId = id;
+    const id = `user-lead-${Date.now()}`;
+    res.locals.auditEntityId = id;
 
-  // The coordinator chose this password, so the lead must replace it at first sign-in.
-  db.prepare(`
+    // The coordinator chose this password, so the lead must replace it at first sign-in.
+    db.prepare(
+      `
     INSERT INTO users (id, name, email, role, title, initials, password_hash, must_change_password)
     VALUES (?, ?, ?, 'lead', ?, ?, ?, 1)
-  `).run(id, trimmedName, normalizedEmail, leadTitle, initials, hashPassword(password));
+  `,
+    ).run(id, trimmedName, normalizedEmail, leadTitle, initials, hashPassword(password));
 
-  const newLead = {
-    id,
-    name: trimmedName,
-    email: normalizedEmail,
-    role: 'lead',
-    title: leadTitle,
-    initials,
-  };
+    const newLead = {
+      id,
+      name: trimmedName,
+      email: normalizedEmail,
+      role: 'lead',
+      title: leadTitle,
+      initials,
+    };
 
-  return res.status(201).json({
-    message: 'Project Lead created successfully',
-    lead: newLead,
-  });
-});
+    return res.status(201).json({
+      message: 'Project Lead created successfully',
+      lead: newLead,
+    });
+  },
+);
 
 export default router;

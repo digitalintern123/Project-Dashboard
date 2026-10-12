@@ -143,7 +143,7 @@ describe('role restrictions', () => {
     expect(res.status).toBe(403);
   });
 
-  it.each(projectMutations)('%s %s is forbidden for a lead on another lead\'s project', async (method, path) => {
+  it.each(projectMutations)("%s %s is forbidden for a lead on another lead's project", async (method, path) => {
     const res = await call(agents.leadB, [method, path]);
     expect(res.status).toBe(403);
   });
@@ -189,7 +189,9 @@ describe('allowed access', () => {
   });
 
   it('lets a lead create a project', async () => {
-    const res = await agents.leadA.post('/api/projects').send({ name: 'Lead project', location: 'Delhi', category: 'Lounge' });
+    const res = await agents.leadA
+      .post('/api/projects')
+      .send({ name: 'Lead project', location: 'Delhi', category: 'Lounge' });
     expect(res.status).toBe(201);
     expect(res.body.project.leadId).toBe('u-lead-a');
   });
@@ -220,7 +222,9 @@ describe('legacy notification migration', () => {
   it('copies global notifications into every inbox, keeping read state', async () => {
     const { fanOutLegacyNotifications } = await import('../src/utils/notify.js');
     db.prepare('DELETE FROM notifications').run();
-    db.prepare("INSERT INTO notifications (id, type, title, message, read) VALUES ('legacy-1', 'system', 'Old', 'Global', 1)").run();
+    db.prepare(
+      "INSERT INTO notifications (id, type, title, message, read) VALUES ('legacy-1', 'system', 'Old', 'Global', 1)",
+    ).run();
     fanOutLegacyNotifications();
     expect(db.prepare('SELECT COUNT(*) c FROM notifications WHERE recipient_id IS NULL').get()).toEqual({ c: 0 });
     const hodInbox = (await agents.hod.get('/api/notifications')).body;

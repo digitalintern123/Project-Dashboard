@@ -31,7 +31,28 @@ import {
   TrendingUp,
   Upload,
 } from 'lucide-react';
-import { CRORE, formatCrore, formatShortDate, getProjectTemplate, issueCategories, projectStatuses, locations, categories, type Health, type IssueCategory, type IssueStatus, type Phase, type Project, type ProjectIssue, type ProjectStatus, type SitePhoto, type PhotoCategory, type Location, type Category, photoCategories } from '@/data/projects';
+import {
+  CRORE,
+  formatCrore,
+  formatShortDate,
+  getProjectTemplate,
+  issueCategories,
+  projectStatuses,
+  locations,
+  categories,
+  type Health,
+  type IssueCategory,
+  type IssueStatus,
+  type Phase,
+  type Project,
+  type ProjectIssue,
+  type ProjectStatus,
+  type SitePhoto,
+  type PhotoCategory,
+  type Location,
+  type Category,
+  photoCategories,
+} from '@/data/projects';
 import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
 import { formatFullDate, isValidIsoDate, parseIsoDate, todayLabel } from '@/lib/date';
@@ -52,7 +73,8 @@ const healthStyles: Record<Health, { dot: string; text: string; bg: string; bord
   'Not started': { dot: 'bg-[#8c938d]', text: 'text-[#69716b]', bg: 'bg-[#eef0ed]', border: 'border-[#d9ded8]' },
 };
 
-type Tab = 'overview' | 'program' | 'progress' | 'timeline' | 'milestones' | 'photos' | 'commercial' | 'issues' | 'updates';
+type Tab =
+  'overview' | 'program' | 'progress' | 'timeline' | 'milestones' | 'photos' | 'commercial' | 'issues' | 'updates';
 
 function Metric({
   label,
@@ -110,15 +132,80 @@ function clampPercent(value: number): number {
 
 function ProgressRing({ progress }: { progress: number }) {
   const safe = clampPercent(progress);
-  return <div className="relative grid size-[116px] shrink-0 place-items-center rounded-full" role="img" aria-label={`${safe}% complete`} style={{ background: `conic-gradient(#3d9a7e 0 ${safe}%, #dfe8e2 ${safe}% 100%)` }}><div className="grid size-[88px] place-items-center rounded-full bg-card text-center"><span className="font-mono text-[23px] font-medium">{safe}%</span><span className="font-mono text-[8px] uppercase tracking-[.12em] text-muted-foreground">complete</span></div></div>;
+  return (
+    <div
+      className="relative grid size-[116px] shrink-0 place-items-center rounded-full"
+      role="img"
+      aria-label={`${safe}% complete`}
+      style={{ background: `conic-gradient(#3d9a7e 0 ${safe}%, #dfe8e2 ${safe}% 100%)` }}
+    >
+      <div className="grid size-[88px] place-items-center rounded-full bg-card text-center">
+        <span className="font-mono text-[23px] font-medium">{safe}%</span>
+        <span className="font-mono text-[8px] uppercase tracking-[.12em] text-muted-foreground">complete</span>
+      </div>
+    </div>
+  );
 }
 
 function PhaseList({ project }: { project: Project }) {
-  return <div className="space-y-1">{project.phases.map((phase, index) => <div key={`${phase.name}-${index}`} className="group flex items-center gap-3 rounded-xl p-3 hover:bg-[#f8f5ec]"><div className={`relative grid size-8 shrink-0 place-items-center rounded-full ${phase.status === 'complete' ? 'bg-[#e4f1ec] text-[#2e7c67]' : phase.status === 'active' ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-muted text-muted-foreground'}`}>{phase.status === 'complete' ? <Check size={14} strokeWidth={3} /> : phase.status === 'active' ? <span className="size-2 rounded-full bg-[#d19b35]" /> : <span className="size-1.5 rounded-full bg-muted-foreground/50" />}{index < project.phases.length - 1 && <span className="absolute left-1/2 top-8 h-4 w-px bg-border" />}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-4"><p className={`text-[12px] font-bold ${phase.status === 'upcoming' ? 'text-muted-foreground' : ''}`}>{phase.name}</p><span className="font-mono text-[10px] text-muted-foreground">{phase.progress}%</span></div><div className="mt-2 h-1 overflow-hidden rounded-full bg-[#e7e7dc]"><div className={`h-full rounded-full ${phase.status === 'active' ? 'bg-[#d19b35]' : 'bg-[#3d9a7e]'}`} style={{ width: `${phase.progress}%` }} /></div><p className="mt-1.5 text-[10px] text-muted-foreground">{phase.owner}</p></div></div>)}</div>;
+  return (
+    <div className="space-y-1">
+      {project.phases.map((phase, index) => (
+        <div key={`${phase.name}-${index}`} className="group flex items-center gap-3 rounded-xl p-3 hover:bg-[#f8f5ec]">
+          <div
+            className={`relative grid size-8 shrink-0 place-items-center rounded-full ${phase.status === 'complete' ? 'bg-[#e4f1ec] text-[#2e7c67]' : phase.status === 'active' ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-muted text-muted-foreground'}`}
+          >
+            {phase.status === 'complete' ? (
+              <Check size={14} strokeWidth={3} />
+            ) : phase.status === 'active' ? (
+              <span className="size-2 rounded-full bg-[#d19b35]" />
+            ) : (
+              <span className="size-1.5 rounded-full bg-muted-foreground/50" />
+            )}
+            {index < project.phases.length - 1 && <span className="absolute left-1/2 top-8 h-4 w-px bg-border" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-4">
+              <p className={`text-[12px] font-bold ${phase.status === 'upcoming' ? 'text-muted-foreground' : ''}`}>
+                {phase.name}
+              </p>
+              <span className="font-mono text-[10px] text-muted-foreground">{phase.progress}%</span>
+            </div>
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#e7e7dc]">
+              <div
+                className={`h-full rounded-full ${phase.status === 'active' ? 'bg-[#d19b35]' : 'bg-[#3d9a7e]'}`}
+                style={{ width: `${phase.progress}%` }}
+              />
+            </div>
+            <p className="mt-1.5 text-[10px] text-muted-foreground">{phase.owner}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function DetailCard({ title, eyebrow, icon: Icon, children, tone = 'card', action }: { title: string; eyebrow: string; icon: typeof Target; children: ReactNode; tone?: 'card' | 'gold' | 'green'; action?: ReactNode }) {
-  const toneClass = tone === 'gold' ? 'border-[#eadcb1] bg-[#fbf1d8]' : tone === 'green' ? 'border-[#d0e0d9] bg-[#edf5f0]' : 'border-border bg-card';
+function DetailCard({
+  title,
+  eyebrow,
+  icon: Icon,
+  children,
+  tone = 'card',
+  action,
+}: {
+  title: string;
+  eyebrow: string;
+  icon: typeof Target;
+  children: ReactNode;
+  tone?: 'card' | 'gold' | 'green';
+  action?: ReactNode;
+}) {
+  const toneClass =
+    tone === 'gold'
+      ? 'border-[#eadcb1] bg-[#fbf1d8]'
+      : tone === 'green'
+        ? 'border-[#d0e0d9] bg-[#edf5f0]'
+        : 'border-border bg-card';
   return (
     <section className={`rounded-2xl border p-5 shadow-sm shadow-[#173e49]/[.03] md:p-6 ${toneClass}`}>
       <div className="flex items-start justify-between gap-4">
@@ -139,7 +226,15 @@ function DetailCard({ title, eyebrow, icon: Icon, children, tone = 'card', actio
 const stageStatuses: Phase['status'][] = ['upcoming', 'active', 'blocked', 'complete'];
 const issueStatuses: IssueStatus[] = ['Open', 'Under review', 'Action in progress', 'Resolved', 'Closed'];
 
-function StageProgressPanel({ project, editable, onSave }: { project: Project; editable: boolean; onSave: (progress: number, comment: string, milestone: string) => void }) {
+function StageProgressPanel({
+  project,
+  editable,
+  onSave,
+}: {
+  project: Project;
+  editable: boolean;
+  onSave: (progress: number, comment: string, milestone: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState('');
   const [milestone, setMilestone] = useState(project.nextMilestone);
@@ -153,7 +248,8 @@ function StageProgressPanel({ project, editable, onSave }: { project: Project; e
           <div className="flex flex-col items-center gap-3">
             <ProgressRing progress={weighted.overallProgress} />
             <span className="text-center text-[10px] leading-4 text-muted-foreground">
-              Planned opening<br />
+              Planned opening
+              <br />
               <strong className="text-foreground">{project.targetLabel}</strong>
             </span>
           </div>
@@ -190,7 +286,8 @@ function StageProgressPanel({ project, editable, onSave }: { project: Project; e
             </div>
 
             <p className="mt-2 text-[10px] text-muted-foreground">
-              Overall completion is the mathematically weighted summation of each stage's progress proportional to its schedule duration and custom weightings.
+              Overall completion is the mathematically weighted summation of each stage's progress proportional to its
+              schedule duration and custom weightings.
             </p>
           </div>
         </div>
@@ -229,7 +326,9 @@ function StageProgressPanel({ project, editable, onSave }: { project: Project; e
                       )}
                     </td>
                     <td className="px-2 py-2.5 text-center">
-                      <span className={`inline-block rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${stage.isCustomWeight ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-[#eef0ed] text-muted-foreground'}`}>
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 font-mono text-[10px] font-bold ${stage.isCustomWeight ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-[#eef0ed] text-muted-foreground'}`}
+                      >
                         {stage.weightPercent}%
                       </span>
                     </td>
@@ -266,8 +365,12 @@ function StageProgressPanel({ project, editable, onSave }: { project: Project; e
             const { planned, variance } = getProgressVariance(project);
             return (
               <div className="flex flex-wrap gap-5 text-[11px]">
-                <span>Planned <strong>{planned === null ? 'Unavailable' : `${planned}%`}</strong></span>
-                <span>Actual <strong>{weighted.overallProgress}%</strong></span>
+                <span>
+                  Planned <strong>{planned === null ? 'Unavailable' : `${planned}%`}</strong>
+                </span>
+                <span>
+                  Actual <strong>{weighted.overallProgress}%</strong>
+                </span>
                 <span className={variance !== null && variance < 0 ? 'text-[#b2473d]' : 'text-[#2e7c67]'}>
                   Variance <strong>{variance === null ? '—' : `${variance > 0 ? '+' : ''}${variance}%`}</strong>
                 </span>
@@ -301,7 +404,9 @@ function StageProgressPanel({ project, editable, onSave }: { project: Project; e
               </button>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Overall progress is calculated automatically as <strong>{weighted.overallProgress}%</strong> based on stage weights and durations. To change stage progress or timeline dates, use the <strong>Timeline</strong> tab.
+              Overall progress is calculated automatically as <strong>{weighted.overallProgress}%</strong> based on
+              stage weights and durations. To change stage progress or timeline dates, use the <strong>Timeline</strong>{' '}
+              tab.
             </p>
             <label className="block">
               <span className="mb-2 block text-[10px] font-bold">Next expected milestone</span>
@@ -331,7 +436,15 @@ function StageProgressPanel({ project, editable, onSave }: { project: Project; e
   );
 }
 
-function StageEditorForm({ phase, onCancel, onSave }: { phase: Phase; onCancel: () => void; onSave: (patch: Partial<Phase>) => void }) {
+function StageEditorForm({
+  phase,
+  onCancel,
+  onSave,
+}: {
+  phase: Phase;
+  onCancel: () => void;
+  onSave: (patch: Partial<Phase>) => void;
+}) {
   const [draft, setDraft] = useState({
     name: phase.name,
     owner: phase.owner,
@@ -355,8 +468,12 @@ function StageEditorForm({ phase, onCancel, onSave }: { phase: Phase; onCancel: 
         onSave({
           ...draft,
           progress: Math.max(0, Math.min(100, Number(draft.progress) || 0)),
-          weight: draft.weight !== '' && !isNaN(Number(draft.weight)) ? Math.max(0, Math.min(100, Number(draft.weight))) : undefined,
-          budget: draft.budget !== '' && !isNaN(Number(draft.budget)) ? Math.max(0, Number(draft.budget)) * CRORE : undefined,
+          weight:
+            draft.weight !== '' && !isNaN(Number(draft.weight))
+              ? Math.max(0, Math.min(100, Number(draft.weight)))
+              : undefined,
+          budget:
+            draft.budget !== '' && !isNaN(Number(draft.budget)) ? Math.max(0, Number(draft.budget)) * CRORE : undefined,
           status: draft.status as Phase['status'],
           updatedAt: todayLabel(),
         });
@@ -500,7 +617,11 @@ function StageEditorForm({ phase, onCancel, onSave }: { phase: Phase; onCancel: 
         <button type="submit" className="rounded-lg bg-[#173e49] px-3 py-2 text-[10px] font-bold text-white">
           Save stage update
         </button>
-        <button type="button" onClick={onCancel} className="rounded-lg border border-border bg-white px-3 py-2 text-[10px] font-bold">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border bg-white px-3 py-2 text-[10px] font-bold"
+        >
           Cancel
         </button>
       </div>
@@ -545,7 +666,10 @@ function StageTimelinePanel({
           {project.phases.map((phase, index) => {
             const stageInfo = weighted.stages[index];
             return (
-              <div key={`${phase.id ?? phase.name}-${index}`} className="relative rounded-xl border border-border bg-[#fbfaf6] p-4">
+              <div
+                key={`${phase.id ?? phase.name}-${index}`}
+                className="relative rounded-xl border border-border bg-[#fbfaf6] p-4"
+              >
                 <div className="flex gap-3">
                   <span
                     className={`relative grid size-7 shrink-0 place-items-center rounded-full ${
@@ -558,7 +682,11 @@ function StageTimelinePanel({
                             : 'bg-[#eef0ed] text-muted-foreground'
                     }`}
                   >
-                    {phase.status === 'complete' ? <Check size={12} /> : <span className="size-1.5 rounded-full bg-current" />}
+                    {phase.status === 'complete' ? (
+                      <Check size={12} />
+                    ) : (
+                      <span className="size-1.5 rounded-full bg-current" />
+                    )}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -576,7 +704,9 @@ function StageTimelinePanel({
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className={`inline-block rounded-full px-2 py-0.5 font-mono text-[9px] font-bold ${stageInfo?.isCustomWeight ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-[#eef0ed] text-muted-foreground'}`}>
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 font-mono text-[9px] font-bold ${stageInfo?.isCustomWeight ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-[#eef0ed] text-muted-foreground'}`}
+                        >
                           Weight {stageInfo?.weightPercent ?? 0}%
                         </span>
                         <span className="inline-block rounded-full bg-[#e4f1ec] px-2 py-0.5 font-mono text-[9px] font-bold text-[#2e7c67]">
@@ -589,13 +719,21 @@ function StageTimelinePanel({
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e7e7dc]">
                       <span
                         className={`block h-full rounded-full ${
-                          phase.status === 'active' ? 'bg-[#d19b35]' : phase.status === 'blocked' ? 'bg-[#d66254]' : 'bg-[#3d9a7e]'
+                          phase.status === 'active'
+                            ? 'bg-[#d19b35]'
+                            : phase.status === 'blocked'
+                              ? 'bg-[#d66254]'
+                              : 'bg-[#3d9a7e]'
                         }`}
                         style={{ width: `${phase.progress}%` }}
                       />
                     </div>
 
-                    {(phase.workCompleted || phase.nextAction || phase.decisionRequired || phase.plannedStart || phase.plannedFinish) && (
+                    {(phase.workCompleted ||
+                      phase.nextAction ||
+                      phase.decisionRequired ||
+                      phase.plannedStart ||
+                      phase.plannedFinish) && (
                       <div className="mt-3 grid gap-2 text-[10px] text-muted-foreground md:grid-cols-2">
                         {phase.workCompleted && (
                           <p>
@@ -679,7 +817,8 @@ function StageTimelinePanel({
                           disabled={project.phases.length <= 1}
                           title={project.phases.length <= 1 ? 'A project must keep at least one stage' : undefined}
                           onClick={() => {
-                            if (window.confirm(`Remove the stage "${phase.name}"? This cannot be undone.`)) onRemove(index);
+                            if (window.confirm(`Remove the stage "${phase.name}"? This cannot be undone.`))
+                              onRemove(index);
                           }}
                           className="rounded-lg border border-[#f0c8c2] bg-white p-1.5 text-[#b2473d] disabled:opacity-30"
                         >
@@ -811,7 +950,9 @@ function StageMilestonesPanel({
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
-  const [stage, setStage] = useState(project.phases.find((phase) => phase.status === 'active')?.name ?? project.phases[0]?.name ?? '');
+  const [stage, setStage] = useState(
+    project.phases.find((phase) => phase.status === 'active')?.name ?? project.phases[0]?.name ?? '',
+  );
   const [owner, setOwner] = useState('');
   const [approvalRequired, setApprovalRequired] = useState(false);
 
@@ -941,7 +1082,9 @@ function StageMilestonesPanel({
                         </span>
                         <TagUserPopover
                           taggedUsers={milestone.taggedUsers}
-                          onChange={(newTagged) => updateMilestone(project.id, originalIndex, { taggedUsers: newTagged })}
+                          onChange={(newTagged) =>
+                            updateMilestone(project.id, originalIndex, { taggedUsers: newTagged })
+                          }
                           canTag={canTag}
                           label="Tag Member"
                           projectId={project.id}
@@ -1049,7 +1192,9 @@ function StageMilestonesPanel({
                           </span>
                           <TagUserPopover
                             taggedUsers={milestone.taggedUsers}
-                            onChange={(newTagged) => updateMilestone(project.id, originalIndex, { taggedUsers: newTagged })}
+                            onChange={(newTagged) =>
+                              updateMilestone(project.id, originalIndex, { taggedUsers: newTagged })
+                            }
                             canTag={canTag}
                             label="Tag Member"
                             projectId={project.id}
@@ -1231,7 +1376,9 @@ function StageIssuesPanel({
                     <span className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-[11px] font-bold">{issue.title}</span>
                       <div className="flex items-center gap-1.5">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[8px] uppercase tracking-wider ${statusTheme.badgeClass}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[8px] uppercase tracking-wider ${statusTheme.badgeClass}`}
+                        >
                           <span className="size-1.5 rounded-full" style={{ backgroundColor: statusTheme.dotColor }} />
                           {issue.status ?? 'Open'}
                         </span>
@@ -1257,10 +1404,26 @@ function StageIssuesPanel({
                     </div>
                     {(issue.action || issue.impactCost || issue.impactSchedule || issue.impactScope) && (
                       <div className="mt-3 grid gap-2 text-[10px] text-muted-foreground md:grid-cols-2">
-                        {issue.action && <p><strong className="text-foreground">Action:</strong> {issue.action}</p>}
-                        {issue.impactSchedule && <p><strong className="text-foreground">Schedule impact:</strong> {issue.impactSchedule}</p>}
-                        {issue.impactCost && <p><strong className="text-foreground">Cost impact:</strong> {issue.impactCost}</p>}
-                        {issue.impactScope && <p><strong className="text-foreground">Scope / quality impact:</strong> {issue.impactScope}</p>}
+                        {issue.action && (
+                          <p>
+                            <strong className="text-foreground">Action:</strong> {issue.action}
+                          </p>
+                        )}
+                        {issue.impactSchedule && (
+                          <p>
+                            <strong className="text-foreground">Schedule impact:</strong> {issue.impactSchedule}
+                          </p>
+                        )}
+                        {issue.impactCost && (
+                          <p>
+                            <strong className="text-foreground">Cost impact:</strong> {issue.impactCost}
+                          </p>
+                        )}
+                        {issue.impactScope && (
+                          <p>
+                            <strong className="text-foreground">Scope / quality impact:</strong> {issue.impactScope}
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -1313,7 +1476,9 @@ function StageIssuesPanel({
                           </select>
                         </label>
                       ) : (
-                        <span className={`rounded-full px-2.5 py-1 font-mono text-[9px] uppercase tracking-[.1em] ${statusTheme.badgeClass}`}>
+                        <span
+                          className={`rounded-full px-2.5 py-1 font-mono text-[9px] uppercase tracking-[.1em] ${statusTheme.badgeClass}`}
+                        >
                           {issue.status ?? 'Open'}
                         </span>
                       )}
@@ -1330,8 +1495,8 @@ function StageIssuesPanel({
         )}
       </div>
 
-      {editable && (
-        adding ? (
+      {editable &&
+        (adding ? (
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -1378,7 +1543,9 @@ function StageIssuesPanel({
                 className="h-10 rounded-lg border border-border bg-white px-3 text-[11px]"
               >
                 {issueCategories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
                 ))}
               </select>
               <select
@@ -1406,7 +1573,9 @@ function StageIssuesPanel({
                 className="h-10 rounded-lg border border-border bg-white px-3 text-[11px]"
               />
               <label className="block">
-                <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">Issue Arise Date</span>
+                <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                  Issue Arise Date
+                </span>
                 <input
                   type="date"
                   value={draft.issueAriseDate}
@@ -1415,7 +1584,9 @@ function StageIssuesPanel({
                 />
               </label>
               <label className="block md:col-span-2">
-                <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">Target Closure Date</span>
+                <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                  Target Closure Date
+                </span>
                 <input
                   type="date"
                   value={draft.targetClosureDate}
@@ -1462,7 +1633,11 @@ function StageIssuesPanel({
               <button type="submit" className="rounded-lg bg-[#173e49] px-4 py-2 text-[10px] font-bold text-white">
                 Add issue
               </button>
-              <button type="button" onClick={() => setAdding(false)} className="rounded-lg border border-border bg-white px-4 py-2 text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => setAdding(false)}
+                className="rounded-lg border border-border bg-white px-4 py-2 text-[10px] font-bold"
+              >
                 Cancel
               </button>
             </div>
@@ -1475,17 +1650,33 @@ function StageIssuesPanel({
           >
             <Plus size={13} className="mr-1 inline" /> Add issue or risk
           </button>
-        )
-      )}
+        ))}
     </DetailCard>
   );
 }
 
-function StageUpdatesPanel({ project, editable, onAdd }: { project: Project; editable: boolean; onAdd: (update: { text: string; date: string; author: string; role: string; stage: string; kind: 'Progress' | 'Decision' | 'Risk' | 'General' }) => void }) {
+function StageUpdatesPanel({
+  project,
+  editable,
+  onAdd,
+}: {
+  project: Project;
+  editable: boolean;
+  onAdd: (update: {
+    text: string;
+    date: string;
+    author: string;
+    role: string;
+    stage: string;
+    kind: 'Progress' | 'Decision' | 'Risk' | 'General';
+  }) => void;
+}) {
   const { user } = useAppState();
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
-  const [stage, setStage] = useState(project.phases.find((phase) => phase.status === 'active')?.name ?? project.phases[0]?.name ?? '');
+  const [stage, setStage] = useState(
+    project.phases.find((phase) => phase.status === 'active')?.name ?? project.phases[0]?.name ?? '',
+  );
   const [kind, setKind] = useState<'Progress' | 'Decision' | 'Risk' | 'General'>('Progress');
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
 
@@ -1521,7 +1712,9 @@ function StageUpdatesPanel({ project, editable, onAdd }: { project: Project; edi
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[12px] font-bold">{update.author}</span>
-                <span className="font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">{update.role}</span>
+                <span className="font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">
+                  {update.role}
+                </span>
                 <span className="font-mono text-[9px] text-muted-foreground/70">{update.date}</span>
                 <span className="rounded-full bg-[#e4f1ec] px-2 py-1 font-mono text-[8px] uppercase tracking-[.08em] text-[#2e7c67]">
                   {update.kind ?? 'General'}
@@ -1534,9 +1727,12 @@ function StageUpdatesPanel({ project, editable, onAdd }: { project: Project; edi
         ))}
       </div>
 
-      {editable && (
-        adding ? (
-          <form onSubmit={handleSubmit} className="mt-6 space-y-3 rounded-xl border border-[#cbe4d9] bg-[#edf5f0] p-3.5">
+      {editable &&
+        (adding ? (
+          <form
+            onSubmit={handleSubmit}
+            className="mt-6 space-y-3 rounded-xl border border-[#cbe4d9] bg-[#edf5f0] p-3.5"
+          >
             <div className="grid gap-2 md:grid-cols-2">
               <select
                 value={stage}
@@ -1610,8 +1806,7 @@ function StageUpdatesPanel({ project, editable, onAdd }: { project: Project; edi
           >
             <Plus size={13} className="mr-1 inline" /> Add stage update
           </button>
-        )
-      )}
+        ))}
     </DetailCard>
   );
 }
@@ -1634,15 +1829,12 @@ function StagePhotosPanel({
 
   return (
     <div className="w-full space-y-6">
-      <DetailCard
-        title="Site Photographs Gallery"
-        eyebrow="Physical Progress Verification"
-        icon={Camera}
-      >
+      <DetailCard title="Site Photographs Gallery" eyebrow="Physical Progress Verification" icon={Camera}>
         <div className="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-5">
           <div>
             <p className="text-[12px] text-muted-foreground max-w-xl">
-              Verified physical site photographs for <strong>{project.name}</strong> documenting construction progress, MEP fit-out, and snag resolutions.
+              Verified physical site photographs for <strong>{project.name}</strong> documenting construction progress,
+              MEP fit-out, and snag resolutions.
               {photos.length > 0 && (
                 <span className="block mt-1 font-semibold text-foreground">
                   {photos.length} verified site photograph{photos.length > 1 ? 's' : ''} in project gallery.
@@ -1764,12 +1956,8 @@ function StagePhotosPanel({
             {photos.length > 1 && (
               <div className="border-t border-border/70 pt-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[14px] font-bold text-foreground">
-                    All Project Photographs ({photos.length})
-                  </h3>
-                  <span className="text-[11px] text-muted-foreground">
-                    Click any photo to open full-screen viewer
-                  </span>
+                  <h3 className="text-[14px] font-bold text-foreground">All Project Photographs ({photos.length})</h3>
+                  <span className="text-[11px] text-muted-foreground">Click any photo to open full-screen viewer</span>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1830,7 +2018,8 @@ function StagePhotosPanel({
             <Camera size={38} className="mx-auto text-muted-foreground/50 mb-3" />
             <h3 className="text-[16px] font-bold text-foreground">No Site Photographs Uploaded Yet</h3>
             <p className="mt-2 text-[12px] text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Upload physical progress photos, snag shots, or milestone completions directly from the site to keep stakeholders visually aligned. Multiple photos can be uploaded at once.
+              Upload physical progress photos, snag shots, or milestone completions directly from the site to keep
+              stakeholders visually aligned. Multiple photos can be uploaded at once.
             </p>
             {editable && (
               <button
@@ -1880,7 +2069,19 @@ export default function ProjectDetail() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<SitePhoto | null>(null);
   const project = projects.find((item) => item.id === projectId);
-  if (!project) return <div className="mx-auto max-w-4xl px-5 py-20 text-center"><p className="font-mono text-[10px] uppercase tracking-[.15em] text-muted-foreground">Project not found</p><h1 className="mt-3 font-serif text-4xl text-[#173e49]">That project is not in this portfolio.</h1><Link href="/" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-[12px] font-bold text-primary-foreground"><ArrowLeft size={14} /> Return to portfolio</Link></div>;
+  if (!project)
+    return (
+      <div className="mx-auto max-w-4xl px-5 py-20 text-center">
+        <p className="font-mono text-[10px] uppercase tracking-[.15em] text-muted-foreground">Project not found</p>
+        <h1 className="mt-3 font-serif text-4xl text-[#173e49]">That project is not in this portfolio.</h1>
+        <Link
+          href="/"
+          className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-[12px] font-bold text-primary-foreground"
+        >
+          <ArrowLeft size={14} /> Return to portfolio
+        </Link>
+      </div>
+    );
   const health = healthStyles[project.health];
   const isAllottedToMe = !project.leadId || project.leadId === user?.id;
   const canEdit = role === 'coordinator' || (role === 'lead' && isAllottedToMe);
@@ -1892,19 +2093,34 @@ export default function ProjectDetail() {
       toast({
         variant: 'destructive',
         title: 'Permission denied',
-        description: role === 'hod'
-          ? 'HOD accounts have strict view-only oversight.'
-          : `You can only update projects allotted to you. This project is assigned to ${leadName(project.leadId)}.`,
+        description:
+          role === 'hod'
+            ? 'HOD accounts have strict view-only oversight.'
+            : `You can only update projects allotted to you. This project is assigned to ${leadName(project.leadId)}.`,
       });
       return;
     }
-    const saved = updateProject(project.id, { progress: clampPercent(progress), nextMilestone: nextMilestone.trim() || project.nextMilestone });
+    const saved = updateProject(project.id, {
+      progress: clampPercent(progress),
+      nextMilestone: nextMilestone.trim() || project.nextMilestone,
+    });
     if (!saved) {
-      toast({ variant: 'destructive', title: 'Not saved', description: 'Project edits require Lead or Coordinator permissions.' });
+      toast({
+        variant: 'destructive',
+        title: 'Not saved',
+        description: 'Project edits require Lead or Coordinator permissions.',
+      });
       return;
     }
     if (comment.trim()) {
-      addUpdate(project.id, { date: todayLabel(), author: user?.name ?? 'Project Lead', role: user?.title ?? 'Project Lead', text: comment.trim(), stage: activePhase, kind: 'Progress' });
+      addUpdate(project.id, {
+        date: todayLabel(),
+        author: user?.name ?? 'Project Lead',
+        role: user?.title ?? 'Project Lead',
+        text: comment.trim(),
+        stage: activePhase,
+        kind: 'Progress',
+      });
     }
     toast({ title: 'Progress updated', description: `${project.name} is now at ${clampPercent(progress)}%.` });
   };
@@ -1923,154 +2139,183 @@ export default function ProjectDetail() {
   ];
   const commercial = getCommercialSummary(project);
   const progressVariance = getProgressVariance(project);
-  return <div className="mx-auto max-w-[1400px] px-5 pb-14 pt-7 md:px-10 md:pt-9">
-    <Link href="/" className="fade-up inline-flex items-center gap-2 text-[11px] font-bold text-muted-foreground hover:text-foreground"><ArrowLeft size={15} /> Back to portfolio</Link>
-    <section className="fade-up mt-8 flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[.15em] text-muted-foreground">
-          <span>{project.code}</span>
-          <span className="text-border">/</span>
-          <span className="flex items-center gap-1"><MapPin size={11} /> {project.location}</span>
-          <span className="text-border">/</span>
-          <span>{project.category}</span>
-        </div>
-        <h1 className="mt-4 max-w-[780px] font-serif text-[42px] leading-[.98] tracking-[-.045em] text-[#173e49] md:text-[58px]">{project.name}</h1>
-        <p className="mt-4 max-w-[600px] text-[13px] leading-6 text-muted-foreground">
-          A clear line of sight from brief to opening. Current delivery stage: <strong className="font-bold text-foreground">{activePhase}</strong>.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex shrink-0 items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-2.5">
-          <span className="size-2.5 rounded-full bg-[#173e49]" />
-          <div>
-            <span className="block font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
-              Project status
+  return (
+    <div className="mx-auto max-w-[1400px] px-5 pb-14 pt-7 md:px-10 md:pt-9">
+      <Link
+        href="/"
+        className="fade-up inline-flex items-center gap-2 text-[11px] font-bold text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft size={15} /> Back to portfolio
+      </Link>
+      <section className="fade-up mt-8 flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[.15em] text-muted-foreground">
+            <span>{project.code}</span>
+            <span className="text-border">/</span>
+            <span className="flex items-center gap-1">
+              <MapPin size={11} /> {project.location}
             </span>
-            {canEdit ? (
-              <select
-                aria-label="Change project status"
-                value={project.status || 'Yet to start'}
-                onChange={(e) => {
-                  const newStatus = e.target.value as ProjectStatus;
-                  updateProject(project.id, { status: newStatus });
-                  toast({
-                    title: 'Status updated',
-                    description: `${project.name} is now set to "${newStatus}".`,
-                  });
-                }}
-                className={`mt-1 cursor-pointer rounded-lg border border-border/80 px-2 py-0.5 text-[11px] font-extrabold outline-none transition hover:opacity-90 ${statusTone[project.status || 'Yet to start']}`}
-              >
-                {projectStatuses.map((st) => (
-                  <option key={st} value={st} className="bg-white text-foreground font-semibold">
-                    {st}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-extrabold ${statusTone[project.status || 'Yet to start']}`}>
-                {project.status || 'Yet to start'}
-              </span>
-            )}
+            <span className="text-border">/</span>
+            <span>{project.category}</span>
           </div>
+          <h1 className="mt-4 max-w-[780px] font-serif text-[42px] leading-[.98] tracking-[-.045em] text-[#173e49] md:text-[58px]">
+            {project.name}
+          </h1>
+          <p className="mt-4 max-w-[600px] text-[13px] leading-6 text-muted-foreground">
+            A clear line of sight from brief to opening. Current delivery stage:{' '}
+            <strong className="font-bold text-foreground">{activePhase}</strong>.
+          </p>
         </div>
 
-        <div className={`flex shrink-0 items-center gap-3 rounded-2xl border ${health.border} ${health.bg} px-4 py-3`}>
-          <span className={`grid size-9 place-items-center rounded-xl ${health.bg} ${health.text}`}>
-            <span className={`size-2.5 rounded-full ${health.dot}`} />
-          </span>
-          <span>
-            <span className={`block font-mono text-[9px] uppercase tracking-[.14em] ${health.text}`}>Current health</span>
-            <span className={`mt-1 block text-[13px] font-extrabold ${health.text}`}>{project.health}</span>
-          </span>
-        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-2.5">
+            <span className="size-2.5 rounded-full bg-[#173e49]" />
+            <div>
+              <span className="block font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+                Project status
+              </span>
+              {canEdit ? (
+                <select
+                  aria-label="Change project status"
+                  value={project.status || 'Yet to start'}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as ProjectStatus;
+                    updateProject(project.id, { status: newStatus });
+                    toast({
+                      title: 'Status updated',
+                      description: `${project.name} is now set to "${newStatus}".`,
+                    });
+                  }}
+                  className={`mt-1 cursor-pointer rounded-lg border border-border/80 px-2 py-0.5 text-[11px] font-extrabold outline-none transition hover:opacity-90 ${statusTone[project.status || 'Yet to start']}`}
+                >
+                  {projectStatuses.map((st) => (
+                    <option key={st} value={st} className="bg-white text-foreground font-semibold">
+                      {st}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span
+                  className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-extrabold ${statusTone[project.status || 'Yet to start']}`}
+                >
+                  {project.status || 'Yet to start'}
+                </span>
+              )}
+            </div>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => setEmailModalOpen(true)}
-          className="flex items-center gap-2 rounded-xl border border-[#cbe4d9] bg-[#edf5f0] px-3.5 py-3 text-[10px] font-extrabold text-[#2e7c67] hover:bg-[#dfeee5] transition shadow-xs"
-          title="Share executive update email or inspect delivery outbox"
-        >
-          <Mail size={14} /> Email Update
-        </button>
+          <div
+            className={`flex shrink-0 items-center gap-3 rounded-2xl border ${health.border} ${health.bg} px-4 py-3`}
+          >
+            <span className={`grid size-9 place-items-center rounded-xl ${health.bg} ${health.text}`}>
+              <span className={`size-2.5 rounded-full ${health.dot}`} />
+            </span>
+            <span>
+              <span className={`block font-mono text-[9px] uppercase tracking-[.14em] ${health.text}`}>
+                Current health
+              </span>
+              <span className={`mt-1 block text-[13px] font-extrabold ${health.text}`}>{project.health}</span>
+            </span>
+          </div>
 
-        {canEdit ? (
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setEditing((value) => !value)} className="flex items-center gap-2 rounded-xl bg-[#d6a95d] px-3.5 py-3 text-[10px] font-extrabold text-[#173e49] hover:bg-[#e2bd73] transition">
-              <Pencil size={14} /> Edit project
-            </button>
-            {role === 'coordinator' && (
+          <button
+            type="button"
+            onClick={() => setEmailModalOpen(true)}
+            className="flex items-center gap-2 rounded-xl border border-[#cbe4d9] bg-[#edf5f0] px-3.5 py-3 text-[10px] font-extrabold text-[#2e7c67] hover:bg-[#dfeee5] transition shadow-xs"
+            title="Share executive update email or inspect delivery outbox"
+          >
+            <Mail size={14} /> Email Update
+          </button>
+
+          {canEdit ? (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-[10px] font-extrabold text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition"
-                title="Delete this project"
+                onClick={() => setEditing((value) => !value)}
+                className="flex items-center gap-2 rounded-xl bg-[#d6a95d] px-3.5 py-3 text-[10px] font-extrabold text-[#173e49] hover:bg-[#e2bd73] transition"
               >
-                <Trash2 size={14} /> Delete project
+                <Pencil size={14} /> Edit project
               </button>
-            )}
-          </div>
-        ) : (
-          <span className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-3 font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">
-            <ShieldAlert size={13} className="text-[#9a711f]" />
-            {role === 'hod' ? 'View only · HOD Oversight' : `View only · Allotted to ${leadName(project.leadId)}`}
-          </span>
-        )}
-      </div>
-    </section>
-
-    {editing && canEdit && <EditProjectForm project={project} onCancel={() => setEditing(false)} onSave={(patch) => { updateProject(project.id, patch); setEditing(false); }} />}
-
-    <section className="fade-up mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-      <Metric
-        label="Project Status"
-        value={project.status || 'Yet to start'}
-        note="User-defined status"
-        icon={Layers3}
-      />
-      <Metric
-        label="Completion %"
-        value={`${project.progress}%`}
-        note={
-          progressVariance.variance !== null
-            ? `${progressVariance.variance >= 0 ? '+' : ''}${progressVariance.variance}% vs planned`
-            : 'Target schedule'
-        }
-        icon={TrendingUp}
-      />
-      <Metric
-        label="Approved Budget (AOP)"
-        value={formatCrore(project.aop)}
-        tone={commercial.overAwarded ? 'warning' : 'default'}
-        note={
-          <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
-            <div>
-              {formatCrore(project.awarded)} committed{' '}
-              {commercial.overAwarded && <span className="font-bold text-[#b2473d]">(Over AOP)</span>}
+              {role === 'coordinator' && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-[10px] font-extrabold text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition"
+                  title="Delete this project"
+                >
+                  <Trash2 size={14} /> Delete project
+                </button>
+              )}
             </div>
-            <div>{formatCrore(project.spent)} spent</div>
-          </div>
-        }
-        icon={CircleDollarSign}
-      />
-      <Metric
-        label="Projected Cost"
-        value={formatCrore(project.projectedCost ?? project.aop)}
-        tone={commercial.overBudget ? 'danger' : 'default'}
-        note={
-          commercial.costVariance === 0
-            ? 'On approved budget'
-            : commercial.costVariance > 0
-              ? `+${formatCrore(commercial.costVariance)} variance (Over budget)`
-              : `${formatCrore(commercial.costVariance)} variance`
-        }
-        icon={ReceiptText}
-      />
-      <Metric
-        label="Completion Date"
-        value={project.targetLabel || (project.targetDate ? formatFullDate(project.targetDate) : 'Not set')}
-        note={
-          (() => {
+          ) : (
+            <span className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-3 font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">
+              <ShieldAlert size={13} className="text-[#9a711f]" />
+              {role === 'hod' ? 'View only · HOD Oversight' : `View only · Allotted to ${leadName(project.leadId)}`}
+            </span>
+          )}
+        </div>
+      </section>
+
+      {editing && canEdit && (
+        <EditProjectForm
+          project={project}
+          onCancel={() => setEditing(false)}
+          onSave={(patch) => {
+            updateProject(project.id, patch);
+            setEditing(false);
+          }}
+        />
+      )}
+
+      <section className="fade-up mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Metric
+          label="Project Status"
+          value={project.status || 'Yet to start'}
+          note="User-defined status"
+          icon={Layers3}
+        />
+        <Metric
+          label="Completion %"
+          value={`${project.progress}%`}
+          note={
+            progressVariance.variance !== null
+              ? `${progressVariance.variance >= 0 ? '+' : ''}${progressVariance.variance}% vs planned`
+              : 'Target schedule'
+          }
+          icon={TrendingUp}
+        />
+        <Metric
+          label="Approved Budget (AOP)"
+          value={formatCrore(project.aop)}
+          tone={commercial.overAwarded ? 'warning' : 'default'}
+          note={
+            <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+              <div>
+                {formatCrore(project.awarded)} committed{' '}
+                {commercial.overAwarded && <span className="font-bold text-[#b2473d]">(Over AOP)</span>}
+              </div>
+              <div>{formatCrore(project.spent)} spent</div>
+            </div>
+          }
+          icon={CircleDollarSign}
+        />
+        <Metric
+          label="Projected Cost"
+          value={formatCrore(project.projectedCost ?? project.aop)}
+          tone={commercial.overBudget ? 'danger' : 'default'}
+          note={
+            commercial.costVariance === 0
+              ? 'On approved budget'
+              : commercial.costVariance > 0
+                ? `+${formatCrore(commercial.costVariance)} variance (Over budget)`
+                : `${formatCrore(commercial.costVariance)} variance`
+          }
+          icon={ReceiptText}
+        />
+        <Metric
+          label="Completion Date"
+          value={project.targetLabel || (project.targetDate ? formatFullDate(project.targetDate) : 'Not set')}
+          note={(() => {
             const target = parseIsoDate(project.targetDate);
             if (!target) return 'Planned opening schedule';
             const today = new Date();
@@ -2080,184 +2325,239 @@ export default function ProjectDetail() {
             if (diffDays > 0) return `${diffDays} days remaining`;
             if (diffDays === 0) return 'Due today';
             return `${Math.abs(diffDays)} days past target`;
-          })()
-        }
-        icon={CalendarDays}
+          })()}
+          icon={CalendarDays}
+        />
+      </section>
+
+      <div className="mt-9 flex gap-1 overflow-x-auto border-b border-border">
+        {tabs.map(([value, label, Icon]) => (
+          <button
+            type="button"
+            key={value}
+            onClick={() => setTab(value)}
+            className={`relative flex shrink-0 items-center gap-2 px-3 py-3 text-[11px] font-bold ${tab === value ? 'text-[#173e49]' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Icon size={14} />
+            {label}
+            {tab === value && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-[#d19b35]" />}
+          </button>
+        ))}
+      </div>
+      <div className="fade-up mt-6">
+        {tab === 'overview' && (
+          <OverviewPanel
+            project={project}
+            canEdit={canEdit}
+            onSelectTab={setTab}
+            onUpload={() => setUploadOpen(true)}
+            onInspect={(photo) => setLightboxPhoto(photo)}
+          />
+        )}
+        {tab === 'program' && (
+          <ProjectAreaProgram
+            project={project}
+            editable={canEdit}
+            onSave={(patch) => updateProject(project.id, patch)}
+          />
+        )}
+        {tab === 'progress' && <StageProgressPanel project={project} editable={canEdit} onSave={saveProgress} />}
+        {tab === 'timeline' && (
+          <StageTimelinePanel
+            project={project}
+            editable={canEdit}
+            canTag={canTag}
+            onSave={(index, patch) => updatePhase(project.id, index, patch)}
+            onAdd={(phase) => addPhase(project.id, phase)}
+            onRemove={(index) => removePhase(project.id, index)}
+            onMove={(index, direction) => movePhase(project.id, index, direction)}
+          />
+        )}
+        {tab === 'milestones' && (
+          <StageMilestonesPanel
+            project={project}
+            editable={canEdit}
+            canTag={canTag}
+            onAdd={(milestone) => addMilestone(project.id, milestone)}
+          />
+        )}
+        {tab === 'photos' && (
+          <StagePhotosPanel
+            project={project}
+            editable={canEdit}
+            onUpload={() => setUploadOpen(true)}
+            onDelete={async (photoId) => {
+              const ok = await deletePhoto(project.id, photoId);
+              if (ok) {
+                toast({
+                  title: 'Photograph deleted',
+                  description: 'The site photograph was permanently removed from the server.',
+                });
+              } else {
+                toast({ variant: 'destructive', title: 'Delete failed', description: 'Could not delete photograph.' });
+              }
+            }}
+            onInspect={(photo) => setLightboxPhoto(photo)}
+          />
+        )}
+        {tab === 'commercial' && (
+          <CommercialPanel project={project} editable={canEdit} onSave={(patch) => updateProject(project.id, patch)} />
+        )}
+        {tab === 'issues' && (
+          <StageIssuesPanel
+            project={project}
+            editable={canEdit}
+            canTag={canTag}
+            onAdd={(issue) => addIssue(project.id, issue)}
+            onUpdate={(index, patch) => updateIssue(project.id, index, patch)}
+          />
+        )}
+        {tab === 'updates' && (
+          <StageUpdatesPanel project={project} editable={canEdit} onAdd={(update) => addUpdate(project.id, update)} />
+        )}
+      </div>
+
+      <EmailHubModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        projectId={project.id}
+        projectName={project.name}
+        defaultTab="send"
       />
-    </section>
 
-    <div className="mt-9 flex gap-1 overflow-x-auto border-b border-border">{tabs.map(([value, label, Icon]) => <button type="button" key={value} onClick={() => setTab(value)} className={`relative flex shrink-0 items-center gap-2 px-3 py-3 text-[11px] font-bold ${tab === value ? 'text-[#173e49]' : 'text-muted-foreground hover:text-foreground'}`}><Icon size={14} />{label}{tab === value && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-[#d19b35]" />}</button>)}</div>
-    <div className="fade-up mt-6">
-      {tab === 'overview' && (
-        <OverviewPanel
-          project={project}
-          canEdit={canEdit}
-          onSelectTab={setTab}
-          onUpload={() => setUploadOpen(true)}
-          onInspect={(photo) => setLightboxPhoto(photo)}
-        />
-      )}
-      {tab === 'program' && (
-        <ProjectAreaProgram
-          project={project}
-          editable={canEdit}
-          onSave={(patch) => updateProject(project.id, patch)}
-        />
-      )}
-      {tab === 'progress' && <StageProgressPanel project={project} editable={canEdit} onSave={saveProgress} />}
-      {tab === 'timeline' && <StageTimelinePanel project={project} editable={canEdit} canTag={canTag} onSave={(index, patch) => updatePhase(project.id, index, patch)} onAdd={(phase) => addPhase(project.id, phase)} onRemove={(index) => removePhase(project.id, index)} onMove={(index, direction) => movePhase(project.id, index, direction)} />}
-      {tab === 'milestones' && <StageMilestonesPanel project={project} editable={canEdit} canTag={canTag} onAdd={(milestone) => addMilestone(project.id, milestone)} />}
-      {tab === 'photos' && (
-        <StagePhotosPanel
-          project={project}
-          editable={canEdit}
-          onUpload={() => setUploadOpen(true)}
-          onDelete={async (photoId) => {
-            const ok = await deletePhoto(project.id, photoId);
-            if (ok) {
-              toast({ title: 'Photograph deleted', description: 'The site photograph was permanently removed from the server.' });
-            } else {
-              toast({ variant: 'destructive', title: 'Delete failed', description: 'Could not delete photograph.' });
-            }
-          }}
-          onInspect={(photo) => setLightboxPhoto(photo)}
-        />
-      )}
-      {tab === 'commercial' && <CommercialPanel project={project} editable={canEdit} onSave={(patch) => updateProject(project.id, patch)} />}
-      {tab === 'issues' && <StageIssuesPanel project={project} editable={canEdit} canTag={canTag} onAdd={(issue) => addIssue(project.id, issue)} onUpdate={(index, patch) => updateIssue(project.id, index, patch)} />}
-      {tab === 'updates' && <StageUpdatesPanel project={project} editable={canEdit} onAdd={(update) => addUpdate(project.id, update)} />}
-    </div>
-
-    <EmailHubModal
-      isOpen={emailModalOpen}
-      onClose={() => setEmailModalOpen(false)}
-      projectId={project.id}
-      projectName={project.name}
-      defaultTab="send"
-    />
-
-    {showDeleteConfirm && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
-          <div className="flex items-center gap-3 text-rose-600">
-            <span className="grid size-10 place-items-center rounded-xl bg-rose-100 text-rose-700">
-              <Trash2 size={20} />
-            </span>
-            <h3 className="text-[17px] font-bold text-foreground">Delete Project</h3>
-          </div>
-          <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-            Are you sure you want to permanently delete <strong className="font-semibold text-foreground">"{project.name}"</strong>? This will permanently remove all associated stages, milestones, issues, and progress updates from the database.
-          </p>
-          <div className="mt-6 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={() => setShowDeleteConfirm(false)}
-              className="rounded-xl border border-border px-4 py-2.5 text-[11px] font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={async () => {
-                setIsDeleting(true);
-                try {
-                  const success = await deleteProject(project.id);
-                  if (success) {
-                    toast({
-                      title: 'Project deleted',
-                      description: `"${project.name}" has been permanently removed.`,
-                    });
-                    setLocation('/');
-                  } else {
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-center gap-3 text-rose-600">
+              <span className="grid size-10 place-items-center rounded-xl bg-rose-100 text-rose-700">
+                <Trash2 size={20} />
+              </span>
+              <h3 className="text-[17px] font-bold text-foreground">Delete Project</h3>
+            </div>
+            <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
+              Are you sure you want to permanently delete{' '}
+              <strong className="font-semibold text-foreground">"{project.name}"</strong>? This will permanently remove
+              all associated stages, milestones, issues, and progress updates from the database.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-xl border border-border px-4 py-2.5 text-[11px] font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    const success = await deleteProject(project.id);
+                    if (success) {
+                      toast({
+                        title: 'Project deleted',
+                        description: `"${project.name}" has been permanently removed.`,
+                      });
+                      setLocation('/');
+                    } else {
+                      toast({
+                        variant: 'destructive',
+                        title: 'Delete failed',
+                        description: 'Could not delete project from database.',
+                      });
+                      setIsDeleting(false);
+                    }
+                  } catch (err: any) {
                     toast({
                       variant: 'destructive',
                       title: 'Delete failed',
-                      description: 'Could not delete project from database.',
+                      description: err.message || 'An error occurred.',
                     });
                     setIsDeleting(false);
                   }
-                } catch (err: any) {
-                  toast({
-                    variant: 'destructive',
-                    title: 'Delete failed',
-                    description: err.message || 'An error occurred.',
-                  });
-                  setIsDeleting(false);
-                }
-              }}
-              className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-[11px] font-bold text-white hover:bg-rose-700 transition disabled:opacity-50"
-            >
-              {isDeleting ? 'Deleting...' : 'Yes, delete project'}
-            </button>
+                }}
+                className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-[11px] font-bold text-white hover:bg-rose-700 transition disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, delete project'}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
 
-    {uploadOpen && (
-      <PhotoUploadDialog
-        projectId={project.id}
-        projectName={project.name}
-        stages={project.phases}
-        existingPhotoUrl={project.photos?.[0]?.url}
-        onClose={() => setUploadOpen(false)}
-        onUploadBatch={async (photos) => {
-          try {
-            await addMultiplePhotos(project.id, photos);
-            toast({
-              title: `${photos.length} photograph${photos.length > 1 ? 's' : ''} uploaded`,
-              description: 'Successfully added to project site gallery.',
-            });
-          } catch (err: any) {
-            toast({
-              variant: 'destructive',
-              title: 'Upload failed',
-              description: err?.message || 'Failed to upload photographs.',
-            });
-            throw err;
-          }
-        }}
-        onUpload={async (data) => {
-          try {
-            await addPhoto(project.id, data);
-            toast({
-              title: 'Site photograph added',
-              description: 'New photograph uploaded to project site gallery.',
-            });
-          } catch (err: any) {
-            toast({
-              variant: 'destructive',
-              title: 'Upload failed',
-              description: err?.message || 'Failed to upload photograph.',
-            });
-            throw err;
-          }
-        }}
-      />
-    )}
+      {uploadOpen && (
+        <PhotoUploadDialog
+          projectId={project.id}
+          projectName={project.name}
+          stages={project.phases}
+          existingPhotoUrl={project.photos?.[0]?.url}
+          onClose={() => setUploadOpen(false)}
+          onUploadBatch={async (photos) => {
+            try {
+              await addMultiplePhotos(project.id, photos);
+              toast({
+                title: `${photos.length} photograph${photos.length > 1 ? 's' : ''} uploaded`,
+                description: 'Successfully added to project site gallery.',
+              });
+            } catch (err: any) {
+              toast({
+                variant: 'destructive',
+                title: 'Upload failed',
+                description: err?.message || 'Failed to upload photographs.',
+              });
+              throw err;
+            }
+          }}
+          onUpload={async (data) => {
+            try {
+              await addPhoto(project.id, data);
+              toast({
+                title: 'Site photograph added',
+                description: 'New photograph uploaded to project site gallery.',
+              });
+            } catch (err: any) {
+              toast({
+                variant: 'destructive',
+                title: 'Upload failed',
+                description: err?.message || 'Failed to upload photograph.',
+              });
+              throw err;
+            }
+          }}
+        />
+      )}
 
-    {lightboxPhoto && (
-      <PhotoLightbox
-        photo={lightboxPhoto}
-        photos={project.photos || []}
-        projectName={project.name}
-        projectCode={project.code}
-        canDelete={canEdit}
-        onClose={() => setLightboxPhoto(null)}
-        onDelete={async (photoId) => {
-          const ok = await deletePhoto(project.id, photoId);
-          if (ok) {
-            toast({ title: 'Photograph deleted', description: 'The site photograph was permanently removed.' });
-          }
-        }}
-      />
-    )}
-  </div>;
+      {lightboxPhoto && (
+        <PhotoLightbox
+          photo={lightboxPhoto}
+          photos={project.photos || []}
+          projectName={project.name}
+          projectCode={project.code}
+          canDelete={canEdit}
+          onClose={() => setLightboxPhoto(null)}
+          onDelete={async (photoId) => {
+            const ok = await deletePhoto(project.id, photoId);
+            if (ok) {
+              toast({ title: 'Photograph deleted', description: 'The site photograph was permanently removed.' });
+            }
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
-function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCancel: () => void; onSave: (patch: Partial<Project>) => void }) {
+function EditProjectForm({
+  project,
+  onCancel,
+  onSave,
+}: {
+  project: Project;
+  onCancel: () => void;
+  onSave: (patch: Partial<Project>) => void;
+}) {
   const { leads, role } = useAppState();
   const [name, setName] = useState(project.name);
   const [code, setCode] = useState(project.code || '');
@@ -2283,14 +2583,21 @@ function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCa
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (!name.trim()) { setError('Project name cannot be empty.'); return; }
-    if (!isValidIsoDate(targetDate)) { setError('Enter a valid target completion date.'); return; }
+    if (!name.trim()) {
+      setError('Project name cannot be empty.');
+      return;
+    }
+    if (!isValidIsoDate(targetDate)) {
+      setError('Enter a valid target completion date.');
+      return;
+    }
     setError('');
 
     const parsedAop = !isNaN(Number(aop)) && Number(aop) >= 0 ? Number(aop) * CRORE : project.aop;
     const parsedAwarded = !isNaN(Number(awarded)) && Number(awarded) >= 0 ? Number(awarded) * CRORE : project.awarded;
     const parsedSpent = !isNaN(Number(spent)) && Number(spent) >= 0 ? Number(spent) * CRORE : project.spent;
-    const parsedProjected = !isNaN(Number(projectedCost)) && Number(projectedCost) >= 0 ? Number(projectedCost) * CRORE : parsedAop;
+    const parsedProjected =
+      !isNaN(Number(projectedCost)) && Number(projectedCost) >= 0 ? Number(projectedCost) * CRORE : parsedAop;
 
     onSave({
       name: name.trim(),
@@ -2327,7 +2634,11 @@ function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCa
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="mt-6 rounded-2xl border border-[#eadcb1] bg-[#fff8e9] p-5 md:p-6 shadow-sm">
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className="mt-6 rounded-2xl border border-[#eadcb1] bg-[#fff8e9] p-5 md:p-6 shadow-sm"
+    >
       <div className="flex items-center justify-between border-b border-[#eadcb1]/70 pb-3">
         <div>
           <p className="font-mono text-[9px] uppercase tracking-[.13em] text-[#9a711f]">
@@ -2335,22 +2646,37 @@ function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCa
           </p>
           <h2 className="mt-0.5 text-[16px] font-extrabold text-[#173e49]">Edit project information</h2>
         </div>
-        <button type="button" onClick={onCancel} className="rounded-lg border border-border bg-white px-3 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-muted">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border bg-white px-3 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-muted"
+        >
           Cancel
         </button>
       </div>
 
       {/* Section 1: Core Details */}
       <div className="mt-4">
-        <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-[#9a711f] font-bold">1. Core Information</p>
+        <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-[#9a711f] font-bold">
+          1. Core Information
+        </p>
         <div className="grid gap-3 md:grid-cols-4">
           <label className="md:col-span-2">
             <span className="mb-1.5 block text-[10px] font-bold">Project name *</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Project Code</span>
-            <input value={code} onChange={(event) => setCode(event.target.value)} placeholder="e.g. DEL-T3-L01" className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono" />
+            <input
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="e.g. DEL-T3-L01"
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Project status</span>
@@ -2360,7 +2686,9 @@ function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCa
               className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-bold text-[#173e49]"
             >
               {projectStatuses.map((st) => (
-                <option key={st} value={st}>{st}</option>
+                <option key={st} value={st}>
+                  {st}
+                </option>
               ))}
             </select>
           </label>
@@ -2372,7 +2700,9 @@ function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCa
               className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
             >
               {locations.map((loc) => (
-                <option key={loc} value={loc}>{loc}</option>
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
               ))}
             </select>
           </label>
@@ -2384,14 +2714,24 @@ function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCa
               className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
             >
               {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
               ))}
             </select>
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Health status</span>
-            <select value={health} onChange={(event) => setHealth(event.target.value as Health)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]">
-              {(Object.keys(healthStyles) as Health[]).map((item) => <option key={item} value={item}>{item}</option>)}
+            <select
+              value={health}
+              onChange={(event) => setHealth(event.target.value as Health)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            >
+              {(Object.keys(healthStyles) as Health[]).map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
           </label>
           {role === 'coordinator' && leads.length > 0 && (
@@ -2415,46 +2755,90 @@ function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCa
 
       {/* Section 2: Timeline & Milestones */}
       <div className="mt-5 border-t border-[#eadcb1]/70 pt-4">
-        <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-[#9a711f] font-bold">2. Timeline & Next Milestone</p>
+        <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-[#9a711f] font-bold">
+          2. Timeline & Next Milestone
+        </p>
         <div className="grid gap-3 md:grid-cols-4">
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Start Date</span>
-            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Target Completion Date *</span>
-            <input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              type="date"
+              value={targetDate}
+              onChange={(event) => setTargetDate(event.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Next Key Milestone</span>
-            <input value={nextMilestone} onChange={(event) => setNextMilestone(event.target.value)} placeholder="e.g. MEP rough-in sign-off" className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              value={nextMilestone}
+              onChange={(event) => setNextMilestone(event.target.value)}
+              placeholder="e.g. MEP rough-in sign-off"
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Milestone Target Date</span>
-            <input type="date" value={nextMilestoneDate} onChange={(event) => setNextMilestoneDate(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              type="date"
+              value={nextMilestoneDate}
+              onChange={(event) => setNextMilestoneDate(event.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
         </div>
       </div>
 
       {/* Section 3: Physical Specifications & Scope */}
       <div className="mt-5 border-t border-[#eadcb1]/70 pt-4">
-        <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-[#9a711f] font-bold">3. Physical Space & Specifications</p>
+        <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-[#9a711f] font-bold">
+          3. Physical Space & Specifications
+        </p>
         <div className="grid gap-3 md:grid-cols-4">
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Area</span>
-            <input value={area} onChange={(event) => setArea(event.target.value)} placeholder="e.g. 24,000 sqft" className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              value={area}
+              onChange={(event) => setArea(event.target.value)}
+              placeholder="e.g. 24,000 sqft"
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Pax / Keys</span>
-            <input value={paxKeys} onChange={(event) => setPaxKeys(event.target.value)} placeholder="e.g. 180 Pax / 45 Keys" className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              value={paxKeys}
+              onChange={(event) => setPaxKeys(event.target.value)}
+              placeholder="e.g. 180 Pax / 45 Keys"
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Terminal / Airport</span>
-            <input value={terminal} onChange={(event) => setTerminal(event.target.value)} placeholder="e.g. T3 Departure" className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              value={terminal}
+              onChange={(event) => setTerminal(event.target.value)}
+              placeholder="e.g. T3 Departure"
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Floor Level</span>
-            <input value={floor} onChange={(event) => setFloor(event.target.value)} placeholder="e.g. Level 2 (Mezzanine)" className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]" />
+            <input
+              value={floor}
+              onChange={(event) => setFloor(event.target.value)}
+              placeholder="e.g. Level 2 (Mezzanine)"
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
+            />
           </label>
           <label className="md:col-span-4">
             <span className="mb-1.5 block text-[10px] font-bold">Scope of Work</span>
@@ -2471,33 +2855,74 @@ function EditProjectForm({ project, onCancel, onSave }: { project: Project; onCa
 
       {/* Section 4: Commercial Figures */}
       <div className="mt-5 border-t border-[#eadcb1]/70 pt-4">
-        <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-[#9a711f] font-bold">4. Commercial Capital Position (₹ in Crores)</p>
+        <p className="mb-2 font-mono text-[9px] uppercase tracking-wider text-[#9a711f] font-bold">
+          4. Commercial Capital Position (₹ in Crores)
+        </p>
         <div className="grid gap-3 sm:grid-cols-4">
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Approved Budget (AOP)</span>
-            <input type="number" min="0" step="0.01" value={aop} onChange={(event) => setAop(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono" />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={aop}
+              onChange={(event) => setAop(event.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Committed / Awarded</span>
-            <input type="number" min="0" step="0.01" value={awarded} onChange={(event) => setAwarded(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono" />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={awarded}
+              onChange={(event) => setAwarded(event.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Spent Till Date</span>
-            <input type="number" min="0" step="0.01" value={spent} onChange={(event) => setSpent(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono" />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={spent}
+              onChange={(event) => setSpent(event.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Projected Final Cost</span>
-            <input type="number" min="0" step="0.01" value={projectedCost} onChange={(event) => setProjectedCost(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono" />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={projectedCost}
+              onChange={(event) => setProjectedCost(event.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px] font-mono"
+            />
           </label>
         </div>
       </div>
 
-      {error && <p role="alert" className="mt-4 rounded-lg bg-[#fae5e1] px-3 py-2 text-[11px] font-semibold text-[#b2473d]">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-4 rounded-lg bg-[#fae5e1] px-3 py-2 text-[11px] font-semibold text-[#b2473d]">
+          {error}
+        </p>
+      )}
       <div className="mt-5 flex gap-2 border-t border-[#eadcb1]/70 pt-3">
-        <button type="submit" className="rounded-lg bg-[#173e49] px-5 py-2.5 text-[10px] font-bold text-white shadow-xs hover:bg-[#205160] transition">
+        <button
+          type="submit"
+          className="rounded-lg bg-[#173e49] px-5 py-2.5 text-[10px] font-bold text-white shadow-xs hover:bg-[#205160] transition"
+        >
           Save project
         </button>
-        <button type="button" onClick={onCancel} className="rounded-lg border border-border bg-white px-4 py-2.5 text-[10px] font-bold hover:bg-muted">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border bg-white px-4 py-2.5 text-[10px] font-bold hover:bg-muted"
+        >
           Cancel
         </button>
       </div>
@@ -2539,9 +2964,11 @@ function OverviewPanel({
           </div>
           {spec?.customFields?.length ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {spec.customFields.filter((field) => field.value).map((field) => (
-                <Info key={field.label} label={field.label} value={field.value} />
-              ))}
+              {spec.customFields
+                .filter((field) => field.value)
+                .map((field) => (
+                  <Info key={field.label} label={field.label} value={field.value} />
+                ))}
             </div>
           ) : null}
           {spec?.scope && (
@@ -2553,7 +2980,9 @@ function OverviewPanel({
             <div className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-border bg-[#f8f6f0] p-3 text-center">
-                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Plot Area</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Plot Area
+                  </span>
                   <span className="mt-1 block text-[15px] font-extrabold text-[#173e49]">
                     {spec?.areaProgram?.summary.plotAreaSqm?.toLocaleString() ?? '8,160'} SQ.M.
                   </span>
@@ -2571,7 +3000,9 @@ function OverviewPanel({
                   </span>
                 </div>
                 <div className="rounded-xl border border-border bg-[#f8f6f0] p-3 text-center">
-                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Inventory</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Inventory
+                  </span>
                   <span className="mt-1 block text-[15px] font-extrabold text-[#173e49]">
                     {spec?.areaProgram?.summary.totalRoomKeys ?? 156} Keys
                   </span>
@@ -2580,18 +3011,19 @@ function OverviewPanel({
                   </span>
                 </div>
                 <div className="rounded-xl border border-border bg-[#f8f6f0] p-3 text-center">
-                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">FOH Total</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    FOH Total
+                  </span>
                   <span className="mt-1 block text-[15px] font-extrabold text-[#173e49]">
                     {spec?.areaProgram?.fohAreas?.grandSubtotal?.areaSqm?.toLocaleString() ?? '2,557'} SQ.M.
                   </span>
-                  <span className="font-mono text-[10px] text-[#2e7c67]">
-                    Ground + 2nd Flr
-                  </span>
+                  <span className="font-mono text-[10px] text-[#2e7c67]">Ground + 2nd Flr</span>
                 </div>
               </div>
               <div className="flex items-center justify-between border-t border-border/70 pt-3">
                 <span className="text-[11px] text-muted-foreground">
-                  Stack: {spec?.areaProgram?.summary.numberOfFloorsDescription ?? 'B + G + 1 + Service + 2nd to 6th Floor'}
+                  Stack:{' '}
+                  {spec?.areaProgram?.summary.numberOfFloorsDescription ?? 'B + G + 1 + Service + 2nd to 6th Floor'}
                 </span>
                 {onSelectTab && (
                   <button
@@ -2611,7 +3043,9 @@ function OverviewPanel({
             <div className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-border bg-[#f8f6f0] p-3 text-center">
-                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Sheet Entry</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Sheet Entry
+                  </span>
                   <span className="mt-1 block text-[15px] font-extrabold text-[#173e49]">
                     #{spec?.areaSheet?.slNo ?? '—'}
                   </span>
@@ -2620,31 +3054,33 @@ function OverviewPanel({
                   </span>
                 </div>
                 <div className="rounded-xl border border-[#eadcb1] bg-[#fff8e9] p-3 text-center">
-                  <span className="block font-mono text-[9px] uppercase tracking-wider text-[#9a711f]">Area (SQ.FT.)</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-wider text-[#9a711f]">
+                    Area (SQ.FT.)
+                  </span>
                   <span className="mt-1 block text-[15px] font-extrabold text-[#173e49]">
-                    {spec?.areaSheet?.areaSqft ? `${spec.areaSheet.areaSqft.toLocaleString()} SQ.FT.` : (project.area || '—')}
+                    {spec?.areaSheet?.areaSqft
+                      ? `${spec.areaSheet.areaSqft.toLocaleString()} SQ.FT.`
+                      : project.area || '—'}
                   </span>
                   <span className="font-mono text-[10px] text-[#9a711f]">
                     {spec?.areaSheet?.areaSqm ? `${spec.areaSheet.areaSqm.toLocaleString()} SQ.M.` : ''}
                   </span>
                 </div>
                 <div className="rounded-xl border border-border bg-[#f8f6f0] p-3 text-center">
-                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Airport Terminal</span>
-                  <span className="mt-1 block text-[14px] font-extrabold text-[#173e49]">
-                    {project.location}
+                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Airport Terminal
                   </span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {spec?.floor || 'Terminal Core'}
-                  </span>
+                  <span className="mt-1 block text-[14px] font-extrabold text-[#173e49]">{project.location}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">{spec?.floor || 'Terminal Core'}</span>
                 </div>
                 <div className="rounded-xl border border-border bg-[#f8f6f0] p-3 text-center">
-                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Sheet Status</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Sheet Status
+                  </span>
                   <span className="mt-1 block text-[12px] font-extrabold text-[#2e7c67]">
                     {spec?.areaSheet?.status || project.status || 'Operational'}
                   </span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    Source: Master Sheet
-                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground">Source: Master Sheet</span>
                 </div>
               </div>
               <div className="flex items-center justify-between border-t border-border/70 pt-3">
@@ -2666,7 +3102,9 @@ function OverviewPanel({
             <div className="flex flex-col items-center gap-3">
               <ProgressRing progress={project.progress} />
               <span className="text-center text-[10px] leading-4 text-muted-foreground">
-                Planned opening<br /><strong className="text-foreground">{project.targetLabel}</strong>
+                Planned opening
+                <br />
+                <strong className="text-foreground">{project.targetLabel}</strong>
               </span>
             </div>
             <PhaseList project={project} />
@@ -2718,13 +3156,16 @@ function OverviewPanel({
                           </span>
                         )}
                       </div>
-                      <p className="text-[12px] font-medium leading-snug line-clamp-2">
-                        {currentPhoto.caption}
-                      </p>
+                      <p className="text-[12px] font-medium leading-snug line-clamp-2">{currentPhoto.caption}</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-                    <span>Captured: <strong className="text-foreground">{currentPhoto.takenDate ? formatFullDate(currentPhoto.takenDate) : 'Recently'}</strong></span>
+                    <span>
+                      Captured:{' '}
+                      <strong className="text-foreground">
+                        {currentPhoto.takenDate ? formatFullDate(currentPhoto.takenDate) : 'Recently'}
+                      </strong>
+                    </span>
                     {onSelectTab && (
                       <button
                         type="button"
@@ -2769,8 +3210,13 @@ function OverviewPanel({
               return (
                 <div className="mt-6">
                   <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: keyIssueTheme.dotColor }} />
-                    <span className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase tracking-wider ${keyIssueTheme.badgeClass}`}>
+                    <span
+                      className="size-2 rounded-full shrink-0"
+                      style={{ backgroundColor: keyIssueTheme.dotColor }}
+                    />
+                    <span
+                      className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase tracking-wider ${keyIssueTheme.badgeClass}`}
+                    >
                       {project.issues[0].status ?? 'Open'}
                     </span>
                     <span className="font-mono text-[9px] uppercase tracking-[.12em] text-muted-foreground">
@@ -2796,7 +3242,15 @@ function OverviewPanel({
   );
 }
 
-function CommercialPanel({ project, editable, onSave }: { project: Project; editable: boolean; onSave: (patch: Partial<Project>) => void }) {
+function CommercialPanel({
+  project,
+  editable,
+  onSave,
+}: {
+  project: Project;
+  editable: boolean;
+  onSave: (patch: Partial<Project>) => void;
+}) {
   const commercial = getCommercialSummary(project);
   const awardRateLabel = formatRatio(commercial.awardRatePct, 0);
   const spentRateLabel = formatRatio(commercial.spentRatePct, 0);
@@ -2823,9 +3277,10 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
         draft[idx] = (phase.budget / CRORE).toString();
       } else {
         const legacyAmounts = [0.12, 0.24, 0.31, 0.33];
-        const defaultAmt = idx < legacyAmounts.length && numPhases === 4
-          ? (totalAwardedCr * legacyAmounts[idx]).toFixed(2)
-          : (totalAwardedCr / numPhases).toFixed(2);
+        const defaultAmt =
+          idx < legacyAmounts.length && numPhases === 4
+            ? (totalAwardedCr * legacyAmounts[idx]).toFixed(2)
+            : (totalAwardedCr / numPhases).toFixed(2);
         draft[idx] = defaultAmt;
       }
     });
@@ -2927,17 +3382,22 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
                 <strong className="font-bold">Commercial Overrun Alert:</strong>
                 {commercial.overBudget && (
                   <p>
-                    Projected final cost ({formatCrore(commercial.projectedCost)}) exceeds Approved Budget AOP ({formatCrore(commercial.aop)}) by <strong>+{formatCrore(commercial.costVariance)}</strong>.
+                    Projected final cost ({formatCrore(commercial.projectedCost)}) exceeds Approved Budget AOP (
+                    {formatCrore(commercial.aop)}) by <strong>+{formatCrore(commercial.costVariance)}</strong>.
                   </p>
                 )}
                 {commercial.overAwarded && (
                   <p>
-                    Committed awarded contracts ({formatCrore(commercial.awarded)}) exceed Approved Budget AOP ({formatCrore(commercial.aop)}) by <strong>+{formatCrore(commercial.awarded - commercial.aop)}</strong>.
+                    Committed awarded contracts ({formatCrore(commercial.awarded)}) exceed Approved Budget AOP (
+                    {formatCrore(commercial.aop)}) by{' '}
+                    <strong>+{formatCrore(commercial.awarded - commercial.aop)}</strong>.
                   </p>
                 )}
                 {commercial.overSpent && (
                   <p>
-                    Actual spend ({formatCrore(commercial.spent)}) exceeds committed value ({formatCrore(commercial.awarded)}) by <strong>+{formatCrore(commercial.spent - commercial.awarded)}</strong>.
+                    Actual spend ({formatCrore(commercial.spent)}) exceeds committed value (
+                    {formatCrore(commercial.awarded)}) by{' '}
+                    <strong>+{formatCrore(commercial.spent - commercial.awarded)}</strong>.
                   </p>
                 )}
               </div>
@@ -2976,8 +3436,8 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
             />
           </div>
 
-          {editable && (
-            editing ? (
+          {editable &&
+            (editing ? (
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -2993,36 +3453,90 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
                 className="space-y-3 rounded-xl border border-[#eadcb1] bg-[#fff8e9] p-4"
               >
                 <p className="text-[11px] font-extrabold">Edit commercial values (in ₹ Cr)</p>
-                {commercialError && <p role="alert" className="rounded-lg bg-[#fae5e1] px-3 py-2 text-[10px] font-semibold text-[#b2473d]">{commercialError}</p>}
+                {commercialError && (
+                  <p
+                    role="alert"
+                    className="rounded-lg bg-[#fae5e1] px-3 py-2 text-[10px] font-semibold text-[#b2473d]"
+                  >
+                    {commercialError}
+                  </p>
+                )}
                 <div className="grid gap-2 sm:grid-cols-4">
                   <label>
-                    <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">Approved AOP</span>
-                    <input type="number" min="0" step="0.01" value={aop} onChange={(event) => setAop(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-2 text-[11px]" />
+                    <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                      Approved AOP
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={aop}
+                      onChange={(event) => setAop(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-border bg-white px-2 text-[11px]"
+                    />
                   </label>
                   <label>
-                    <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">Committed Cost</span>
-                    <input type="number" min="0" step="0.01" value={awarded} onChange={(event) => setAwarded(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-2 text-[11px]" />
+                    <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                      Committed Cost
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={awarded}
+                      onChange={(event) => setAwarded(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-border bg-white px-2 text-[11px]"
+                    />
                   </label>
                   <label>
-                    <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">Projected Cost</span>
-                    <input type="number" min="0" step="0.01" value={projectedCost} onChange={(event) => setProjectedCost(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-2 text-[11px]" />
+                    <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                      Projected Cost
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={projectedCost}
+                      onChange={(event) => setProjectedCost(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-border bg-white px-2 text-[11px]"
+                    />
                   </label>
                   <label>
-                    <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">Spent Till Date</span>
-                    <input type="number" min="0" step="0.01" value={spent} onChange={(event) => setSpent(event.target.value)} className="h-9 w-full rounded-lg border border-border bg-white px-2 text-[11px]" />
+                    <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                      Spent Till Date
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={spent}
+                      onChange={(event) => setSpent(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-border bg-white px-2 text-[11px]"
+                    />
                   </label>
                 </div>
                 <div className="flex gap-2">
-                  <button type="submit" className="rounded-lg bg-[#173e49] px-3 py-2 text-[10px] font-bold text-white">Save</button>
-                  <button type="button" onClick={() => setEditing(false)} className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold">Cancel</button>
+                  <button type="submit" className="rounded-lg bg-[#173e49] px-3 py-2 text-[10px] font-bold text-white">
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </form>
             ) : (
-              <button type="button" onClick={() => setEditing(true)} className="rounded-xl border border-[#eadcb1] bg-[#fff8e9] px-3 py-2 text-[10px] font-bold text-[#9a711f]">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="rounded-xl border border-[#eadcb1] bg-[#fff8e9] px-3 py-2 text-[10px] font-bold text-[#9a711f]"
+              >
                 Edit commercial data
               </button>
-            )
-          )}
+            ))}
         </div>
       </DetailCard>
 
@@ -3031,7 +3545,8 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
         eyebrow="Indicative cost line"
         icon={ReceiptText}
         action={
-          editable && !editingPhaseBudgets && (
+          editable &&
+          !editingPhaseBudgets && (
             <button
               type="button"
               onClick={startEditingPhaseBudgets}
@@ -3046,9 +3561,7 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
         <div className="mt-6 space-y-4">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
             <p>Indicative split of committed value across stages.</p>
-            <span className="font-mono font-bold text-[#173e49]">
-              Total Awarded: {formatCrore(project.awarded)}
-            </span>
+            <span className="font-mono font-bold text-[#173e49]">Total Awarded: {formatCrore(project.awarded)}</span>
           </div>
 
           {(() => {
@@ -3059,7 +3572,8 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
                 <div className="flex items-center gap-2 rounded-lg border border-[#f0c8c2] bg-[#fae5e1] p-2.5 text-[10px] font-semibold text-[#b2473d]">
                   <AlertCircle size={14} className="shrink-0" />
                   <span>
-                    Warning: Total stage allocations ({formatCrore(sumAllocated)}) exceed committed value ({formatCrore(project.awarded)}) by +{formatCrore(sumAllocated - project.awarded)}.
+                    Warning: Total stage allocations ({formatCrore(sumAllocated)}) exceed committed value (
+                    {formatCrore(project.awarded)}) by +{formatCrore(sumAllocated - project.awarded)}.
                   </span>
                 </div>
               );
@@ -3068,7 +3582,10 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
           })()}
 
           {editingPhaseBudgets ? (
-            <form onSubmit={handleSavePhaseBudgets} className="space-y-4 rounded-xl border border-[#eadcb1] bg-[#fff8e9] p-4">
+            <form
+              onSubmit={handleSavePhaseBudgets}
+              className="space-y-4 rounded-xl border border-[#eadcb1] bg-[#fff8e9] p-4"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#eadcb1]/70 pb-3">
                 <div>
                   <span className="text-[11px] font-extrabold text-[#173e49]">Stage Budgets (in ₹ Cr)</span>
@@ -3078,8 +3595,16 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
                     </span>
                     <span className="text-muted-foreground">
                       Difference:{' '}
-                      <strong className={Math.abs((project.awarded / CRORE) - sumDraftPhaseBudgets) < 0.01 ? 'text-[#2e7c67]' : (project.awarded / CRORE) < sumDraftPhaseBudgets ? 'text-[#b2473d]' : 'text-[#9a711f]'}>
-                        ₹{((project.awarded / CRORE) - sumDraftPhaseBudgets).toFixed(2)} Cr
+                      <strong
+                        className={
+                          Math.abs(project.awarded / CRORE - sumDraftPhaseBudgets) < 0.01
+                            ? 'text-[#2e7c67]'
+                            : project.awarded / CRORE < sumDraftPhaseBudgets
+                              ? 'text-[#b2473d]'
+                              : 'text-[#9a711f]'
+                        }
+                      >
+                        ₹{(project.awarded / CRORE - sumDraftPhaseBudgets).toFixed(2)} Cr
                       </strong>
                     </span>
                   </div>
@@ -3107,23 +3632,32 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
                 {project.phases.map((phase, index) => {
                   const val = phaseBudgetsDraft[index] ?? '';
                   const numVal = Number(val);
-                  const pct = project.awarded > 0 && !isNaN(numVal) ? Math.round((numVal / (project.awarded / CRORE)) * 100) : 0;
+                  const pct =
+                    project.awarded > 0 && !isNaN(numVal) ? Math.round((numVal / (project.awarded / CRORE)) * 100) : 0;
 
                   return (
-                    <div key={`${phase.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-white p-2.5 border border-border/80">
+                    <div
+                      key={`${phase.name}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-lg bg-white p-2.5 border border-border/80"
+                    >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-[11px] text-[#173e49] truncate">{phase.name}</span>
                           <span className="font-mono text-[9px] text-muted-foreground">({phase.progress}% done)</span>
                         </div>
                         <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#e7e7dc]">
-                          <div className="h-full rounded-full bg-[#3d9a7e]" style={{ width: `${Math.max(phase.progress, 5)}%` }} />
+                          <div
+                            className="h-full rounded-full bg-[#3d9a7e]"
+                            style={{ width: `${Math.max(phase.progress, 5)}%` }}
+                          />
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
                         <div className="relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-mono">₹</span>
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-mono">
+                            ₹
+                          </span>
                           <input
                             type="number"
                             min="0"
@@ -3133,9 +3667,7 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
                             className="h-8 w-24 rounded-lg border border-border bg-[#faf8f3] pl-6 pr-2 text-right text-[11px] font-mono font-bold text-[#173e49] focus:bg-white focus:border-[#2e7c67] outline-none"
                           />
                         </div>
-                        <span className="w-10 text-right font-mono text-[10px] text-muted-foreground">
-                          {pct}%
-                        </span>
+                        <span className="w-10 text-right font-mono text-[10px] text-muted-foreground">{pct}%</span>
                       </div>
                     </div>
                   );
@@ -3143,9 +3675,7 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
               </div>
 
               <div className="flex items-center justify-between border-t border-[#eadcb1]/70 pt-2.5">
-                <span className="text-[10px] text-muted-foreground">
-                  Saved directly to stage allocations.
-                </span>
+                <span className="text-[10px] text-muted-foreground">Saved directly to stage allocations.</span>
                 <div className="flex gap-2">
                   <button
                     type="submit"
@@ -3169,11 +3699,12 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
                 const totalAwardedCr = project.awarded / CRORE;
                 const numPhases = Math.max(1, project.phases.length);
                 const legacyAmounts = [0.12, 0.24, 0.31, 0.33];
-                const phaseBudget = phase.budget != null
-                  ? phase.budget
-                  : (index < legacyAmounts.length && numPhases === 4
+                const phaseBudget =
+                  phase.budget != null
+                    ? phase.budget
+                    : index < legacyAmounts.length && numPhases === 4
                       ? project.awarded * legacyAmounts[index]
-                      : project.awarded / numPhases);
+                      : project.awarded / numPhases;
                 const isExplicit = phase.budget != null;
 
                 return (
@@ -3186,9 +3717,7 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
                             Allocated
                           </span>
                         ) : (
-                          <span className="text-[9px] text-muted-foreground font-normal">
-                            (Indicative split)
-                          </span>
+                          <span className="text-[9px] text-muted-foreground font-normal">(Indicative split)</span>
                         )}
                       </div>
                       <span className="font-mono font-bold text-[#173e49]">{formatCrore(phaseBudget)}</span>
@@ -3212,7 +3741,15 @@ function CommercialPanel({ project, editable, onSave }: { project: Project; edit
   );
 }
 
-function Info({ label, value, tone = 'default' }: { label: string; value: string; tone?: 'default' | 'danger' | 'warning' | 'success' }) {
+function Info({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  tone?: 'default' | 'danger' | 'warning' | 'success';
+}) {
   const toneClasses =
     tone === 'danger'
       ? 'border-[#f0c8c2] bg-[#fff6f5] text-[#b2473d]'
@@ -3231,7 +3768,15 @@ function Info({ label, value, tone = 'default' }: { label: string; value: string
 }
 
 function HealthRow({ label, value, tone }: { label: string; value: string; tone: { dot: string; text: string } }) {
-  return <div className="flex items-center justify-between border-b border-border/70 pb-3 last:border-0 last:pb-0"><span className="text-[11px] font-semibold">{label}</span><span className={`flex items-center gap-2 text-[10px] font-bold ${tone.text}`}><span className={`size-2 rounded-full ${tone.dot}`} />{value}</span></div>;
+  return (
+    <div className="flex items-center justify-between border-b border-border/70 pb-3 last:border-0 last:pb-0">
+      <span className="text-[11px] font-semibold">{label}</span>
+      <span className={`flex items-center gap-2 text-[10px] font-bold ${tone.text}`}>
+        <span className={`size-2 rounded-full ${tone.dot}`} />
+        {value}
+      </span>
+    </div>
+  );
 }
 
 function activePhaseLabel(project: Project) {
@@ -3239,11 +3784,17 @@ function activePhaseLabel(project: Project) {
 }
 
 /** Converts the crore-denominated inputs, rejecting blank or negative values. */
-function parseCroreFields(fields: { aop: string; awarded: string; spent: string; projectedCost?: string }): Partial<Project> | null {
+function parseCroreFields(fields: {
+  aop: string;
+  awarded: string;
+  spent: string;
+  projectedCost?: string;
+}): Partial<Project> | null {
   const aop = Number(fields.aop);
   const awarded = Number(fields.awarded);
   const spent = Number(fields.spent);
-  const projectedCost = fields.projectedCost !== undefined && fields.projectedCost !== '' ? Number(fields.projectedCost) : aop;
+  const projectedCost =
+    fields.projectedCost !== undefined && fields.projectedCost !== '' ? Number(fields.projectedCost) : aop;
   const values = [aop, awarded, spent, projectedCost];
   if (values.some((value) => !Number.isFinite(value) || value < 0)) return null;
   return { aop: aop * CRORE, awarded: awarded * CRORE, spent: spent * CRORE, projectedCost: projectedCost * CRORE };

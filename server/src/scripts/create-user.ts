@@ -73,11 +73,13 @@ try {
   const existing = db.prepare('SELECT id, email, role FROM users WHERE LOWER(email) = ?').get(email) as any;
 
   if (existing) {
-    db.prepare(`
+    db.prepare(
+      `
       UPDATE users
       SET name = ?, role = ?, title = ?, initials = ?, password_hash = ?, must_change_password = 1
       WHERE LOWER(email) = ?
-    `).run(name, role, title, initials, passwordHash, email);
+    `,
+    ).run(name, role, title, initials, passwordHash, email);
 
     console.log(`\n✅ User "${email}" updated successfully!`);
     console.log(`   Name:     ${name}`);
@@ -85,10 +87,12 @@ try {
     console.log(`   Title:    ${title}`);
     console.log(`   Password: (updated)\n`);
   } else {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO users (id, name, email, role, title, initials, password_hash, must_change_password)
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-    `).run(id, name, email, role, title, initials, passwordHash);
+    `,
+    ).run(id, name, email, role, title, initials, passwordHash);
 
     console.log(`\n✅ User "${email}" created successfully!`);
     console.log(`   ID:       ${id}`);

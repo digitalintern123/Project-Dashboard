@@ -58,8 +58,8 @@ export default function ChangePassword() {
         </p>
         <h1 className="mt-3 font-serif text-[32px] leading-none tracking-[-.04em]">Set a new password</h1>
         <p className="mt-3 text-[12px] leading-5 text-muted-foreground">
-          {user?.name ? `${user.name}, you` : 'You'} are using a temporary password. Choose a new one to continue:
-          at least {MIN_LENGTH} characters, with letters and numbers.
+          {user?.name ? `${user.name}, you` : 'You'} are using a temporary password. Choose a new one to continue: at
+          least {MIN_LENGTH} characters, with letters and numbers.
         </p>
 
         <form onSubmit={submit} className="mt-7 space-y-4">

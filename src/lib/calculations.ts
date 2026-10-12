@@ -121,10 +121,7 @@ export function calculateWeightedProgress(phases: Phase[]): WeightedProgressResu
     return null;
   });
 
-  const totalDurationDays = phaseDurations.reduce<number>(
-    (sum, d) => sum + (d !== null ? d : 0),
-    0,
-  );
+  const totalDurationDays = phaseDurations.reduce<number>((sum, d) => sum + (d !== null ? d : 0), 0);
   const hasTimelineData = totalDurationDays > 0;
 
   // 2. Determine raw weights
@@ -257,10 +254,19 @@ export type PortfolioCommercialSummary = {
 /** Portfolio-level roll-up, built from the same per-project fields — never a separate estimate. */
 export function getPortfolioCommercialSummary(projects: Project[]): PortfolioCommercialSummary {
   const totalAop = projects.reduce((sum, project) => sum + (Number.isFinite(project.aop) ? project.aop : 0), 0);
-  const totalAwarded = projects.reduce((sum, project) => sum + (Number.isFinite(project.awarded) ? project.awarded : 0), 0);
+  const totalAwarded = projects.reduce(
+    (sum, project) => sum + (Number.isFinite(project.awarded) ? project.awarded : 0),
+    0,
+  );
   const totalSpent = projects.reduce((sum, project) => sum + (Number.isFinite(project.spent) ? project.spent : 0), 0);
   const totalProjectedCost = projects.reduce(
-    (sum, project) => sum + (Number.isFinite(project.projectedCost) ? (project.projectedCost as number) : (Number.isFinite(project.aop) ? project.aop : 0)),
+    (sum, project) =>
+      sum +
+      (Number.isFinite(project.projectedCost)
+        ? (project.projectedCost as number)
+        : Number.isFinite(project.aop)
+          ? project.aop
+          : 0),
     0,
   );
   return {
@@ -295,7 +301,7 @@ export function isProjectIncomplete(project: Project): boolean {
  */
 export function sortProjectsIncompleteFirst(projects: Project[]): Project[] {
   const healthWeight: Record<string, number> = {
-    'Delayed': 3,
+    Delayed: 3,
     'At risk': 2,
     'On track': 1,
     'Not started': 0,
@@ -326,4 +332,3 @@ export function sortProjectsIncompleteFirst(projects: Project[]): Project[] {
     return a.name.localeCompare(b.name);
   });
 }
-

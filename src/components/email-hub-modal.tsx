@@ -31,13 +31,7 @@ interface EmailHubModalProps {
   projectName?: string;
 }
 
-export function EmailHubModal({
-  isOpen,
-  onClose,
-  defaultTab = 'outbox',
-  projectId,
-  projectName,
-}: EmailHubModalProps) {
+export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectId, projectName }: EmailHubModalProps) {
   const [activeTab, setActiveTab] = useState<'outbox' | 'settings' | 'send'>(defaultTab);
   const [logs, setLogs] = useState<EmailLogItem[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -191,8 +185,12 @@ export function EmailHubModal({
       const isFailed = res.result?.status === 'failed';
 
       let desc = res.message || (isFailed ? res.result?.error : undefined);
-      if (isFailed && (res.result?.error?.includes('5.7.139') || res.result?.error?.includes('SmtpClientAuthentication is disabled'))) {
-        desc = 'Office 365 Tenant Alert: Microsoft has disabled basic SMTP authentication for your Encalm tenant. Please switch to "Microsoft Graph API (Azure AD)" tab or ask your M365 Admin to enable Authenticated SMTP.';
+      if (
+        isFailed &&
+        (res.result?.error?.includes('5.7.139') || res.result?.error?.includes('SmtpClientAuthentication is disabled'))
+      ) {
+        desc =
+          'Office 365 Tenant Alert: Microsoft has disabled basic SMTP authentication for your Encalm tenant. Please switch to "Microsoft Graph API (Azure AD)" tab or ask your M365 Admin to enable Authenticated SMTP.';
       }
 
       toast({
@@ -317,20 +315,14 @@ export function EmailHubModal({
               <Mail size={18} />
             </span>
             <div>
-              <h2 className="font-serif text-[18px] font-bold text-[#173e49]">
-                Email Integration & Communications
-              </h2>
+              <h2 className="font-serif text-[18px] font-bold text-[#173e49]">Email Integration & Communications</h2>
               <p className="text-[11px] text-muted-foreground">
                 Automated delivery radar, stakeholder notifications & SMTP outbox
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
-          >
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
             <X size={18} />
           </button>
         </div>
@@ -382,9 +374,7 @@ export function EmailHubModal({
             <Settings size={14} />
             <span>SMTP Server Settings</span>
             <span
-              className={`size-2 rounded-full ${
-                isConfigured ? 'bg-[#3d9a7e]' : 'bg-[#d19b35]'
-              }`}
+              className={`size-2 rounded-full ${isConfigured ? 'bg-[#3d9a7e]' : 'bg-[#d19b35]'}`}
               title={isConfigured ? 'Email Dispatcher Configured' : 'Development Outbox Mode'}
             />
           </button>
@@ -397,9 +387,7 @@ export function EmailHubModal({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-[13px] font-bold text-[#173e49]">
-                    Communication Log & Outbox Queue
-                  </h3>
+                  <h3 className="text-[13px] font-bold text-[#173e49]">Communication Log & Outbox Queue</h3>
                   <p className="text-[11px] text-muted-foreground">
                     All notifications dispatched by the dashboard are tracked here with full HTML preview.
                   </p>
@@ -451,24 +439,18 @@ export function EmailHubModal({
                               <span>{log.status}</span>
                             </span>
 
-                            <span className="font-mono text-[10px] text-muted-foreground">
-                              {log.createdAt}
-                            </span>
+                            <span className="font-mono text-[10px] text-muted-foreground">{log.createdAt}</span>
                             <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground uppercase">
                               {log.templateType.replace('_', ' ')}
                             </span>
                           </div>
 
-                          <div className="mt-1 font-bold text-[12px] text-foreground truncate">
-                            {log.subject}
-                          </div>
+                          <div className="mt-1 font-bold text-[12px] text-foreground truncate">{log.subject}</div>
 
                           <div className="text-[11px] text-muted-foreground">
                             To: <span className="font-semibold text-foreground">{log.recipientEmail}</span>
                             {log.recipientName && <span> ({log.recipientName})</span>}
-                            {log.error && (
-                              <span className="ml-2 text-[#b2473d]">Note: {log.error}</span>
-                            )}
+                            {log.error && <span className="ml-2 text-[#b2473d]">Note: {log.error}</span>}
                           </div>
                         </div>
 
@@ -505,9 +487,7 @@ export function EmailHubModal({
           {activeTab === 'send' && projectId && (
             <form onSubmit={handleSendProjectUpdate} className="space-y-4 max-w-2xl">
               <div>
-                <h3 className="text-[13px] font-bold text-[#173e49]">
-                  Send Executive Project Status Update
-                </h3>
+                <h3 className="text-[13px] font-bold text-[#173e49]">Send Executive Project Status Update</h3>
                 <p className="text-[11px] text-muted-foreground">
                   Dispatch a branded email summary of {projectName || 'this project'} to executive stakeholders.
                 </p>
@@ -564,14 +544,13 @@ export function EmailHubModal({
                     />
                   </div>
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    Type <code className="bg-muted px-1 rounded font-mono text-[9px]">@name</code> above to search the live Encalm corporate directory or core team members.
+                    Type <code className="bg-muted px-1 rounded font-mono text-[9px]">@name</code> above to search the
+                    live Encalm corporate directory or core team members.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-foreground">
-                    Executive Commentary / Note
-                  </label>
+                  <label className="block text-[11px] font-bold text-foreground">Executive Commentary / Note</label>
                   <textarea
                     rows={4}
                     value={customNote}
@@ -586,7 +565,11 @@ export function EmailHubModal({
                     type="submit"
                     disabled={sendingUpdate || selectedRecipients.length === 0}
                     className="flex items-center gap-1.5 rounded-lg bg-[#2e7c67] px-4 py-2 text-[12px] font-bold text-white shadow-xs hover:bg-[#256654] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                    title={selectedRecipients.length === 0 ? 'Please tag at least one recipient with @name' : 'Dispatch Executive Report'}
+                    title={
+                      selectedRecipients.length === 0
+                        ? 'Please tag at least one recipient with @name'
+                        : 'Dispatch Executive Report'
+                    }
                   >
                     <Send size={13} />
                     <span>{sendingUpdate ? 'Dispatching...' : 'Send Branded Update Email'}</span>
@@ -600,9 +583,7 @@ export function EmailHubModal({
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-2xl">
               <div>
-                <h3 className="text-[13px] font-bold text-[#173e49]">
-                  Email Dispatcher Configuration
-                </h3>
+                <h3 className="text-[13px] font-bold text-[#173e49]">Email Dispatcher Configuration</h3>
                 <p className="text-[11px] text-muted-foreground">
                   Choose how the system delivers automated notifications, task/issue alerts, and executive summaries.
                 </p>
@@ -643,8 +624,9 @@ export function EmailHubModal({
                 <div className="flex items-start gap-3 rounded-xl border border-[#eadcb1] bg-[#fdf3d8]/60 p-3.5">
                   <Inbox size={18} className="mt-0.5 shrink-0 text-[#9a711f]" />
                   <div className="text-[11px] leading-relaxed text-[#7a5914]">
-                    <strong>In-App Outbox Mode Active:</strong> {provider === 'smtp' ? 'SMTP' : 'Microsoft Graph API'} is not yet fully configured.
-                    All generated emails (tag alerts, comments, updates) will safely queue in your dashboard Outbox with full HTML preview.
+                    <strong>In-App Outbox Mode Active:</strong> {provider === 'smtp' ? 'SMTP' : 'Microsoft Graph API'}{' '}
+                    is not yet fully configured. All generated emails (tag alerts, comments, updates) will safely queue
+                    in your dashboard Outbox with full HTML preview.
                   </div>
                 </div>
               )}
@@ -688,7 +670,9 @@ export function EmailHubModal({
                         </div>
                       </div>
                       <p className="text-[10px] leading-relaxed">
-                        Default server: <code className="bg-white/80 px-1 py-0.5 rounded font-mono">smtp-mail.outlook.com</code> on port <code className="bg-white/80 px-1 py-0.5 rounded font-mono">587</code> with STARTTLS.
+                        Default server:{' '}
+                        <code className="bg-white/80 px-1 py-0.5 rounded font-mono">smtp-mail.outlook.com</code> on port{' '}
+                        <code className="bg-white/80 px-1 py-0.5 rounded font-mono">587</code> with STARTTLS.
                       </p>
                     </div>
 
@@ -696,7 +680,8 @@ export function EmailHubModal({
                     <div className="flex items-start gap-2.5 rounded-lg border border-[#eadcb1] bg-[#fffbf2] p-3 text-[10px] text-[#8e681c]">
                       <Key size={14} className="mt-0.5 shrink-0 text-[#c9a04e]" />
                       <div className="leading-relaxed">
-                        <strong>Two-Factor Authentication (2FA) Note:</strong> If your Microsoft account has two-step verification enabled, generate a 16-character <strong>App Password</strong> in your{' '}
+                        <strong>Two-Factor Authentication (2FA) Note:</strong> If your Microsoft account has two-step
+                        verification enabled, generate a 16-character <strong>App Password</strong> in your{' '}
                         <a
                           href="https://account.live.com/proofs/manage/additional"
                           target="_blank"
@@ -711,9 +696,7 @@ export function EmailHubModal({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
-                          Email Address / Username
-                        </label>
+                        <label className="block text-[11px] font-bold text-foreground">Email Address / Username</label>
                         <input
                           type="email"
                           value={smtpForm.user}
@@ -725,9 +708,7 @@ export function EmailHubModal({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
-                          Password / App Password
-                        </label>
+                        <label className="block text-[11px] font-bold text-foreground">Password / App Password</label>
                         <input
                           type="password"
                           value={smtpForm.pass}
@@ -742,9 +723,7 @@ export function EmailHubModal({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="sm:col-span-2">
                         <div className="flex items-center justify-between">
-                          <label className="block text-[11px] font-bold text-foreground">
-                            SMTP Server (Host)
-                          </label>
+                          <label className="block text-[11px] font-bold text-foreground">SMTP Server (Host)</label>
                           {smtpForm.user.includes('@encalm.com') && smtpForm.host !== 'smtp.office365.com' && (
                             <button
                               type="button"
@@ -765,15 +744,14 @@ export function EmailHubModal({
                         />
                         {smtpForm.user.includes('@encalm.com') && smtpForm.host === 'smtp-mail.outlook.com' && (
                           <p className="mt-1 text-[10px] text-[#b87a14]">
-                            ⚠️ For corporate <strong>@encalm.com</strong> accounts, use <strong>smtp.office365.com</strong> (smtp-mail.outlook.com is for consumer accounts only).
+                            ⚠️ For corporate <strong>@encalm.com</strong> accounts, use{' '}
+                            <strong>smtp.office365.com</strong> (smtp-mail.outlook.com is for consumer accounts only).
                           </p>
                         )}
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
-                          Port & Encryption
-                        </label>
+                        <label className="block text-[11px] font-bold text-foreground">Port & Encryption</label>
                         <div className="flex gap-2 mt-1">
                           <input
                             type="number"
@@ -796,9 +774,7 @@ export function EmailHubModal({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
-                          Sender Display Name
-                        </label>
+                        <label className="block text-[11px] font-bold text-foreground">Sender Display Name</label>
                         <input
                           type="text"
                           value={smtpForm.fromName}
@@ -828,7 +804,11 @@ export function EmailHubModal({
                 {provider === 'microsoft_graph' && (
                   <>
                     <div className="rounded-lg border border-[#cbe4d9] bg-[#edf5f0] p-3 text-[10px] text-[#2e7c67]">
-                      <strong>Azure AD App Setup Tip:</strong> In your Azure Portal, register an App with <strong>Application Permission</strong>: <code className="bg-white/80 px-1 py-0.5 rounded font-mono">Mail.Send</code> under Microsoft Graph, and grant Admin Consent for <code className="bg-white/80 px-1 py-0.5 rounded font-mono">@encalm.com</code>.
+                      <strong>Azure AD App Setup Tip:</strong> In your Azure Portal, register an App with{' '}
+                      <strong>Application Permission</strong>:{' '}
+                      <code className="bg-white/80 px-1 py-0.5 rounded font-mono">Mail.Send</code> under Microsoft
+                      Graph, and grant Admin Consent for{' '}
+                      <code className="bg-white/80 px-1 py-0.5 rounded font-mono">@encalm.com</code>.
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -846,9 +826,7 @@ export function EmailHubModal({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
-                          Application (Client) ID
-                        </label>
+                        <label className="block text-[11px] font-bold text-foreground">Application (Client) ID</label>
                         <input
                           type="text"
                           value={graphForm.clientId}
@@ -861,9 +839,7 @@ export function EmailHubModal({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
-                          Azure Client Secret
-                        </label>
+                        <label className="block text-[11px] font-bold text-foreground">Azure Client Secret</label>
                         <input
                           type="password"
                           value={graphForm.clientSecret || ''}
@@ -945,9 +921,7 @@ export function EmailHubModal({
                   <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
                     Subject Preview
                   </span>
-                  <h4 className="truncate text-[13px] font-bold text-[#173e49]">
-                    {selectedPreview.subject}
-                  </h4>
+                  <h4 className="truncate text-[13px] font-bold text-[#173e49]">{selectedPreview.subject}</h4>
                 </div>
                 <button
                   type="button"

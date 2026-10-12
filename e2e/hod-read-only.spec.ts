@@ -8,7 +8,9 @@ test('HOD can view everything but change nothing', async ({ page, browser }) => 
   const { login: loginAs } = await import('./helpers');
   await loginAs(coordPage, 'coordinator');
   const name = `E2E HOD view ${Date.now()}`;
-  const created = await (await api(coordPage).post('/api/projects', { name, location: 'Goa', category: 'Hotel' })).json();
+  const created = await (
+    await api(coordPage).post('/api/projects', { name, location: 'Goa', category: 'Hotel' })
+  ).json();
   await coordCtx.close();
 
   await login(page, 'hod');

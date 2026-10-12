@@ -11,14 +11,20 @@ router.use(requireAuth);
 // GET the signed-in user's notifications
 router.get('/', (req: AuthenticatedRequest, res) => {
   const userId = req.user!.id;
-  const notifications = db.prepare(`
+  const notifications = db
+    .prepare(
+      `
     SELECT * FROM notifications
     WHERE recipient_id = ?
     ORDER BY created_at DESC
     LIMIT 50
-  `).all(userId) as any[];
+  `,
+    )
+    .all(userId) as any[];
 
-  const unreadCount = db.prepare('SELECT COUNT(*) as count FROM notifications WHERE recipient_id = ? AND read = 0').get(userId) as { count: number };
+  const unreadCount = db
+    .prepare('SELECT COUNT(*) as count FROM notifications WHERE recipient_id = ? AND read = 0')
+    .get(userId) as { count: number };
 
   return res.json({
     notifications: notifications.map((n) => ({
@@ -37,7 +43,9 @@ router.get('/', (req: AuthenticatedRequest, res) => {
 
 // PATCH mark one of the user's notifications as read
 router.patch('/:id/read', validate({ params: S.idParams }), (req: AuthenticatedRequest, res) => {
-  const result = db.prepare('UPDATE notifications SET read = 1 WHERE id = ? AND recipient_id = ?').run(req.params.id, req.user!.id);
+  const result = db
+    .prepare('UPDATE notifications SET read = 1 WHERE id = ? AND recipient_id = ?')
+    .run(req.params.id, req.user!.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Notification not found' });
   return res.json({ success: true });
 });
@@ -50,7 +58,9 @@ router.post('/read-all', (req: AuthenticatedRequest, res) => {
 
 // DELETE one of the user's notifications
 router.delete('/:id', validate({ params: S.idParams }), (req: AuthenticatedRequest, res) => {
-  const result = db.prepare('DELETE FROM notifications WHERE id = ? AND recipient_id = ?').run(req.params.id, req.user!.id);
+  const result = db
+    .prepare('DELETE FROM notifications WHERE id = ? AND recipient_id = ?')
+    .run(req.params.id, req.user!.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Notification not found' });
   return res.json({ success: true });
 });

@@ -32,8 +32,12 @@ describe('login', () => {
   });
 
   it('returns the same generic error for unknown users and wrong passwords', async () => {
-    const unknown = await anon(app).post('/api/auth/login').send({ email: 'nobody@test.local', password: 'whatever123' });
-    const wrong = await anon(app).post('/api/auth/login').send({ email: testUsers.hod.email, password: 'wrong-pass-123' });
+    const unknown = await anon(app)
+      .post('/api/auth/login')
+      .send({ email: 'nobody@test.local', password: 'whatever123' });
+    const wrong = await anon(app)
+      .post('/api/auth/login')
+      .send({ email: testUsers.hod.email, password: 'wrong-pass-123' });
     expect(unknown.status).toBe(401);
     expect(wrong.status).toBe(401);
     expect(unknown.body.error).toBe(wrong.body.error);
@@ -67,20 +71,29 @@ describe('forced and voluntary password change', () => {
     expect(blocked.status).toBe(403);
     expect(blocked.body.code).toBe('PASSWORD_CHANGE_REQUIRED');
 
-    const weak = await agent.post('/api/auth/change-password').send({ currentPassword: TEST_PASSWORD, newPassword: 'short' });
+    const weak = await agent
+      .post('/api/auth/change-password')
+      .send({ currentPassword: TEST_PASSWORD, newPassword: 'short' });
     expect(weak.status).toBe(400);
 
-    const wrongCurrent = await agent.post('/api/auth/change-password').send({ currentPassword: 'nope-nope-1', newPassword: 'Brand-new-pass-1' });
+    const wrongCurrent = await agent
+      .post('/api/auth/change-password')
+      .send({ currentPassword: 'nope-nope-1', newPassword: 'Brand-new-pass-1' });
     expect(wrongCurrent.status).toBe(400);
 
-    const ok = await agent.post('/api/auth/change-password').send({ currentPassword: TEST_PASSWORD, newPassword: 'Brand-new-pass-1' });
+    const ok = await agent
+      .post('/api/auth/change-password')
+      .send({ currentPassword: TEST_PASSWORD, newPassword: 'Brand-new-pass-1' });
     expect(ok.status).toBe(200);
     expect(ok.body.user.mustChangePassword).toBe(false);
 
     expect((await agent.get('/api/projects')).status).toBe(200);
 
     // Restore the shared test password for other tests.
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(TEST_PASSWORD, 4), testUsers.leadB.id);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+      bcrypt.hashSync(TEST_PASSWORD, 4),
+      testUsers.leadB.id,
+    );
   });
 });
 
@@ -94,7 +107,9 @@ describe('coordinator password reset', () => {
     expect(res.status).toBe(200);
     expect(checkPasswordPolicy(res.body.temporaryPassword)).toBeNull();
 
-    const login = await anon(app).post('/api/auth/login').send({ email: testUsers.hod.email, password: res.body.temporaryPassword });
+    const login = await anon(app)
+      .post('/api/auth/login')
+      .send({ email: testUsers.hod.email, password: res.body.temporaryPassword });
     expect(login.status).toBe(200);
     expect(login.body.user.mustChangePassword).toBe(true);
 
@@ -105,9 +120,13 @@ describe('coordinator password reset', () => {
 describe('create-lead', () => {
   it('enforces the password policy', async () => {
     const coord = await loginAs(app, 'coordinator');
-    const weak = await coord.post('/api/auth/create-lead').send({ name: 'New Lead', email: 'new.lead@test.local', password: 'abc' });
+    const weak = await coord
+      .post('/api/auth/create-lead')
+      .send({ name: 'New Lead', email: 'new.lead@test.local', password: 'abc' });
     expect(weak.status).toBe(400);
-    const ok = await coord.post('/api/auth/create-lead').send({ name: 'New Lead', email: 'new.lead@test.local', password: 'Good-pass-123' });
+    const ok = await coord
+      .post('/api/auth/create-lead')
+      .send({ name: 'New Lead', email: 'new.lead@test.local', password: 'Good-pass-123' });
     expect(ok.status).toBe(201);
   });
 });

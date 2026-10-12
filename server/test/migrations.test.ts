@@ -47,7 +47,8 @@ describe('in-place schema migrations', () => {
     const { db, initDatabase } = await import('../src/db/database.js');
     initDatabase();
 
-    const tableSql = (t: string) => (db.prepare("SELECT sql FROM sqlite_master WHERE name = ?").get(t) as { sql: string }).sql;
+    const tableSql = (t: string) =>
+      (db.prepare('SELECT sql FROM sqlite_master WHERE name = ?').get(t) as { sql: string }).sql;
     expect(tableSql('projects')).toContain("'On Hold'");
     expect(tableSql('users')).toContain("'coordinator'");
     // Other tables still reference the real tables, not a renamed leftover.
@@ -62,13 +63,15 @@ describe('in-place schema migrations', () => {
 
     // 'On Hold' is now accepted, and cascades still work.
     db.prepare("UPDATE projects SET status = 'On Hold' WHERE id = 'p1'").run();
-    db.prepare("INSERT INTO users (id, name, role, title, initials) VALUES ('c1', 'Coord', 'coordinator', 'C', 'CO')").run();
+    db.prepare(
+      "INSERT INTO users (id, name, role, title, initials) VALUES ('c1', 'Coord', 'coordinator', 'C', 'CO')",
+    ).run();
     db.prepare("DELETE FROM projects WHERE id = 'p1'").run();
     expect(db.prepare('SELECT COUNT(*) c FROM phases').get()).toEqual({ c: 0 });
 
     // Running again is a no-op.
     initDatabase();
-    expect(db.prepare("SELECT COUNT(*) c FROM users").get()).toEqual({ c: 2 });
+    expect(db.prepare('SELECT COUNT(*) c FROM users').get()).toEqual({ c: 2 });
   });
 
   it('restores the committed portfolio snapshot completely into the migrated database', async () => {
@@ -78,7 +81,9 @@ describe('in-place schema migrations', () => {
     const result = restoreDatabaseFromJSON(snapshot);
     expect(result.count).toBe(snapshot.projects.length);
     expect((db.prepare('SELECT COUNT(*) c FROM projects').get() as { c: number }).c).toBe(snapshot.projects.length);
-    expect((db.prepare("SELECT COUNT(*) c FROM projects WHERE status = 'On Hold'").get() as { c: number }).c).toBeGreaterThan(0);
+    expect(
+      (db.prepare("SELECT COUNT(*) c FROM projects WHERE status = 'On Hold'").get() as { c: number }).c,
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -86,7 +91,10 @@ describe('versioned migration runner', () => {
   it('records every migration once, with a checksum', async () => {
     const { db } = await import('../src/db/database.js');
     const { loadMigrations } = await import('../src/db/migrate.js');
-    const rows = db.prepare('SELECT version, checksum FROM schema_migrations ORDER BY version').all() as { version: number; checksum: string }[];
+    const rows = db.prepare('SELECT version, checksum FROM schema_migrations ORDER BY version').all() as {
+      version: number;
+      checksum: string;
+    }[];
     const files = loadMigrations();
     expect(rows.map((r) => r.version)).toEqual(files.map((f) => f.version));
     expect(rows.map((r) => r.checksum)).toEqual(files.map((f) => f.checksum));
@@ -101,9 +109,16 @@ describe('versioned migration runner', () => {
 
     const shape = (d: Database.Database) =>
       Object.fromEntries(
-        (d.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as { name: string }[]).map(
-          ({ name }) => [name, (d.prepare(`PRAGMA table_info(${name})`).all() as { name: string; type: string; notnull: number }[]).map((c) => `${c.name}:${c.type}:${c.notnull}`).sort()],
-        ),
+        (
+          d
+            .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+            .all() as { name: string }[]
+        ).map(({ name }) => [
+          name,
+          (d.prepare(`PRAGMA table_info(${name})`).all() as { name: string; type: string; notnull: number }[])
+            .map((c) => `${c.name}:${c.type}:${c.notnull}`)
+            .sort(),
+        ]),
       );
     expect(shape(legacyDb)).toEqual(shape(fresh));
   });
@@ -112,7 +127,10 @@ describe('versioned migration runner', () => {
     const { runMigrations } = await import('../src/db/migrate.js');
     const os = await import('node:os');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'migr-'));
-    fs.writeFileSync(path.join(dir, '001_parent.sql'), 'CREATE TABLE parent (id TEXT PRIMARY KEY);\nCREATE TABLE child (id TEXT PRIMARY KEY, parent_id TEXT REFERENCES parent(id) ON DELETE CASCADE);\nINSERT INTO parent VALUES (\'p\');\nINSERT INTO child VALUES (\'c\', \'p\');');
+    fs.writeFileSync(
+      path.join(dir, '001_parent.sql'),
+      "CREATE TABLE parent (id TEXT PRIMARY KEY);\nCREATE TABLE child (id TEXT PRIMARY KEY, parent_id TEXT REFERENCES parent(id) ON DELETE CASCADE);\nINSERT INTO parent VALUES ('p');\nINSERT INTO child VALUES ('c', 'p');",
+    );
     fs.writeFileSync(
       path.join(dir, '002_rebuild_parent.sql'),
       "-- migrate:foreign-keys-off\nCREATE TABLE parent_new (id TEXT PRIMARY KEY, label TEXT NOT NULL DEFAULT 'x');\nINSERT INTO parent_new (id) SELECT id FROM parent;\nDROP TABLE parent;\nALTER TABLE parent_new RENAME TO parent;",

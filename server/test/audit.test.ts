@@ -12,7 +12,9 @@ beforeAll(async () => {
 });
 
 const latest = (where: string, ...params: unknown[]) =>
-  db.prepare(`SELECT * FROM audit_log WHERE ${where} ORDER BY created_at DESC, rowid DESC LIMIT 1`).get(...params) as any;
+  db
+    .prepare(`SELECT * FROM audit_log WHERE ${where} ORDER BY created_at DESC, rowid DESC LIMIT 1`)
+    .get(...params) as any;
 
 describe('audit log', () => {
   it('records project updates with before and after state, user and IP', async () => {
@@ -70,7 +72,9 @@ describe('audit log', () => {
   });
 
   it('redacts email secrets from settings changes', async () => {
-    await coord.post('/api/email/settings').send({ smtp: { host: 'smtp.test.local', pass: 'Secret-Smtp-1' }, graph: { clientSecret: 'Graph-Secret-1' } });
+    await coord
+      .post('/api/email/settings')
+      .send({ smtp: { host: 'smtp.test.local', pass: 'Secret-Smtp-1' }, graph: { clientSecret: 'Graph-Secret-1' } });
     const row = latest("entity_type = 'email_settings'");
     expect(row.after_json).toContain('smtp.test.local');
     expect(row.after_json).not.toContain('Secret-Smtp-1');

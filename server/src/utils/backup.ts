@@ -27,11 +27,21 @@ export function getFullProjectRecord(projectId: string) {
   const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
   if (!row) return null;
 
-  const phases = db.prepare('SELECT * FROM phases WHERE project_id = ? ORDER BY order_index ASC').all(projectId) as any[];
-  const milestones = db.prepare('SELECT * FROM milestones WHERE project_id = ? ORDER BY order_index ASC, date ASC').all(projectId) as any[];
-  const issues = db.prepare('SELECT * FROM issues WHERE project_id = ? ORDER BY order_index ASC, id DESC').all(projectId) as any[];
-  const updates = db.prepare('SELECT * FROM updates WHERE project_id = ? ORDER BY created_at DESC').all(projectId) as any[];
-  const photos = db.prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC').all(projectId) as any[];
+  const phases = db
+    .prepare('SELECT * FROM phases WHERE project_id = ? ORDER BY order_index ASC')
+    .all(projectId) as any[];
+  const milestones = db
+    .prepare('SELECT * FROM milestones WHERE project_id = ? ORDER BY order_index ASC, date ASC')
+    .all(projectId) as any[];
+  const issues = db
+    .prepare('SELECT * FROM issues WHERE project_id = ? ORDER BY order_index ASC, id DESC')
+    .all(projectId) as any[];
+  const updates = db
+    .prepare('SELECT * FROM updates WHERE project_id = ? ORDER BY created_at DESC')
+    .all(projectId) as any[];
+  const photos = db
+    .prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC')
+    .all(projectId) as any[];
 
   return {
     id: row.id,
@@ -157,7 +167,10 @@ export function saveDatabaseSnapshot(): void {
 /**
  * Restores projects into SQLite from a JSON payload (or backup file).
  */
-export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?: any[] }): { success: boolean; count: number } {
+export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?: any[] }): {
+  success: boolean;
+  count: number;
+} {
   const projects = Array.isArray(data.projects) ? data.projects : [];
   if (projects.length === 0) {
     return { success: true, count: 0 };
@@ -377,7 +390,9 @@ export function autoRestoreSnapshotIfEmpty(): void {
         const raw = fs.readFileSync(SNAPSHOT_FILE_PATH, 'utf-8');
         const data = JSON.parse(raw);
         if (Array.isArray(data.projects) && data.projects.length >= 68) {
-          console.log(`[Auto-Restore] SQLite database has ${row.count} projects (< 68). Auto-restoring ${data.projects.length} authentic facilities from ${SNAPSHOT_FILE_PATH}...`);
+          console.log(
+            `[Auto-Restore] SQLite database has ${row.count} projects (< 68). Auto-restoring ${data.projects.length} authentic facilities from ${SNAPSHOT_FILE_PATH}...`,
+          );
           restoreDatabaseFromJSON(data);
           console.log(`[Auto-Restore] Successfully restored full portfolio with ${data.projects.length} projects!`);
         }

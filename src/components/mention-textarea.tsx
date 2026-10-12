@@ -179,7 +179,6 @@ export function MentionTextarea({
     const cursorPos = e.target.selectionStart;
     const textBeforeCursor = newValue.slice(0, cursorPos);
 
-
     // Look for @ followed by word characters up to cursor
     const lastAtMatch = /(?:^|\s)@([a-zA-Z0-9._-]*)$/.exec(textBeforeCursor);
 
@@ -243,7 +242,7 @@ export function MentionTextarea({
       setTimeout(placeFocus, 10);
       setTimeout(placeFocus, 50);
     },
-    [value, mentionIndex, mentionQuery, onChange, onMentionSelect]
+    [value, mentionIndex, mentionQuery, onChange, onMentionSelect],
   );
 
   // Keyboard navigation for dropdown
@@ -314,7 +313,9 @@ export function MentionTextarea({
           <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 mb-1 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <span>Encalm Directory (@)</span>
-              {searchingAzure && <span className="inline-block size-2 animate-spin rounded-full border border-primary border-t-transparent" />}
+              {searchingAzure && (
+                <span className="inline-block size-2 animate-spin rounded-full border border-primary border-t-transparent" />
+              )}
             </span>
             <span className="text-[8px] font-normal text-muted-foreground">↑↓ to navigate • ↵ to select</span>
           </div>
@@ -334,9 +335,7 @@ export function MentionTextarea({
                   }}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[11px] transition ${
-                    isSelected
-                      ? 'bg-[#edf5f0] text-[#173e49] font-semibold'
-                      : 'text-foreground hover:bg-muted/70'
+                    isSelected ? 'bg-[#edf5f0] text-[#173e49] font-semibold' : 'text-foreground hover:bg-muted/70'
                   }`}
                 >
                   <span
@@ -349,9 +348,7 @@ export function MentionTextarea({
                   <div className="min-w-0 flex-1">
                     <div className="truncate flex items-center gap-1.5">
                       <span className="font-bold">{user.name}</span>
-                      <span className="text-[9px] text-muted-foreground font-normal">
-                        ({user.title || user.role})
-                      </span>
+                      <span className="text-[9px] text-muted-foreground font-normal">({user.title || user.role})</span>
                     </div>
                     <div className="truncate text-[9px] text-muted-foreground font-mono">
                       {user.email || 'No email'}

@@ -29,7 +29,8 @@ const project = (overrides: Partial<Project> = {}): Project =>
     ...overrides,
   }) as unknown as Project;
 
-const phase = (p: Partial<Phase>): Phase => ({ name: 'Stage', status: 'upcoming', progress: 0, owner: 'PMO', ...p }) as Phase;
+const phase = (p: Partial<Phase>): Phase =>
+  ({ name: 'Stage', status: 'upcoming', progress: 0, owner: 'PMO', ...p }) as Phase;
 
 describe('getPlannedProgress', () => {
   const p = project({ startDate: '2026-01-01', targetDate: '2026-12-31' });
@@ -50,7 +51,11 @@ describe('getPlannedProgress', () => {
   });
 
   it('reports variance only when a plan exists', () => {
-    expect(getProgressVariance(project({ ...p, progress: 60 }), new Date('2026-07-02T12:00:00'))).toEqual({ actual: 60, planned: 50, variance: 10 });
+    expect(getProgressVariance(project({ ...p, progress: 60 }), new Date('2026-07-02T12:00:00'))).toEqual({
+      actual: 60,
+      planned: 50,
+      variance: 10,
+    });
     expect(getProgressVariance(project({ progress: 10 })).variance).toBeNull();
   });
 });
@@ -77,7 +82,10 @@ describe('calculateWeightedProgress', () => {
   });
 
   it('prefers explicit weights; unweighted stages count as 1', () => {
-    const r = calculateWeightedProgress([phase({ progress: 50, weight: 3 }), phase({ progress: 0, plannedStart: '2026-01-01', plannedFinish: '2026-12-31' })]);
+    const r = calculateWeightedProgress([
+      phase({ progress: 50, weight: 3 }),
+      phase({ progress: 0, plannedStart: '2026-01-01', plannedFinish: '2026-12-31' }),
+    ]);
     expect(r.overallProgress).toBe(38);
     expect(r.stages[0].isExplicitWeight).toBe(true);
   });
@@ -110,7 +118,13 @@ describe('status and ordering', () => {
       project({ name: 'At risk', health: 'At risk', progress: 90 }),
     ]);
     expect(sorted.map((p) => p.name)).toEqual([
-      'Delayed', 'At risk', 'C on track 10', 'A on track 40', 'B on track 40', 'Alpha done', 'Zeta done',
+      'Delayed',
+      'At risk',
+      'C on track 10',
+      'A on track 40',
+      'B on track 40',
+      'Alpha done',
+      'Zeta done',
     ]);
   });
 });
@@ -118,7 +132,14 @@ describe('status and ordering', () => {
 describe('commercial summaries', () => {
   it('derives ratios and flags', () => {
     const s = getCommercialSummary(project({ aop: 100, awarded: 120, spent: 130, projectedCost: 150 }));
-    expect(s).toMatchObject({ remaining: -10, costVariance: 50, awardRatePct: 120, overAwarded: true, overBudget: true, overSpent: true });
+    expect(s).toMatchObject({
+      remaining: -10,
+      costVariance: 50,
+      awardRatePct: 120,
+      overAwarded: true,
+      overBudget: true,
+      overSpent: true,
+    });
     expect(s.spentRatePct).toBeCloseTo(108.3);
   });
 
@@ -130,8 +151,18 @@ describe('commercial summaries', () => {
   });
 
   it('rolls up a portfolio', () => {
-    const s = getPortfolioCommercialSummary([project({ aop: 100, awarded: 50, spent: 10 }), project({ aop: 100, awarded: 50, spent: 40, projectedCost: 120 })]);
-    expect(s).toMatchObject({ totalAop: 200, totalAwarded: 100, totalSpent: 50, totalProjectedCost: 220, awardRatePct: 50, spentRatePct: 50 });
+    const s = getPortfolioCommercialSummary([
+      project({ aop: 100, awarded: 50, spent: 10 }),
+      project({ aop: 100, awarded: 50, spent: 40, projectedCost: 120 }),
+    ]);
+    expect(s).toMatchObject({
+      totalAop: 200,
+      totalAwarded: 100,
+      totalSpent: 50,
+      totalProjectedCost: 220,
+      awardRatePct: 50,
+      spentRatePct: 50,
+    });
   });
 
   it('formats ratios', () => {

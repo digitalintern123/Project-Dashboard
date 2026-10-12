@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   type Health,
   type Milestone,
@@ -44,7 +36,12 @@ type AppStateValue = {
   resolveUser: (id: string | undefined | null) => User | undefined;
   refreshUsers: () => Promise<void>;
   refreshLeads: () => Promise<void>;
-  createLead: (data: { name: string; email: string; password: string; title?: string }) => Promise<{ success: boolean; error?: string; lead?: User }>;
+  createLead: (data: {
+    name: string;
+    email: string;
+    password: string;
+    title?: string;
+  }) => Promise<{ success: boolean; error?: string; lead?: User }>;
   allotProject: (projectId: string, leadId: string) => Promise<{ success: boolean; error?: string }>;
   /** False until the stored session has been checked with the server. */
   authReady: boolean;
@@ -128,14 +125,12 @@ function normaliseProject(project: Project): Project {
     };
   });
   const calculatedProgress =
-    phases.length > 0
-      ? calculateWeightedProgress(phases).overallProgress
-      : (project.progress ?? 0);
+    phases.length > 0 ? calculateWeightedProgress(phases).overallProgress : (project.progress ?? 0);
   const status: ProjectStatus = project.status || 'Yet to start';
   const normalisedHealth: Health =
     (project.health === 'Not started' || !project.health) && calculatedProgress > 0
       ? 'On track'
-      : (project.health || 'Not started');
+      : project.health || 'Not started';
 
   return {
     ...project,
@@ -146,8 +141,7 @@ function normaliseProject(project: Project): Project {
     milestones: (project.milestones ?? []).map((milestone, index) => ({
       ...milestone,
       id: (milestone as any).id ?? `${project.id}-milestone-${index}`,
-      approvalStatus:
-        milestone.approvalStatus ?? (milestone.approvalRequired ? 'Pending' : 'Not required'),
+      approvalStatus: milestone.approvalStatus ?? (milestone.approvalRequired ? 'Pending' : 'Not required'),
       taggedUsers: milestone.taggedUsers ?? [],
     })),
     issues: (project.issues ?? []).map((issue, index) => ({
@@ -260,11 +254,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const resolveUser = useCallback(
     (id: string | undefined | null): User | undefined => {
       if (!id) return undefined;
-      return (
-        allUsers.find((u) => u.id === id) ||
-        getUserById(id) ||
-        leads.find((l) => l.id === id)
-      );
+      return allUsers.find((u) => u.id === id) || getUserById(id) || leads.find((l) => l.id === id);
     },
     [allUsers, leads],
   );
@@ -283,20 +273,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [refreshLeads, refreshUsers],
   );
 
-  const allotProject = useCallback(
-    async (projectId: string, leadId: string) => {
-      try {
-        const res = await api.projects.allot(projectId, leadId);
-        setProjectState((prev) =>
-          prev.map((p) => (p.id === projectId ? normaliseProject(res.project) : p)),
-        );
-        return { success: true };
-      } catch (err: any) {
-        return { success: false, error: err.message || 'Failed to allot project' };
-      }
-    },
-    [],
-  );
+  const allotProject = useCallback(async (projectId: string, leadId: string) => {
+    try {
+      const res = await api.projects.allot(projectId, leadId);
+      setProjectState((prev) => prev.map((p) => (p.id === projectId ? normaliseProject(res.project) : p)));
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to allot project' };
+    }
+  }, []);
 
   const clearSession = useCallback(() => {
     setRole(null);
@@ -361,10 +346,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       if (role === 'coordinator') return true;
       if (role === 'hod') return false;
       if (role === 'lead') {
-        const target =
-          typeof projectOrId === 'string'
-            ? projectState.find((p) => p.id === projectOrId)
-            : projectOrId;
+        const target = typeof projectOrId === 'string' ? projectState.find((p) => p.id === projectOrId) : projectOrId;
         if (!target) return false;
         return !target.leadId || target.leadId === user?.id;
       }
@@ -373,20 +355,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [role, user?.id, projectState],
   );
 
-  const login = useCallback(
-    async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-      try {
-        const result = await api.auth.login(email.trim().toLowerCase(), password);
-        setUser(result.user);
-        setRole(result.user.role);
-        setIsConnected(true);
-        return { success: true };
-      } catch (err: any) {
-        return { success: false, error: err.message || 'Login failed' };
-      }
-    },
-    [],
-  );
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const result = await api.auth.login(email.trim().toLowerCase(), password);
+      setUser(result.user);
+      setRole(result.user.role);
+      setIsConnected(true);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Login failed' };
+    }
+  }, []);
 
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
@@ -410,9 +389,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   const markNotificationRead = useCallback(async (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     setUnreadNotifCount((prev) => Math.max(0, prev - 1));
     try {
       await api.notifications.markRead(id);
@@ -444,9 +421,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const patchById = useCallback(
     (id: string, transform: (project: Project) => Project): boolean => {
       if (!canEditProject(id)) return false;
-      return mutate((projects) =>
-        projects.map((project) => (project.id === id ? transform(project) : project)),
-      );
+      return mutate((projects) => projects.map((project) => (project.id === id ? transform(project) : project)));
     },
     [canEditProject, mutate],
   );
@@ -459,8 +434,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           patch.health !== undefined
             ? patch.health
             : (project.health === 'Not started' || !project.health) && newProgress > 0
-            ? 'On track'
-            : project.health;
+              ? 'On track'
+              : project.health;
         return {
           ...project,
           ...patch,
@@ -493,9 +468,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         );
         const { overallProgress } = calculateWeightedProgress(newPhases);
         const autoHealth =
-          (project.health === 'Not started' || !project.health) && overallProgress > 0
-            ? 'On track'
-            : project.health;
+          (project.health === 'Not started' || !project.health) && overallProgress > 0 ? 'On track' : project.health;
         return {
           ...project,
           phases: newPhases,
@@ -506,11 +479,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok && phaseId) {
-        api.phases.update(id, phaseId, patch).then((res) => {
-          if (res?.project) {
-            patchById(id, () => normaliseProject(res.project));
-          }
-        }).catch(console.warn);
+        api.phases
+          .update(id, phaseId, patch)
+          .then((res) => {
+            if (res?.project) {
+              patchById(id, () => normaliseProject(res.project));
+            }
+          })
+          .catch(console.warn);
       }
       return ok;
     },
@@ -534,11 +510,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok) {
-        api.phases.add(id, newPhase).then((res) => {
-          if (res?.project) {
-            patchById(id, () => normaliseProject(res.project));
-          }
-        }).catch(console.warn);
+        api.phases
+          .add(id, newPhase)
+          .then((res) => {
+            if (res?.project) {
+              patchById(id, () => normaliseProject(res.project));
+            }
+          })
+          .catch(console.warn);
       }
       return ok;
     },
@@ -565,11 +544,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok && phaseId) {
-        api.phases.delete(id, phaseId).then((res) => {
-          if (res?.project) {
-            patchById(id, () => normaliseProject(res.project));
-          }
-        }).catch(console.warn);
+        api.phases
+          .delete(id, phaseId)
+          .then((res) => {
+            if (res?.project) {
+              patchById(id, () => normaliseProject(res.project));
+            }
+          })
+          .catch(console.warn);
       }
       return ok;
     },
@@ -589,11 +571,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok) {
-        api.phases.move(id, phaseIndex, direction).then((res) => {
-          if (res?.project) {
-            patchById(id, () => normaliseProject(res.project));
-          }
-        }).catch(console.warn);
+        api.phases
+          .move(id, phaseIndex, direction)
+          .then((res) => {
+            if (res?.project) {
+              patchById(id, () => normaliseProject(res.project));
+            }
+          })
+          .catch(console.warn);
       }
       return ok;
     },
@@ -612,9 +597,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const res = await api.projects.create(normalised);
         if (res?.project) {
           const saved = normaliseProject(res.project);
-          setProjectState((projects) =>
-            projects.map((p) => (p.id === project.id || p.id === saved.id ? saved : p)),
-          );
+          setProjectState((projects) => projects.map((p) => (p.id === project.id || p.id === saved.id ? saved : p)));
         }
         await refreshNotifications();
         return true;
@@ -652,11 +635,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }));
 
       if (ok) {
-        api.milestones.add(id, milestone).then((res) => {
-          if (res?.project) {
-            patchById(id, () => normaliseProject(res.project));
-          }
-        }).catch(console.warn);
+        api.milestones
+          .add(id, milestone)
+          .then((res) => {
+            if (res?.project) {
+              patchById(id, () => normaliseProject(res.project));
+            }
+          })
+          .catch(console.warn);
       }
       return ok;
     },
@@ -673,19 +659,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (milestoneIndex < 0 || milestoneIndex >= project.milestones.length) return project;
         return {
           ...project,
-          milestones: project.milestones.map((m, index) =>
-            index === milestoneIndex ? { ...m, ...patch } : m,
-          ),
+          milestones: project.milestones.map((m, index) => (index === milestoneIndex ? { ...m, ...patch } : m)),
           lastUpdated: todayLabel(),
         };
       });
 
       if (ok && milestoneId) {
-        api.milestones.update(id, milestoneId, patch).then((res) => {
-          if (res?.project) {
-            patchById(id, () => normaliseProject(res.project));
-          }
-        }).catch(console.warn);
+        api.milestones
+          .update(id, milestoneId, patch)
+          .then((res) => {
+            if (res?.project) {
+              patchById(id, () => normaliseProject(res.project));
+            }
+          })
+          .catch(console.warn);
       }
       return ok;
     },
@@ -703,9 +690,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return {
             ...project,
             milestones: project.milestones.map((m) =>
-              (m as any).id === milestoneId || m.title === milestoneId
-                ? { ...m, approvalStatus: status }
-                : m,
+              (m as any).id === milestoneId || m.title === milestoneId ? { ...m, approvalStatus: status } : m,
             ),
           };
         }),
@@ -782,9 +767,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (issueIndex < 0 || issueIndex >= project.issues.length) return project;
         return {
           ...project,
-          issues: project.issues.map((iss, index) =>
-            index === issueIndex ? { ...iss, ...patch } : iss,
-          ),
+          issues: project.issues.map((iss, index) => (index === issueIndex ? { ...iss, ...patch } : iss)),
           lastUpdated: todayLabel(),
         };
       });
@@ -890,7 +873,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     async (fileOrJson: string | object): Promise<{ success: boolean; count?: number; error?: string }> => {
       try {
         const payload = typeof fileOrJson === 'string' ? JSON.parse(fileOrJson) : fileOrJson;
-        const rawProjects = Array.isArray(payload.projects) ? payload.projects : (Array.isArray(payload) ? payload : null);
+        const rawProjects = Array.isArray(payload.projects)
+          ? payload.projects
+          : Array.isArray(payload)
+            ? payload
+            : null;
         if (!rawProjects || rawProjects.length === 0) {
           return { success: false, error: 'No valid projects array found in backup data' };
         }

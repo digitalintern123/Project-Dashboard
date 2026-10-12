@@ -221,7 +221,10 @@ export function TagUserPopover({
     <div className="relative inline-flex items-center gap-1.5" ref={containerRef}>
       {/* Existing Tag Chips */}
       {taggedUsers.map((userId) => {
-        const u = (resolveUser ? resolveUser(userId) : undefined) || availableUsers.find((user) => user.id === userId) || getUserById(userId);
+        const u =
+          (resolveUser ? resolveUser(userId) : undefined) ||
+          availableUsers.find((user) => user.id === userId) ||
+          getUserById(userId);
         const name = u?.name || userId;
         const initials = u?.initials || (u?.name ? initialsOf(u.name) : name.slice(0, 2).toUpperCase());
 
@@ -282,9 +285,7 @@ export function TagUserPopover({
           <div className="flex items-center justify-between border-b border-border/70 pb-2">
             <div className="flex items-center gap-1.5">
               <Users size={14} className="text-[#2e7c67]" />
-              <span className="text-[12px] font-bold text-[#173e49]">
-                Tag & Send Email
-              </span>
+              <span className="text-[12px] font-bold text-[#173e49]">Tag & Send Email</span>
             </div>
             <button
               type="button"
@@ -347,12 +348,8 @@ export function TagUserPopover({
           {/* Comment & Mail Form */}
           <form onSubmit={handleSendMail} className="mt-3 border-t border-border/70 pt-2.5">
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-[10px] font-bold text-[#173e49]">
-                Add Message / Comment:
-              </label>
-              <span className="text-[9px] text-[#2e7c67] font-semibold">
-                Type @ to tag recipient
-              </span>
+              <label className="block text-[10px] font-bold text-[#173e49]">Add Message / Comment:</label>
+              <span className="text-[9px] text-[#2e7c67] font-semibold">Type @ to tag recipient</span>
             </div>
             <MentionTextarea
               value={comment}

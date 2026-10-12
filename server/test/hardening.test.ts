@@ -61,7 +61,9 @@ describe('CORS', () => {
 describe('body size', () => {
   it('rejects JSON bodies over 1 MB', async () => {
     const agent = await loginAs(app, 'coordinator');
-    const res = await agent.post('/api/projects').send({ name: 'x'.repeat(1_100_000), location: 'Delhi', category: 'Lounge' });
+    const res = await agent
+      .post('/api/projects')
+      .send({ name: 'x'.repeat(1_100_000), location: 'Delhi', category: 'Lounge' });
     expect(res.status).toBe(413);
   });
 });

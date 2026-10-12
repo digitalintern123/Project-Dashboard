@@ -35,7 +35,10 @@ describe('export and import', () => {
   });
 
   it('accepts imports larger than the normal 1 MB limit', async () => {
-    const big = { ...exported, projects: exported.projects.map((p: any) => ({ ...p, specification: { notes: 'x'.repeat(600_000) } })) };
+    const big = {
+      ...exported,
+      projects: exported.projects.map((p: any) => ({ ...p, specification: { notes: 'x'.repeat(600_000) } })),
+    };
     const res = await coord.post('/api/system/import').send(big);
     expect(res.status).toBe(200);
   });

@@ -18,8 +18,8 @@ dbs:
       - type: s3
         bucket: encalm-db-replica
         path: prod/encalm.db
-        endpoint: https://s3.eu-central-003.backblazeb2.com   # remove for AWS S3
+        endpoint: https://s3.eu-central-003.backblazeb2.com # remove for AWS S3
         region: eu-central-003
-        retention: 720h              # keep 30 days of history
+        retention: 720h # keep 30 days of history
         snapshot-interval: 24h
         sync-interval: 10s

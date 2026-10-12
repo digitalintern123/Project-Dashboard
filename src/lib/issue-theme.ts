@@ -17,7 +17,7 @@ export interface IssueStatusTheme {
 
 export function getIssueStatusTheme(
   status: IssueStatus = 'Open',
-  severity: 'High' | 'Medium' | 'Low' = 'Medium'
+  severity: 'High' | 'Medium' | 'Low' = 'Medium',
 ): IssueStatusTheme {
   switch (status) {
     case 'Under review':

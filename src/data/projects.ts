@@ -3,7 +3,8 @@ import { formatDayMonth } from '@/lib/date';
 export type Location = 'Delhi' | 'Hyderabad' | 'Goa' | 'Bhogapuram' | 'Vizag';
 export type Category = 'Hotel' | 'Lounge' | 'Kitchen' | 'Encalm Eats' | 'Other';
 export type Health = 'On track' | 'At risk' | 'Delayed' | 'Not started';
-export type ProjectStatus = 'Yet to start' | 'In Design' | 'In Tendering' | 'Under Construction' | 'Operational' | 'On Hold';
+export type ProjectStatus =
+  'Yet to start' | 'In Design' | 'In Tendering' | 'Under Construction' | 'Operational' | 'On Hold';
 export type StageStatus = 'complete' | 'active' | 'upcoming' | 'blocked';
 export type IssueCategory = 'Design' | 'Procurement' | 'Billing' | 'Construction' | 'Approval' | 'Other';
 export type IssueStatus = 'Open' | 'Under review' | 'Action in progress' | 'Resolved' | 'Closed';
@@ -169,7 +170,14 @@ export type ProjectSpecification = {
 };
 
 export type PhotoCategory = 'Progress' | 'Snag / Issue' | 'Milestone' | 'Before / After' | 'Inspection' | 'General';
-export const photoCategories: PhotoCategory[] = ['Progress', 'Snag / Issue', 'Milestone', 'Before / After', 'Inspection', 'General'];
+export const photoCategories: PhotoCategory[] = [
+  'Progress',
+  'Snag / Issue',
+  'Milestone',
+  'Before / After',
+  'Inspection',
+  'General',
+];
 
 export type SitePhoto = {
   id: string;
@@ -260,7 +268,13 @@ export const projectTemplates: ProjectTemplate[] = [
     id: 'kitchen',
     label: 'Kitchen',
     description: 'Capacity, equipment, utilities, installation, testing, and food-safety sign-off.',
-    fields: ['Cuisine / service type', 'Daily meal capacity', 'Equipment package', 'Exhaust requirement', 'Utility load'],
+    fields: [
+      'Cuisine / service type',
+      'Daily meal capacity',
+      'Equipment package',
+      'Exhaust requirement',
+      'Utility load',
+    ],
     stages: [
       { name: 'Menu & capacity planning', owner: 'Operations' },
       { name: 'Kitchen design & equipment specification', owner: 'Design' },
@@ -324,8 +338,7 @@ export const healthOptions: Health[] = ['On track', 'At risk', 'Delayed', 'Not s
 /** One crore = 10,000,000. Non-finite input renders as `—` rather than `₹NaN Cr`. */
 export const CRORE = 10000000;
 
-export const formatCrore = (value: number) =>
-  Number.isFinite(value) ? `₹${(value / CRORE).toFixed(1)} Cr` : '₹—';
+export const formatCrore = (value: number) => (Number.isFinite(value) ? `₹${(value / CRORE).toFixed(1)} Cr` : '₹—');
 
 /** Safe re-export so call sites keep working; see `@/lib/date`. */
 export const formatShortDate = formatDayMonth;

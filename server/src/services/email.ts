@@ -43,7 +43,8 @@ export interface MicrosoftGraphConfig {
  */
 export function getActiveEmailProvider(): EmailProvider {
   try {
-    const row = db.prepare('SELECT value FROM system_settings WHERE key = ?').get('email_provider') as { value: string } | undefined;
+    const row = db.prepare('SELECT value FROM system_settings WHERE key = ?').get('email_provider') as
+      { value: string } | undefined;
     if (row && (row.value === 'smtp' || row.value === 'microsoft_graph')) {
       return row.value as EmailProvider;
     }
@@ -55,11 +56,13 @@ export function getActiveEmailProvider(): EmailProvider {
  * Set the active email provider ('smtp' or 'microsoft_graph').
  */
 export function saveActiveEmailProvider(provider: EmailProvider): void {
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO system_settings (key, value, updated_at)
     VALUES ('email_provider', ?, datetime('now'))
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
-  `).run(provider);
+  `,
+  ).run(provider);
 }
 
 /**
@@ -69,7 +72,8 @@ export function saveActiveEmailProvider(provider: EmailProvider): void {
 export function getSmtpConfig(): SmtpConfig {
   const getSetting = (key: string): string | undefined => {
     try {
-      const row = db.prepare('SELECT value FROM system_settings WHERE key = ?').get(key) as { value: string } | undefined;
+      const row = db.prepare('SELECT value FROM system_settings WHERE key = ?').get(key) as
+        { value: string } | undefined;
       return row ? row.value : undefined;
     } catch {
       return undefined;
@@ -181,7 +185,8 @@ let cachedToken: {
 export function getGraphConfig(): MicrosoftGraphConfig {
   const getSetting = (key: string): string | undefined => {
     try {
-      const row = db.prepare('SELECT value FROM system_settings WHERE key = ?').get(key) as { value: string } | undefined;
+      const row = db.prepare('SELECT value FROM system_settings WHERE key = ?').get(key) as
+        { value: string } | undefined;
       return row ? row.value : undefined;
     } catch {
       return undefined;
@@ -190,8 +195,13 @@ export function getGraphConfig(): MicrosoftGraphConfig {
 
   const tenantId = getSetting('graph_tenant_id') || process.env.AZURE_TENANT_ID || process.env.MS_GRAPH_TENANT_ID || '';
   const clientId = getSetting('graph_client_id') || process.env.AZURE_CLIENT_ID || process.env.MS_GRAPH_CLIENT_ID || '';
-  const clientSecret = decryptSecret(getSetting('graph_client_secret')) || process.env.AZURE_CLIENT_SECRET || process.env.MS_GRAPH_CLIENT_SECRET || '';
-  const senderEmail = getSetting('graph_sender_email') || process.env.MS_GRAPH_SENDER_EMAIL || 'notifications@encalm.com';
+  const clientSecret =
+    decryptSecret(getSetting('graph_client_secret')) ||
+    process.env.AZURE_CLIENT_SECRET ||
+    process.env.MS_GRAPH_CLIENT_SECRET ||
+    '';
+  const senderEmail =
+    getSetting('graph_sender_email') || process.env.MS_GRAPH_SENDER_EMAIL || 'notifications@encalm.com';
   const saveToSentItemsStr = getSetting('graph_save_to_sent_items') || 'true';
 
   return {
@@ -293,7 +303,13 @@ const EMAIL_LOCK_MS = 2 * 60_000;
 
 class EmailNotConfiguredError extends Error {}
 
-type OutgoingMessage = { to: string; recipientName?: string | null; replyTo?: string | null; subject: string; html: string };
+type OutgoingMessage = {
+  to: string;
+  recipientName?: string | null;
+  replyTo?: string | null;
+  subject: string;
+  html: string;
+};
 
 /** Delivers one message through the active provider. Throws on failure. */
 async function deliver(message: OutgoingMessage): Promise<void> {
@@ -319,19 +335,22 @@ async function deliver(message: OutgoingMessage): Promise<void> {
     throw new EmailNotConfiguredError('Microsoft Graph API not configured - kept in the in-app outbox');
   }
   const accessToken = await acquireGraphAccessToken(cfg);
-  const graphRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.senderEmail)}/sendMail`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: {
-        subject: message.subject,
-        body: { contentType: 'HTML', content: message.html },
-        toRecipients: [{ emailAddress: { address: message.to, name: message.recipientName || message.to } }],
-        ...(message.replyTo ? { replyTo: [{ emailAddress: { address: message.replyTo } }] } : {}),
-      },
-      saveToSentItems: cfg.saveToSentItems !== false,
-    }),
-  });
+  const graphRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.senderEmail)}/sendMail`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: {
+          subject: message.subject,
+          body: { contentType: 'HTML', content: message.html },
+          toRecipients: [{ emailAddress: { address: message.to, name: message.recipientName || message.to } }],
+          ...(message.replyTo ? { replyTo: [{ emailAddress: { address: message.replyTo } }] } : {}),
+        },
+        saveToSentItems: cfg.saveToSentItems !== false,
+      }),
+    },
+  );
   if (!graphRes.ok && graphRes.status !== 202) {
     const errText = await graphRes.text().catch(() => '');
     throw new Error(`Microsoft Graph API failed (${graphRes.status}): ${errText}`);
@@ -354,11 +373,26 @@ function kickWorker() {
 export function queueEmail(options: SendEmailOptions, maxAttempts = EMAIL_MAX_ATTEMPTS): QueueResult {
   const id = `eml-${randomUUID()}`;
   db.transaction(() => {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO email_logs (id, recipient_email, recipient_name, reply_to, subject, template_type, project_id, status, html_content, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, datetime('now'))
-    `).run(id, options.to, options.recipientName || null, options.replyTo || null, options.subject, options.templateType, options.projectId || null, options.html);
-    db.prepare('INSERT INTO email_queue (log_id, max_attempts, next_attempt_at) VALUES (?, ?, ?)').run(id, maxAttempts, new Date().toISOString());
+    `,
+    ).run(
+      id,
+      options.to,
+      options.recipientName || null,
+      options.replyTo || null,
+      options.subject,
+      options.templateType,
+      options.projectId || null,
+      options.html,
+    );
+    db.prepare('INSERT INTO email_queue (log_id, max_attempts, next_attempt_at) VALUES (?, ?, ?)').run(
+      id,
+      maxAttempts,
+      new Date().toISOString(),
+    );
   })();
   kickWorker();
   return { id, status: 'queued' };
@@ -366,16 +400,31 @@ export function queueEmail(options: SendEmailOptions, maxAttempts = EMAIL_MAX_AT
 
 /** Delivers one queued email now and records the outcome. */
 export async function deliverQueuedEmail(logId: string, now = Date.now()): Promise<QueueResult> {
-  const job = db.prepare(`
+  const job = db
+    .prepare(
+      `
     SELECT q.attempts, q.max_attempts, l.recipient_email, l.recipient_name, l.reply_to, l.subject, l.html_content
     FROM email_queue q JOIN email_logs l ON l.id = q.log_id
     WHERE q.log_id = ?
-  `).get(logId) as
-    | { attempts: number; max_attempts: number; recipient_email: string; recipient_name: string | null; reply_to: string | null; subject: string; html_content: string }
+  `,
+    )
+    .get(logId) as
+    | {
+        attempts: number;
+        max_attempts: number;
+        recipient_email: string;
+        recipient_name: string | null;
+        reply_to: string | null;
+        subject: string;
+        html_content: string;
+      }
     | undefined;
   if (!job) return { id: logId, status: 'failed', error: 'Not queued' };
 
-  db.prepare('UPDATE email_queue SET locked_until = ? WHERE log_id = ?').run(new Date(now + EMAIL_LOCK_MS).toISOString(), logId);
+  db.prepare('UPDATE email_queue SET locked_until = ? WHERE log_id = ?').run(
+    new Date(now + EMAIL_LOCK_MS).toISOString(),
+    logId,
+  );
   const finish = (status: 'sent' | 'failed' | 'outbox', error: string | null) =>
     db.transaction(() => {
       db.prepare('UPDATE email_logs SET status = ?, error = ? WHERE id = ?').run(status, error, logId);
@@ -383,7 +432,13 @@ export async function deliverQueuedEmail(logId: string, now = Date.now()): Promi
     })();
 
   try {
-    await deliver({ to: job.recipient_email, recipientName: job.recipient_name, replyTo: job.reply_to, subject: job.subject, html: job.html_content });
+    await deliver({
+      to: job.recipient_email,
+      recipientName: job.recipient_name,
+      replyTo: job.reply_to,
+      subject: job.subject,
+      html: job.html_content,
+    });
     finish('sent', null);
     console.log(`[Email] Delivered "${job.subject}" to ${job.recipient_email}`);
     return { id: logId, status: 'sent' };
@@ -396,13 +451,20 @@ export async function deliverQueuedEmail(logId: string, now = Date.now()): Promi
     const attempts = job.attempts + 1;
     if (attempts >= job.max_attempts) {
       finish('failed', message);
-      console.warn(`[Email] Giving up on "${job.subject}" to ${job.recipient_email} after ${attempts} attempt(s): ${message}`);
+      console.warn(
+        `[Email] Giving up on "${job.subject}" to ${job.recipient_email} after ${attempts} attempt(s): ${message}`,
+      );
       return { id: logId, status: 'failed', error: message };
     }
     const retryAt = new Date(now + EMAIL_RETRY_BASE_MS * 2 ** (attempts - 1)).toISOString();
     db.transaction(() => {
-      db.prepare('UPDATE email_queue SET attempts = ?, next_attempt_at = ?, locked_until = NULL, last_error = ? WHERE log_id = ?').run(attempts, retryAt, message, logId);
-      db.prepare('UPDATE email_logs SET error = ? WHERE id = ?').run(`Attempt ${attempts} failed, retrying: ${message}`, logId);
+      db.prepare(
+        'UPDATE email_queue SET attempts = ?, next_attempt_at = ?, locked_until = NULL, last_error = ? WHERE log_id = ?',
+      ).run(attempts, retryAt, message, logId);
+      db.prepare('UPDATE email_logs SET error = ? WHERE id = ?').run(
+        `Attempt ${attempts} failed, retrying: ${message}`,
+        logId,
+      );
     })();
     console.warn(`[Email] Attempt ${attempts} for ${job.recipient_email} failed (${message}); retrying at ${retryAt}`);
     return { id: logId, status: 'queued', error: message };
@@ -414,12 +476,16 @@ export function processEmailQueue(now = Date.now()): Promise<number> {
   if (processing) return processing;
   processing = (async () => {
     const nowIso = new Date(now).toISOString();
-    const due = db.prepare(`
+    const due = db
+      .prepare(
+        `
       SELECT log_id FROM email_queue
       WHERE next_attempt_at <= ? AND (locked_until IS NULL OR locked_until < ?)
       ORDER BY next_attempt_at
       LIMIT 25
-    `).all(nowIso, nowIso) as { log_id: string }[];
+    `,
+      )
+      .all(nowIso, nowIso) as { log_id: string }[];
     for (const { log_id } of due) await deliverQueuedEmail(log_id, now);
     return due.length;
   })().finally(() => {
@@ -432,7 +498,10 @@ export function processEmailQueue(now = Date.now()): Promise<number> {
 export function startEmailWorker(intervalMs = 5000): void {
   if (workerTimer) return;
   db.prepare('UPDATE email_queue SET locked_until = NULL').run();
-  workerTimer = setInterval(() => void processEmailQueue().catch((err) => console.error('[Email Queue]', err)), intervalMs);
+  workerTimer = setInterval(
+    () => void processEmailQueue().catch((err) => console.error('[Email Queue]', err)),
+    intervalMs,
+  );
   workerTimer.unref();
   kickWorker();
 }
@@ -458,7 +527,11 @@ export function resendEmailLog(id: string): { success: boolean; status: string; 
   if (row.status === 'queued') return { success: true, status: 'queued' };
   db.transaction(() => {
     db.prepare("UPDATE email_logs SET status = 'queued', error = NULL WHERE id = ?").run(id);
-    db.prepare('INSERT OR REPLACE INTO email_queue (log_id, max_attempts, next_attempt_at) VALUES (?, ?, ?)').run(id, EMAIL_MAX_ATTEMPTS, new Date().toISOString());
+    db.prepare('INSERT OR REPLACE INTO email_queue (log_id, max_attempts, next_attempt_at) VALUES (?, ?, ?)').run(
+      id,
+      EMAIL_MAX_ATTEMPTS,
+      new Date().toISOString(),
+    );
   })();
   kickWorker();
   return { success: true, status: 'queued' };
@@ -619,7 +692,8 @@ export function buildTagNotificationHtml(data: {
   targetDate?: string;
   dashboardUrl: string;
 }): string {
-  return baseEmailWrapper(`
+  return baseEmailWrapper(
+    `
     <div style="margin-bottom: 20px;">
       <p style="font-size: 16px; font-weight: 700; color: #173e49; margin: 0 0 6px 0;">
         Hello ${esc(data.recipientName)},
@@ -647,16 +721,22 @@ export function buildTagNotificationHtml(data: {
           <td style="padding: 10px 14px; color: #718096; font-weight: 600;">Tagged Item (${esc(data.entityType)}):</td>
           <td style="padding: 10px 14px; color: #173e49; font-weight: 700;">${esc(data.entityTitle)}</td>
         </tr>
-        ${data.targetDate || data.entityContext ? `
+        ${
+          data.targetDate || data.entityContext
+            ? `
         <tr>
           <td style="padding: 10px 14px; color: #718096; font-weight: 600;">Timeline / Target Date:</td>
           <td style="padding: 10px 14px; color: #d19b35; font-weight: 700;">${esc(data.targetDate || data.entityContext)}</td>
-        </tr>` : ''}
+        </tr>`
+            : ''
+        }
       </tbody>
     </table>
 
     <!-- Prominently Highlighted Comment / Action Required Card -->
-    ${data.comment ? `
+    ${
+      data.comment
+        ? `
       <div style="background: #fffdf5; border: 2px solid #d19b35; border-radius: 10px; padding: 18px 20px; margin: 22px 0; box-shadow: 0 2px 8px rgba(209, 155, 53, 0.08);">
         <div style="margin-bottom: 8px;">
           <span style="font-size: 11px; font-weight: 800; color: #8c671b; text-transform: uppercase; letter-spacing: 0.8px;">
@@ -667,7 +747,9 @@ export function buildTagNotificationHtml(data: {
           "${esc(data.comment).replace(/@([a-zA-Z0-9._-]+(?:\s+[a-zA-Z0-9._-]+)?)/g, '<span style="color: #2e7c67; font-weight: 700; background: #edf5f0; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbe4d9;">@$1</span>')}"
         </div>
       </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <!-- Zero-Login Reply Banner -->
     <div style="background: #edf5f0; border: 1.5px solid #2e7c67; border-radius: 8px; padding: 16px 18px; margin: 22px 0; text-align: left;">
@@ -685,7 +767,9 @@ export function buildTagNotificationHtml(data: {
         (Optional) Open Project Workspace in Dashboard →
       </a>
     </div>
-  `, `Action Required in ${esc(data.projectName)}: ${esc(data.entityTitle)}`);
+  `,
+    `Action Required in ${esc(data.projectName)}: ${esc(data.entityTitle)}`,
+  );
 }
 
 /**
@@ -701,7 +785,8 @@ export function buildCriticalIssueHtml(data: {
   raisedBy?: string;
   dashboardUrl: string;
 }): string {
-  return baseEmailWrapper(`
+  return baseEmailWrapper(
+    `
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
       <span class="badge badge-red">CRITICAL ISSUE ALERT</span>
       <span class="badge badge-gold">${esc(data.projectName)}</span>
@@ -731,7 +816,9 @@ export function buildCriticalIssueHtml(data: {
     <div style="text-align: center;">
       <a href="${esc(data.dashboardUrl)}" class="btn" style="background: #b2473d;" target="_blank">Review Critical Issue →</a>
     </div>
-  `, `Critical Issue Alert: ${esc(data.projectName)}`);
+  `,
+    `Critical Issue Alert: ${esc(data.projectName)}`,
+  );
 }
 
 /**
@@ -745,7 +832,8 @@ export function buildMilestoneApprovalHtml(data: {
   projectName: string;
   dashboardUrl: string;
 }): string {
-  return baseEmailWrapper(`
+  return baseEmailWrapper(
+    `
     <p style="font-size: 16px; font-weight: 700; color: #173e49; margin-top: 0;">
       Dear ${esc(data.recipientName)},
     </p>
@@ -771,7 +859,9 @@ export function buildMilestoneApprovalHtml(data: {
     <div style="text-align: center;">
       <a href="${esc(data.dashboardUrl)}" class="btn" target="_blank">Review & Sign Off Milestone →</a>
     </div>
-  `, `Milestone Approval: ${esc(data.milestoneTitle)}`);
+  `,
+    `Milestone Approval: ${esc(data.milestoneTitle)}`,
+  );
 }
 
 /**
@@ -787,7 +877,8 @@ export function buildProjectSummaryHtml(data: {
   customNote?: string;
   dashboardUrl: string;
 }): string {
-  return baseEmailWrapper(`
+  return baseEmailWrapper(
+    `
     <p style="font-size: 16px; font-weight: 700; color: #173e49; margin-top: 0;">
       Hello ${esc(data.recipientName)},
     </p>
@@ -812,25 +903,32 @@ export function buildProjectSummaryHtml(data: {
         </tr>
       </table>
 
-      ${data.customNote ? `
+      ${
+        data.customNote
+          ? `
         <div style="margin-top: 12px; padding: 12px; background: #ffffff; border-radius: 6px; border: 1px solid #e2ddd3;">
           <div style="font-size: 11px; text-transform: uppercase; color: #718096; font-weight: 700; margin-bottom: 4px;">Executive Note:</div>
           <div style="font-size: 13px; color: #2d3748; white-space: pre-wrap;">${esc(data.customNote)}</div>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
 
     <div style="text-align: center;">
       <a href="${esc(data.dashboardUrl)}" class="btn" target="_blank">Open Project in Dashboard →</a>
     </div>
-  `, `Project Update: ${esc(data.projectName)}`);
+  `,
+    `Project Update: ${esc(data.projectName)}`,
+  );
 }
 
 /**
  * Template 5: SMTP Test Email
  */
 export function buildTestEmailHtml(recipientName: string): string {
-  return baseEmailWrapper(`
+  return baseEmailWrapper(
+    `
     <p style="font-size: 16px; font-weight: 700; color: #2e7c67; margin-top: 0;">
       ✓ SMTP Integration Connected Successfully!
     </p>
@@ -847,7 +945,9 @@ export function buildTestEmailHtml(recipientName: string): string {
         <strong>Timestamp:</strong> ${new Date().toUTCString()}
       </div>
     </div>
-  `, 'Encalm Project Dashboard SMTP Test Email');
+  `,
+    'Encalm Project Dashboard SMTP Test Email',
+  );
 }
 
 export interface DirectoryUser {
@@ -874,7 +974,8 @@ export async function searchEncalmDirectory(searchQuery: string = ''): Promise<D
     const accessToken = await acquireGraphAccessToken(cfg);
     const cleanQuery = searchQuery.trim().replace(/['"]/g, '');
 
-    let url = 'https://graph.microsoft.com/v1.0/users?$top=30&$select=id,displayName,mail,userPrincipalName,jobTitle,department';
+    let url =
+      'https://graph.microsoft.com/v1.0/users?$top=30&$select=id,displayName,mail,userPrincipalName,jobTitle,department';
     if (cleanQuery) {
       url += `&$filter=startswith(displayName,'${encodeURIComponent(cleanQuery)}') or startswith(mail,'${encodeURIComponent(cleanQuery)}') or startswith(userPrincipalName,'${encodeURIComponent(cleanQuery)}')`;
     }
@@ -910,14 +1011,10 @@ export async function searchEncalmDirectory(searchQuery: string = ''): Promise<D
         const email = (u.mail || u.userPrincipalName || '').toLowerCase().trim();
         const name = (u.displayName || '').trim();
         const parts = name.split(/\s+/);
-        const initials = (
-          (parts[0]?.[0] || '') + (parts[parts.length - 1]?.[0] || '')
-        ).toUpperCase() || 'U';
+        const initials = ((parts[0]?.[0] || '') + (parts[parts.length - 1]?.[0] || '')).toUpperCase() || 'U';
 
         // Check if user already exists as a local account
-        const matchedLocal = localUsers.find(
-          (lu) => lu.email && lu.email.toLowerCase() === email
-        );
+        const matchedLocal = localUsers.find((lu) => lu.email && lu.email.toLowerCase() === email);
 
         let role = matchedLocal ? matchedLocal.role : 'stakeholder';
         const titleLower = (u.jobTitle || '').toLowerCase();
@@ -928,12 +1025,13 @@ export async function searchEncalmDirectory(searchQuery: string = ''): Promise<D
         }
 
         const finalId = matchedLocal ? matchedLocal.id : `azure-${u.id}`;
-        const finalTitle = matchedLocal ? matchedLocal.title : (u.jobTitle || u.department || 'Encalm Team');
+        const finalTitle = matchedLocal ? matchedLocal.title : u.jobTitle || u.department || 'Encalm Team';
         const finalInitials = matchedLocal ? matchedLocal.initials : initials;
 
         // Auto-register directory users in SQLite database so tag chips and queries resolve reliably
         try {
-          db.prepare(`
+          db.prepare(
+            `
             INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at)
             VALUES (?, ?, ?, '', ?, ?, ?, datetime('now'))
             ON CONFLICT(id) DO UPDATE SET
@@ -941,7 +1039,8 @@ export async function searchEncalmDirectory(searchQuery: string = ''): Promise<D
               email = excluded.email,
               title = excluded.title,
               initials = excluded.initials
-          `).run(finalId, name, email, role, finalTitle, finalInitials);
+          `,
+          ).run(finalId, name, email, role, finalTitle, finalInitials);
         } catch {
           // Ignore conflict / insertion errors
         }
@@ -961,4 +1060,3 @@ export async function searchEncalmDirectory(searchQuery: string = ''): Promise<D
     return [];
   }
 }
-

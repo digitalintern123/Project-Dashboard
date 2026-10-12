@@ -47,7 +47,10 @@ for (const role of ['coordinator', 'lead'] as const) {
 
     // Photo
     await openTab(page, /^Site Photograph/);
-    await page.getByRole('button', { name: /upload site photographs/i }).first().click();
+    await page
+      .getByRole('button', { name: /upload site photographs/i })
+      .first()
+      .click();
     await page.locator('#site-photo-multi-input').setInputFiles(jpegPath);
     await expect(page.getByText('Selected Photographs (1)')).toBeVisible();
     await page.getByRole('button', { name: /^Upload Site Photograph$/ }).click();

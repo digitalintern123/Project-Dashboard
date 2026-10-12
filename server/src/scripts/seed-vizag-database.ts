@@ -13,7 +13,8 @@ export function seedVizagHotelToDatabase() {
     floor: 'B + G + 1 + Service + 2nd to 6th Floor',
     area: '14,970 SQ.M. / 161,137 SQ.FT.',
     capacity: '156 Keys / 168 Bays',
-    scope: 'Plot Area: 8,160 SQ.M. (2.0 Acres), BUA: 14,970 SQ.M. (161,137 SQ.FT.), 156 Keys / 168 Bays across Basement, Ground, First, Service floor, and 2nd to 6th Guest Floors with Banquet, ADD, Lounge Bar, Gym, Pool & 4 Presidential Suites.',
+    scope:
+      'Plot Area: 8,160 SQ.M. (2.0 Acres), BUA: 14,970 SQ.M. (161,137 SQ.FT.), 156 Keys / 168 Bays across Basement, Ground, First, Service floor, and 2nd to 6th Guest Floors with Banquet, ADD, Lounge Bar, Gym, Pool & 4 Presidential Suites.',
     areaProgram: {
       summary: {
         plotAreaSqm: 8160,
@@ -31,38 +32,168 @@ export function seedVizagHotelToDatabase() {
       },
       fohAreas: {
         groundFloor: [
-          { sNo: 1, floor: 'Ground Floor', description: 'Banquet Hall', areaSqm: 360, areaSqft: 3875, capacityPax: '350', remarks: 'Large banquet facility with pillarless span' },
-          { sNo: 2, floor: 'Ground Floor', description: 'Pre-function + Banquet Lobby', areaSqm: 297, areaSqft: 3197, remarks: 'Spacious pre-event registration foyer' },
-          { sNo: 3, floor: 'Ground Floor', description: 'ADD (All Day Dining)', areaSqm: 330, areaSqft: 3552, capacityPax: '150', remarks: '100 Pax Indoor + 50 Alfresco seating' },
-          { sNo: 4, floor: 'Ground Floor', description: 'Lounge BAR', areaSqm: 114, areaSqft: 1227, capacityPax: '37', remarks: '25 Pax Indoor + 12 Alfresco seating' },
-          { sNo: 5, floor: 'Ground Floor', description: 'Kitchen', areaSqm: 335, areaSqft: 3606, remarks: 'Full commercial production & banqueting kitchen' },
-          { sNo: 6, floor: 'Ground Floor', description: 'Reception Lobby', areaSqm: 350, areaSqft: 3767, remarks: 'Main double-height arrival lobby with reception desk' },
-          { sNo: 7, floor: 'Ground Floor', description: 'Public area toilets', areaSqm: 130, areaSqft: 1399, remarks: 'Executive male, female, accessible restrooms' },
-          { sNo: 8, floor: 'Ground Floor', description: 'Courtyard', areaSqm: 52, areaSqft: 560, remarks: 'Landscaped open-air light well' },
-          { sNo: 9, floor: 'Ground Floor', description: 'Guest Lift Lobby', areaSqm: 44, areaSqft: 474, remarks: 'Central core guest vertical circulation' },
-          { sNo: 10, floor: 'Ground Floor', description: 'Meeting Rooms', areaSqm: 80, areaSqft: 861, remarks: '2 executive conference boardrooms' },
+          {
+            sNo: 1,
+            floor: 'Ground Floor',
+            description: 'Banquet Hall',
+            areaSqm: 360,
+            areaSqft: 3875,
+            capacityPax: '350',
+            remarks: 'Large banquet facility with pillarless span',
+          },
+          {
+            sNo: 2,
+            floor: 'Ground Floor',
+            description: 'Pre-function + Banquet Lobby',
+            areaSqm: 297,
+            areaSqft: 3197,
+            remarks: 'Spacious pre-event registration foyer',
+          },
+          {
+            sNo: 3,
+            floor: 'Ground Floor',
+            description: 'ADD (All Day Dining)',
+            areaSqm: 330,
+            areaSqft: 3552,
+            capacityPax: '150',
+            remarks: '100 Pax Indoor + 50 Alfresco seating',
+          },
+          {
+            sNo: 4,
+            floor: 'Ground Floor',
+            description: 'Lounge BAR',
+            areaSqm: 114,
+            areaSqft: 1227,
+            capacityPax: '37',
+            remarks: '25 Pax Indoor + 12 Alfresco seating',
+          },
+          {
+            sNo: 5,
+            floor: 'Ground Floor',
+            description: 'Kitchen',
+            areaSqm: 335,
+            areaSqft: 3606,
+            remarks: 'Full commercial production & banqueting kitchen',
+          },
+          {
+            sNo: 6,
+            floor: 'Ground Floor',
+            description: 'Reception Lobby',
+            areaSqm: 350,
+            areaSqft: 3767,
+            remarks: 'Main double-height arrival lobby with reception desk',
+          },
+          {
+            sNo: 7,
+            floor: 'Ground Floor',
+            description: 'Public area toilets',
+            areaSqm: 130,
+            areaSqft: 1399,
+            remarks: 'Executive male, female, accessible restrooms',
+          },
+          {
+            sNo: 8,
+            floor: 'Ground Floor',
+            description: 'Courtyard',
+            areaSqm: 52,
+            areaSqft: 560,
+            remarks: 'Landscaped open-air light well',
+          },
+          {
+            sNo: 9,
+            floor: 'Ground Floor',
+            description: 'Guest Lift Lobby',
+            areaSqm: 44,
+            areaSqft: 474,
+            remarks: 'Central core guest vertical circulation',
+          },
+          {
+            sNo: 10,
+            floor: 'Ground Floor',
+            description: 'Meeting Rooms',
+            areaSqm: 80,
+            areaSqft: 861,
+            remarks: '2 executive conference boardrooms',
+          },
         ],
         groundFloorSubtotal: { areaSqm: 2092, areaSqft: 22518 },
         secondFloor: [
-          { sNo: 1, floor: '2nd Floor', description: 'Gym and Changing Rooms', areaSqm: 155, areaSqft: 1668, remarks: 'State-of-the-art fitness center with lockers' },
-          { sNo: 2, floor: '2nd Floor', description: 'Pool Deck', areaSqm: 150, areaSqft: 1615, remarks: 'Sun lounges, shaded cabanas & service bar' },
-          { sNo: 3, floor: '2nd Floor', description: 'Swimming Pool', areaSqm: 160, areaSqft: 1722, remarks: 'Temperature controlled overflow swimming pool' },
+          {
+            sNo: 1,
+            floor: '2nd Floor',
+            description: 'Gym and Changing Rooms',
+            areaSqm: 155,
+            areaSqft: 1668,
+            remarks: 'State-of-the-art fitness center with lockers',
+          },
+          {
+            sNo: 2,
+            floor: '2nd Floor',
+            description: 'Pool Deck',
+            areaSqm: 150,
+            areaSqft: 1615,
+            remarks: 'Sun lounges, shaded cabanas & service bar',
+          },
+          {
+            sNo: 3,
+            floor: '2nd Floor',
+            description: 'Swimming Pool',
+            areaSqm: 160,
+            areaSqft: 1722,
+            remarks: 'Temperature controlled overflow swimming pool',
+          },
         ],
         secondFloorSubtotal: { areaSqm: 465, areaSqft: 5005 },
         grandSubtotal: { areaSqm: 2557, areaSqft: 27523 },
       },
       floorWiseBua: {
         items: [
-          { sNo: 1, floor: 'Basement Floor', areaSqm: 1337, areaSqft: 14391, remarks: 'Parking (75 ECS), STP, WTP, DG yard & plant room' },
-          { sNo: 2, floor: 'Ground floor', areaSqm: 3145, areaSqft: 33853, remarks: 'Main Lobby, Banquet, ADD, Lounge Bar, Commercial Kitchen' },
-          { sNo: 3, floor: 'First Floor', areaSqm: 1008, areaSqft: 10850, remarks: 'BOH, Administration Offices & Staff Facilities' },
-          { sNo: 4, floor: 'Service floor', areaSqm: 1333, areaSqft: 14348, remarks: 'MEP plant rooms, AHU units & transfer slab' },
+          {
+            sNo: 1,
+            floor: 'Basement Floor',
+            areaSqm: 1337,
+            areaSqft: 14391,
+            remarks: 'Parking (75 ECS), STP, WTP, DG yard & plant room',
+          },
+          {
+            sNo: 2,
+            floor: 'Ground floor',
+            areaSqm: 3145,
+            areaSqft: 33853,
+            remarks: 'Main Lobby, Banquet, ADD, Lounge Bar, Commercial Kitchen',
+          },
+          {
+            sNo: 3,
+            floor: 'First Floor',
+            areaSqm: 1008,
+            areaSqft: 10850,
+            remarks: 'BOH, Administration Offices & Staff Facilities',
+          },
+          {
+            sNo: 4,
+            floor: 'Service floor',
+            areaSqm: 1333,
+            areaSqft: 14348,
+            remarks: 'MEP plant rooms, AHU units & transfer slab',
+          },
           { sNo: 5, floor: '2nd floor', areaSqm: 1860, areaSqft: 20021, remarks: '41 Guest keys + Gym & Pool Deck' },
           { sNo: 6, floor: '3rd floor', areaSqm: 1860, areaSqft: 20021, remarks: '37 Guest keys' },
           { sNo: 7, floor: '4th floor', areaSqm: 1860, areaSqft: 20021, remarks: '37 Guest keys' },
           { sNo: 8, floor: '5th Floor', areaSqm: 1783, areaSqft: 19192, remarks: '37 Guest keys' },
-          { sNo: 9, floor: '6th Floor', areaSqm: 1270, areaSqft: 13670, remarks: '4 Presidential Suites (16 bays footprint)' },
-          { sNo: 10, floor: 'Terrace / Services', areaSqm: 68, areaSqft: 732, remarks: 'Lift machine room & overhead water storage' },
+          {
+            sNo: 9,
+            floor: '6th Floor',
+            areaSqm: 1270,
+            areaSqft: 13670,
+            remarks: '4 Presidential Suites (16 bays footprint)',
+          },
+          {
+            sNo: 10,
+            floor: 'Terrace / Services',
+            areaSqm: 68,
+            areaSqft: 732,
+            remarks: 'Lift machine room & overhead water storage',
+          },
         ],
         subtotal: { areaSqm: 14970, areaSqft: 161137 },
       },
@@ -72,7 +203,13 @@ export function seedVizagHotelToDatabase() {
           { sNo: 2, floor: '3rd Guest Floor', keys: 37, bays: 37, remarks: '37 Standard Deluxe Rooms (37 bays)' },
           { sNo: 3, floor: '4th Guest Floor', keys: 37, bays: 37, remarks: '37 Standard Deluxe Rooms (37 bays)' },
           { sNo: 4, floor: '5th Guest Floor', keys: 37, bays: 37, remarks: '37 Standard Deluxe Rooms (37 bays)' },
-          { sNo: 5, floor: '6th Guest Floor', keys: 4, bays: 16, remarks: '4 Presidential Suites (4 bays per suite = 16 bays)' },
+          {
+            sNo: 5,
+            floor: '6th Guest Floor',
+            keys: 4,
+            bays: 16,
+            remarks: '4 Presidential Suites (4 bays per suite = 16 bays)',
+          },
         ],
         totalKeys: 156,
         totalBays: 168,
@@ -264,7 +401,8 @@ export function seedVizagHotelToDatabase() {
 
   const tx = db.transaction(() => {
     // Upsert project
-    db.prepare(`
+    db.prepare(
+      `
       INSERT OR REPLACE INTO projects (
         id, name, location, category, code, health, status, progress, target_date, target_label,
         aop, awarded, spent, projected_cost, area, pax_keys, next_milestone, next_milestone_date,
@@ -274,7 +412,8 @@ export function seedVizagHotelToDatabase() {
         @aop, @awarded, @spent, @projected_cost, @area, @pax_keys, @next_milestone, @next_milestone_date,
         @lead_id, @start_date, @last_updated, @specification_json, @template_id
       )
-    `).run(projectRecord);
+    `,
+    ).run(projectRecord);
 
     // Delete existing child records for clean insert
     db.prepare('DELETE FROM phases WHERE project_id = ?').run(projectId);

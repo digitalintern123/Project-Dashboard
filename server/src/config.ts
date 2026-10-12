@@ -38,7 +38,9 @@ export function assertProductionConfig(): void {
   const errors = productionConfigErrors();
   if (errors.length > 0) {
     for (const e of errors) console.error(`[Config] FATAL: ${e}`);
-    console.error('[Config] Generate secrets with: openssl rand -base64 48 (JWT_SECRET), openssl rand -base64 32 (SETTINGS_ENCRYPTION_KEY)');
+    console.error(
+      '[Config] Generate secrets with: openssl rand -base64 48 (JWT_SECRET), openssl rand -base64 32 (SETTINGS_ENCRYPTION_KEY)',
+    );
     process.exit(1);
   }
 }

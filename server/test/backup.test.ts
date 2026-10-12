@@ -26,7 +26,9 @@ describe('status utility', () => {
 describe('snapshots', () => {
   it('writes the whole portfolio to the snapshot file', () => {
     insertProject('bk-1', 'u-lead-a');
-    db.prepare("INSERT INTO milestones (id, project_id, title, date, status, tagged_users) VALUES ('bk-m', 'bk-1', 'M', '2026-01-01', 'upcoming', 'u1, u2')").run();
+    db.prepare(
+      "INSERT INTO milestones (id, project_id, title, date, status, tagged_users) VALUES ('bk-m', 'bk-1', 'M', '2026-01-01', 'upcoming', 'u1, u2')",
+    ).run();
     saveDatabaseSnapshot();
     const snap = JSON.parse(fs.readFileSync(SNAPSHOT_FILE_PATH, 'utf-8'));
     expect(path.dirname(SNAPSHOT_FILE_PATH)).toBe(process.env.DATA_DIR);

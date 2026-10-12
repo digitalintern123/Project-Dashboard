@@ -36,12 +36,20 @@ describe('GET /api/projects', () => {
 
 describe('POST /api/projects', () => {
   it('creates a project with default stages, a slug id and the creator as lead', async () => {
-    const res = await leadA.post('/api/projects').send({ name: 'New Lounge!', location: 'New Delhi', category: 'Lounge', aop: 100 });
+    const res = await leadA
+      .post('/api/projects')
+      .send({ name: 'New Lounge!', location: 'New Delhi', category: 'Lounge', aop: 100 });
     expect(res.status).toBe(201);
     const p = res.body.project;
     expect(p.id).toMatch(/^new-delhi-new-lounge-\d+$/);
     expect(p.leadId).toBe(testUsers.leadA.id);
-    expect(p.phases.map((ph: any) => ph.name)).toEqual(['Brief & scope', 'Design development', 'Procurement', 'Execution', 'Handover']);
+    expect(p.phases.map((ph: any) => ph.name)).toEqual([
+      'Brief & scope',
+      'Design development',
+      'Procurement',
+      'Execution',
+      'Handover',
+    ]);
     expect(p.projectedCost).toBe(100);
     expect(p.health).toBe('Not started');
   });
@@ -68,7 +76,9 @@ describe('POST /api/projects', () => {
   });
 
   it('rejects a duplicate id with 409', async () => {
-    const res = await coord.post('/api/projects').send({ id: 'proj-full', name: 'Again', location: 'Goa', category: 'Hotel' });
+    const res = await coord
+      .post('/api/projects')
+      .send({ id: 'proj-full', name: 'Again', location: 'Goa', category: 'Hotel' });
     expect(res.status).toBe(409);
   });
 
@@ -102,15 +112,25 @@ describe('PATCH /api/projects/:id', () => {
     });
     expect(res.status).toBe(200);
     expect(res.body.project).toMatchObject({
-      name: 'Renamed', health: 'At risk', progress: 55, projectedCost: 12, paxKeys: '120 pax', area: '500 sqm', status: 'In Design',
+      name: 'Renamed',
+      health: 'At risk',
+      progress: 55,
+      projectedCost: 12,
+      paxKeys: '120 pax',
+      area: '500 sqm',
+      status: 'In Design',
     });
     expect(res.body.project.specification.scope).toBe('Fit-out');
   });
 
   it('sets a stage budget through the project patch', async () => {
-    const res = await leadA.patch('/api/projects/proj-p1').send({ phases: [{ id: 'proj-p1-phase-0', budget: '2500' }] });
+    const res = await leadA
+      .patch('/api/projects/proj-p1')
+      .send({ phases: [{ id: 'proj-p1-phase-0', budget: '2500' }] });
     expect(res.body.project.phases[0].budget).toBe(2500);
-    const cleared = await leadA.patch('/api/projects/proj-p1').send({ phases: [{ id: 'proj-p1-phase-0', budget: '' }] });
+    const cleared = await leadA
+      .patch('/api/projects/proj-p1')
+      .send({ phases: [{ id: 'proj-p1-phase-0', budget: '' }] });
     expect(cleared.body.project.phases[0].budget ?? null).toBeNull();
   });
 

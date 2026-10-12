@@ -2,7 +2,9 @@ import { db } from '../db/database.js';
 
 /** Users who can sign in and therefore have a notification inbox. */
 function inboxUserIds(): string[] {
-  const rows = db.prepare("SELECT id FROM users WHERE role IN ('coordinator', 'lead', 'hod')").all() as { id: string }[];
+  const rows = db.prepare("SELECT id FROM users WHERE role IN ('coordinator', 'lead', 'hod')").all() as {
+    id: string;
+  }[];
   return rows.map((r) => r.id);
 }
 
@@ -44,7 +46,17 @@ export function fanOutLegacyNotifications(): void {
   db.transaction(() => {
     for (const n of legacy) {
       for (const userId of users) {
-        insert.run(`${n.id}--${userId}`, n.type, n.title, n.message, n.project_id, n.link, userId, n.read, n.created_at);
+        insert.run(
+          `${n.id}--${userId}`,
+          n.type,
+          n.title,
+          n.message,
+          n.project_id,
+          n.link,
+          userId,
+          n.read,
+          n.created_at,
+        );
       }
     }
     db.prepare('DELETE FROM notifications WHERE recipient_id IS NULL').run();

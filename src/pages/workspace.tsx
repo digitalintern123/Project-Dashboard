@@ -32,7 +32,25 @@ import {
   Building2,
   MapPin,
 } from 'lucide-react';
-import { categories, formatCrore, healthOptions, locations, projectStatuses, issueCategories, type Category, type Health, type Project, type ProjectStatus, type IssueCategory, type IssueStatus, type ProjectIssue, type SitePhoto, type PhotoCategory, photoCategories, type ArchitecturalAreaProgram } from '@/data/projects';
+import {
+  categories,
+  formatCrore,
+  healthOptions,
+  locations,
+  projectStatuses,
+  issueCategories,
+  type Category,
+  type Health,
+  type Project,
+  type ProjectStatus,
+  type IssueCategory,
+  type IssueStatus,
+  type ProjectIssue,
+  type SitePhoto,
+  type PhotoCategory,
+  photoCategories,
+  type ArchitecturalAreaProgram,
+} from '@/data/projects';
 import { AreaProgramEditorModal, emptyAreaProgram } from '@/components/project-area-program';
 import { useAppState } from '@/state/app-state';
 import { api } from '@/lib/api';
@@ -40,26 +58,68 @@ import { useToast } from '@/hooks/use-toast';
 import { CRORE } from '@/data/projects';
 import { formatFullDate, isValidIsoDate, todayIso, todayLabel } from '@/lib/date';
 import { initialsOf, leadName } from '@/data/users';
-import { formatRatio, getCommercialSummary, getPortfolioCommercialSummary, sortProjectsIncompleteFirst } from '@/lib/calculations';
+import {
+  formatRatio,
+  getCommercialSummary,
+  getPortfolioCommercialSummary,
+  sortProjectsIncompleteFirst,
+} from '@/lib/calculations';
 import { PhotoLightbox } from '@/components/photo-lightbox';
 import { PhotoUploadDialog } from '@/components/photo-upload-dialog';
 import { getIssueStatusTheme, issueStatusOptions } from '@/lib/issue-theme';
 
-export type WorkspaceView = 'projects' | 'my-projects' | 'timeline' | 'milestones' | 'issues' | 'commercial' | 'updates' | 'photos' | 'reports' | 'new-project' | 'team';
+export type WorkspaceView =
+  | 'projects'
+  | 'my-projects'
+  | 'timeline'
+  | 'milestones'
+  | 'issues'
+  | 'commercial'
+  | 'updates'
+  | 'photos'
+  | 'reports'
+  | 'new-project'
+  | 'team';
 
-const healthTone: Record<Health, string> = { 'On track': 'bg-[#e4f1ec] text-[#2e7c67]', 'At risk': 'bg-[#f8edcf] text-[#9a711f]', Delayed: 'bg-[#fae5e1] text-[#b2473d]', 'Not started': 'bg-[#eef0ed] text-[#69716b]' };
+const healthTone: Record<Health, string> = {
+  'On track': 'bg-[#e4f1ec] text-[#2e7c67]',
+  'At risk': 'bg-[#f8edcf] text-[#9a711f]',
+  Delayed: 'bg-[#fae5e1] text-[#b2473d]',
+  'Not started': 'bg-[#eef0ed] text-[#69716b]',
+};
 
 export const statusTone: Record<ProjectStatus, string> = {
   'Yet to start': 'bg-[#eef0ed] text-[#69716b]',
   'In Design': 'bg-[#e8f1f5] text-[#2c6e8a]',
   'In Tendering': 'bg-[#fef4e6] text-[#b37418]',
   'Under Construction': 'bg-[#fff0eb] text-[#c2583f]',
-  'Operational': 'bg-[#e4f1ec] text-[#2e7c67]',
+  Operational: 'bg-[#e4f1ec] text-[#2e7c67]',
   'On Hold': 'bg-[#fae5e1] text-[#b2473d]',
 };
 
-function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
-  return <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.18em] text-[#9a711f]">{eyebrow}</p><h1 className="mt-3 font-serif text-[42px] leading-none tracking-[-.05em] text-[#173e49] md:text-[52px]">{title}</h1><p className="mt-4 max-w-[620px] text-[13px] leading-6 text-muted-foreground">{description}</p></div>{action}</div>;
+function PageHeader({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[.18em] text-[#9a711f]">{eyebrow}</p>
+        <h1 className="mt-3 font-serif text-[42px] leading-none tracking-[-.05em] text-[#173e49] md:text-[52px]">
+          {title}
+        </h1>
+        <p className="mt-4 max-w-[620px] text-[13px] leading-6 text-muted-foreground">{description}</p>
+      </div>
+      {action}
+    </div>
+  );
 }
 
 function ProjectTable({ rows }: { rows: Project[] }) {
@@ -95,10 +155,7 @@ function ProjectTable({ rows }: { rows: Project[] }) {
                 </tr>
               ) : (
                 rows.map((project) => (
-                  <tr
-                    key={project.id}
-                    className="transition hover:bg-[#fcfaf5]"
-                  >
+                  <tr key={project.id} className="transition hover:bg-[#fcfaf5]">
                     <td className="py-3.5 pl-5 pr-3">
                       <Link href={`/project/${project.id}`} className="group inline-block">
                         <span className="block text-[12px] font-bold text-foreground group-hover:text-[#2e7c67] group-hover:underline transition">
@@ -116,15 +173,22 @@ function ProjectTable({ rows }: { rows: Project[] }) {
                       </span>
                     </td>
                     <td className="px-3 py-3.5 whitespace-nowrap">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold ${statusTone[project.status || 'Yet to start']}`}>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold ${statusTone[project.status || 'Yet to start']}`}
+                      >
                         {project.status || 'Yet to start'}
                       </span>
                     </td>
-                    <td className="px-3 py-3.5 whitespace-nowrap font-mono text-[10px] font-bold text-foreground" title={project.area || '—'}>
+                    <td
+                      className="px-3 py-3.5 whitespace-nowrap font-mono text-[10px] font-bold text-foreground"
+                      title={project.area || '—'}
+                    >
                       {project.area ? (
-                        project.area.includes('SQ.FT.')
-                          ? project.area.split('/')[1]?.trim() || project.area
-                          : project.area
+                        project.area.includes('SQ.FT.') ? (
+                          project.area.split('/')[1]?.trim() || project.area
+                        ) : (
+                          project.area
+                        )
                       ) : (
                         <span className="text-muted-foreground font-normal">—</span>
                       )}
@@ -140,16 +204,16 @@ function ProjectTable({ rows }: { rows: Project[] }) {
                             style={{ width: `${project.progress}%` }}
                           />
                         </div>
-                        <span className="font-mono text-[11px] font-bold text-foreground">
-                          {project.progress}%
-                        </span>
+                        <span className="font-mono text-[11px] font-bold text-foreground">{project.progress}%</span>
                       </div>
                     </td>
                     <td className="px-3 py-3.5 whitespace-nowrap font-medium text-muted-foreground">
                       {project.targetLabel}
                     </td>
                     <td className="px-3 py-3.5 whitespace-nowrap">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${healthTone[project.health]}`}>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${healthTone[project.health]}`}
+                      >
                         {project.health}
                       </span>
                     </td>
@@ -185,7 +249,9 @@ function ProjectTable({ rows }: { rows: Project[] }) {
               <h3 className="text-[17px] font-bold text-foreground">Delete Project</h3>
             </div>
             <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-              Are you sure you want to permanently delete <strong className="font-semibold text-foreground">"{projectToDelete.name}"</strong>? This will remove all associated stages, milestones, and issues from the database.
+              Are you sure you want to permanently delete{' '}
+              <strong className="font-semibold text-foreground">"{projectToDelete.name}"</strong>? This will remove all
+              associated stages, milestones, and issues from the database.
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
@@ -250,7 +316,8 @@ function ProjectsView({ mine = false }: { mine?: boolean }) {
     const term = search.trim().toLowerCase();
     const filtered = projects.filter((project) => {
       if (mine && project.leadId !== user?.id) return false;
-      const haystack = `${project.name} ${project.code} ${project.category} ${project.location} ${leadName(project.leadId)}`.toLowerCase();
+      const haystack =
+        `${project.name} ${project.code} ${project.category} ${project.location} ${leadName(project.leadId)}`.toLowerCase();
       if (term && !haystack.includes(term)) return false;
       if (health !== 'All' && project.health !== health) return false;
       if (location !== 'All' && project.location !== location) return false;
@@ -261,7 +328,8 @@ function ProjectsView({ mine = false }: { mine?: boolean }) {
     return sortProjectsIncompleteFirst(filtered);
   }, [projects, mine, user?.id, search, health, location, category, status]);
 
-  const hasFilters = Boolean(search) || health !== 'All' || location !== 'All' || category !== 'All' || status !== 'All';
+  const hasFilters =
+    Boolean(search) || health !== 'All' || location !== 'All' || category !== 'All' || status !== 'All';
   const clearFilters = () => {
     setSearch('');
     setHealth('All');
@@ -275,33 +343,77 @@ function ProjectsView({ mine = false }: { mine?: boolean }) {
       <PageHeader
         eyebrow={mine ? 'Project lead workspace' : 'Project register'}
         title={mine ? 'My projects' : 'All projects'}
-        description={mine ? 'The projects you own, the milestones ahead, and the updates that need to move.' : 'Explore every Encalm project with the context needed for a useful first read.'}
-        action={mine ? <Link href="/new-project" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#d6a95d] px-4 py-3 text-[11px] font-extrabold text-[#173e49] hover:bg-[#e2bd73]"><Plus size={15} /> New project</Link> : undefined}
+        description={
+          mine
+            ? 'The projects you own, the milestones ahead, and the updates that need to move.'
+            : 'Explore every Encalm project with the context needed for a useful first read.'
+        }
+        action={
+          mine ? (
+            <Link
+              href="/new-project"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#d6a95d] px-4 py-3 text-[11px] font-extrabold text-[#173e49] hover:bg-[#e2bd73]"
+            >
+              <Plus size={15} /> New project
+            </Link>
+          ) : undefined
+        }
       />
       <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:flex-wrap items-center">
         <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 text-muted-foreground">
           <Search size={15} />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search project, code or lead" className="min-w-0 flex-1 bg-transparent text-[11px] outline-none" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search project, code or lead"
+            className="min-w-0 flex-1 bg-transparent text-[11px] outline-none"
+          />
         </label>
-        <select value={category} onChange={(event) => setCategory(event.target.value as typeof category)} className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold">
+        <select
+          value={category}
+          onChange={(event) => setCategory(event.target.value as typeof category)}
+          className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold"
+        >
           <option value="All">All categories ({projects.length})</option>
           <option value="Lounge">Lounges & Spas ({projects.filter((p) => p.category === 'Lounge').length})</option>
           <option value="Kitchen">Central Kitchens ({projects.filter((p) => p.category === 'Kitchen').length})</option>
           <option value="Other">Operations & Support ({projects.filter((p) => p.category === 'Other').length})</option>
-          <option value="Encalm Eats">Encalm Eats ({projects.filter((p) => p.category === 'Encalm Eats').length})</option>
+          <option value="Encalm Eats">
+            Encalm Eats ({projects.filter((p) => p.category === 'Encalm Eats').length})
+          </option>
           <option value="Hotel">Airport Hotels ({projects.filter((p) => p.category === 'Hotel').length})</option>
         </select>
-        <select value={location} onChange={(event) => setLocation(event.target.value as typeof location)} className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold">
+        <select
+          value={location}
+          onChange={(event) => setLocation(event.target.value as typeof location)}
+          className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold"
+        >
           <option value="All">All locations</option>
-          {locations.map((item) => <option key={item}>{item}</option>)}
+          {locations.map((item) => (
+            <option key={item}>{item}</option>
+          ))}
         </select>
-        <select value={status} onChange={(event) => setStatus(event.target.value as typeof status)} className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold">
+        <select
+          value={status}
+          onChange={(event) => setStatus(event.target.value as typeof status)}
+          className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold"
+        >
           <option value="All">All statuses</option>
-          {projectStatuses.map((item) => <option key={item} value={item}>{item}</option>)}
+          {projectStatuses.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
         </select>
-        <select value={health} onChange={(event) => setHealth(event.target.value as typeof health)} className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold">
+        <select
+          value={health}
+          onChange={(event) => setHealth(event.target.value as typeof health)}
+          className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold"
+        >
           <option value="All">All health</option>
-          {healthOptions.map((item) => <option key={item}>{item}</option>)}
+          {healthOptions.map((item) => (
+            <option key={item}>{item}</option>
+          ))}
         </select>
         {hasFilters && (
           <button
@@ -314,7 +426,9 @@ function ProjectsView({ mine = false }: { mine?: boolean }) {
         )}
       </div>
       <div className="mt-5 flex items-center justify-between text-[11px] font-mono text-muted-foreground">
-        <span>Showing {rows.length} of {projects.length} authentic facilities</span>
+        <span>
+          Showing {rows.length} of {projects.length} authentic facilities
+        </span>
         <Link href="/area-sheet" className="font-bold text-[#173e49] hover:text-[#2e7c67] hover:underline">
           View Master Project Area Sheet &rarr;
         </Link>
@@ -503,7 +617,7 @@ function MilestonesView() {
           ...milestone,
           id: (milestone as any).id || `${project.id}-${milestone.title}`,
           project,
-        }))
+        })),
       )
       .sort((a, b) => {
         const aComplete = a.status === 'complete';
@@ -636,7 +750,13 @@ function MilestonesView() {
                             : 'bg-[#f8edcf] text-[#9a711f]'
                       }`}
                     >
-                      {isComplete ? <Check size={16} strokeWidth={3} /> : isLate ? <AlertTriangle size={16} /> : <Flag size={16} />}
+                      {isComplete ? (
+                        <Check size={16} strokeWidth={3} />
+                      ) : isLate ? (
+                        <AlertTriangle size={16} />
+                      ) : (
+                        <Flag size={16} />
+                      )}
                     </span>
                     <span className="font-mono text-[9px] uppercase tracking-[.12em] text-muted-foreground">
                       {item.date}
@@ -754,8 +874,7 @@ function IssuesView() {
     action: '',
   });
 
-  const setDraftField = (key: keyof typeof newDraft, value: string) =>
-    setNewDraft((cur) => ({ ...cur, [key]: value }));
+  const setDraftField = (key: keyof typeof newDraft, value: string) => setNewDraft((cur) => ({ ...cur, [key]: value }));
 
   // Aggregate and filter issues per project
   const projectIssueData = useMemo(() => {
@@ -774,8 +893,13 @@ function IssuesView() {
         if (filter === 'Resolved' && issue.status !== 'Resolved' && issue.status !== 'Closed') return false;
 
         if (term) {
-          const matchProject = `${project.name} ${project.code} ${project.location} ${leadName(project.leadId)}`.toLowerCase().includes(term);
-          const matchIssue = `${issue.title} ${issue.detail} ${issue.owner} ${issue.category ?? ''} ${issue.stage ?? ''}`.toLowerCase().includes(term);
+          const matchProject = `${project.name} ${project.code} ${project.location} ${leadName(project.leadId)}`
+            .toLowerCase()
+            .includes(term);
+          const matchIssue =
+            `${issue.title} ${issue.detail} ${issue.owner} ${issue.category ?? ''} ${issue.stage ?? ''}`
+              .toLowerCase()
+              .includes(term);
           if (!matchProject && !matchIssue) return false;
         }
 
@@ -992,7 +1116,9 @@ function IssuesView() {
               type="button"
               onClick={() => setScope('with-issues')}
               className={`rounded-lg px-3 py-1.5 transition ${
-                scope === 'with-issues' ? 'bg-[#173e49] text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                scope === 'with-issues'
+                  ? 'bg-[#173e49] text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Projects with issues ({portfolioCounts.projectsWithIssues})
@@ -1103,7 +1229,9 @@ function IssuesView() {
                         >
                           {project.name}
                         </Link>
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${statusTone[project.status || 'Yet to start']}`}>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${statusTone[project.status || 'Yet to start']}`}
+                        >
                           {project.status || 'Yet to start'}
                         </span>
                         <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${healthTone[project.health]}`}>
@@ -1223,7 +1351,9 @@ function IssuesView() {
                           />
                           <div className="grid grid-cols-2 gap-2">
                             <label className="block">
-                              <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">Arise date</span>
+                              <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                                Arise date
+                              </span>
                               <input
                                 type="date"
                                 value={newDraft.issueAriseDate}
@@ -1232,7 +1362,9 @@ function IssuesView() {
                               />
                             </label>
                             <label className="block">
-                              <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">Target closure</span>
+                              <span className="mb-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                                Target closure
+                              </span>
                               <input
                                 type="date"
                                 value={newDraft.targetClosureDate}
@@ -1280,7 +1412,10 @@ function IssuesView() {
                         </div>
 
                         <div className="flex gap-2 pt-1">
-                          <button type="submit" className="rounded-lg bg-[#173e49] px-4 py-2 text-[10px] font-bold text-white">
+                          <button
+                            type="submit"
+                            className="rounded-lg bg-[#173e49] px-4 py-2 text-[10px] font-bold text-white"
+                          >
                             Save issue
                           </button>
                           <button
@@ -1327,87 +1462,109 @@ function IssuesView() {
                               {highSeverityIssues.map((issue) => {
                                 const statusTheme = getIssueStatusTheme(issue.status, 'High');
                                 return (
-                                <div
-                                  key={`${project.id}-${issue.id ?? issue.title}-${issue.issueIndex}`}
-                                  className={`rounded-xl border p-4 shadow-sm transition-colors duration-200 ${statusTheme.cardClass}`}
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div>
-                                      <div className="flex flex-wrap items-center gap-1.5">
-                                        <span className="rounded-full bg-[#fae5e1] px-2 py-0.5 font-mono text-[8px] uppercase font-bold text-[#b2473d]">
-                                          High Severity
-                                        </span>
-                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[8px] uppercase font-bold ${statusTheme.badgeClass}`}>
-                                          <span className="size-1.5 rounded-full" style={{ backgroundColor: statusTheme.dotColor }} />
-                                          {issue.status || 'Open'}
-                                        </span>
-                                        {issue.category && (
-                                          <span className="rounded-full bg-white/80 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[.08em] text-muted-foreground border border-border/70">
-                                            {issue.category}
+                                  <div
+                                    key={`${project.id}-${issue.id ?? issue.title}-${issue.issueIndex}`}
+                                    className={`rounded-xl border p-4 shadow-sm transition-colors duration-200 ${statusTheme.cardClass}`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div>
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <span className="rounded-full bg-[#fae5e1] px-2 py-0.5 font-mono text-[8px] uppercase font-bold text-[#b2473d]">
+                                            High Severity
+                                          </span>
+                                          <span
+                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[8px] uppercase font-bold ${statusTheme.badgeClass}`}
+                                          >
+                                            <span
+                                              className="size-1.5 rounded-full"
+                                              style={{ backgroundColor: statusTheme.dotColor }}
+                                            />
+                                            {issue.status || 'Open'}
+                                          </span>
+                                          {issue.category && (
+                                            <span className="rounded-full bg-white/80 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[.08em] text-muted-foreground border border-border/70">
+                                              {issue.category}
+                                            </span>
+                                          )}
+                                          {issue.stage && (
+                                            <span className="font-mono text-[9px] text-muted-foreground">
+                                              Stage: <strong className="text-foreground">{issue.stage}</strong>
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h5 className="mt-2 text-[12px] font-bold text-foreground">{issue.title}</h5>
+                                      </div>
+                                    </div>
+
+                                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{issue.detail}</p>
+
+                                    {(issue.impactSchedule ||
+                                      issue.impactCost ||
+                                      issue.impactScope ||
+                                      issue.action) && (
+                                      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/50 pt-2 text-[10px]">
+                                        {issue.impactSchedule && (
+                                          <span className="rounded-md bg-white/90 px-2 py-0.5 font-mono text-[#b2473d] border border-border/60">
+                                            Schedule: {issue.impactSchedule}
                                           </span>
                                         )}
-                                        {issue.stage && (
-                                          <span className="font-mono text-[9px] text-muted-foreground">
-                                            Stage: <strong className="text-foreground">{issue.stage}</strong>
+                                        {issue.impactCost && (
+                                          <span className="rounded-md bg-white/90 px-2 py-0.5 font-mono text-[#b2473d] border border-border/60">
+                                            Cost: {issue.impactCost}
+                                          </span>
+                                        )}
+                                        {issue.action && (
+                                          <span className="rounded-md bg-white/90 px-2 py-0.5 text-muted-foreground border border-border">
+                                            Action: <strong className="text-foreground">{issue.action}</strong>
                                           </span>
                                         )}
                                       </div>
-                                      <h5 className="mt-2 text-[12px] font-bold text-foreground">{issue.title}</h5>
-                                    </div>
-                                  </div>
-
-                                  <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{issue.detail}</p>
-
-                                  {(issue.impactSchedule || issue.impactCost || issue.impactScope || issue.action) && (
-                                    <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/50 pt-2 text-[10px]">
-                                      {issue.impactSchedule && (
-                                        <span className="rounded-md bg-white/90 px-2 py-0.5 font-mono text-[#b2473d] border border-border/60">
-                                          Schedule: {issue.impactSchedule}
-                                        </span>
-                                      )}
-                                      {issue.impactCost && (
-                                        <span className="rounded-md bg-white/90 px-2 py-0.5 font-mono text-[#b2473d] border border-border/60">
-                                          Cost: {issue.impactCost}
-                                        </span>
-                                      )}
-                                      {issue.action && (
-                                        <span className="rounded-md bg-white/90 px-2 py-0.5 text-muted-foreground border border-border">
-                                          Action: <strong className="text-foreground">{issue.action}</strong>
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2.5 font-mono text-[9px]">
-                                    <div className="text-muted-foreground">
-                                      <span>Owner: <strong className="text-foreground">{issue.owner || 'Unassigned'}</strong></span>
-                                      {(issue.targetClosureDate || issue.dueDate) && (
-                                        <span className="ml-2">
-                                          Target: <strong className="text-foreground">{issue.targetClosureDate || issue.dueDate}</strong>
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {canEditProject(project) ? (
-                                      <select
-                                        value={issue.status || 'Open'}
-                                        onChange={(e) => handleStatusChange(project.id, issue.issueIndex, e.target.value)}
-                                        className={`rounded-lg border px-2 py-1 text-[10px] font-bold outline-none cursor-pointer transition-colors shadow-sm ${statusTheme.selectClass}`}
-                                      >
-                                        {issueStatusOptions.map((opt) => (
-                                          <option key={opt.status} value={opt.status} className="bg-white text-foreground">
-                                            {opt.prefix} {opt.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <span className={`rounded-full px-2 py-0.5 font-bold ${statusTheme.badgeClass}`}>
-                                        {issue.status || 'Open'}
-                                      </span>
                                     )}
+
+                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2.5 font-mono text-[9px]">
+                                      <div className="text-muted-foreground">
+                                        <span>
+                                          Owner:{' '}
+                                          <strong className="text-foreground">{issue.owner || 'Unassigned'}</strong>
+                                        </span>
+                                        {(issue.targetClosureDate || issue.dueDate) && (
+                                          <span className="ml-2">
+                                            Target:{' '}
+                                            <strong className="text-foreground">
+                                              {issue.targetClosureDate || issue.dueDate}
+                                            </strong>
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {canEditProject(project) ? (
+                                        <select
+                                          value={issue.status || 'Open'}
+                                          onChange={(e) =>
+                                            handleStatusChange(project.id, issue.issueIndex, e.target.value)
+                                          }
+                                          className={`rounded-lg border px-2 py-1 text-[10px] font-bold outline-none cursor-pointer transition-colors shadow-sm ${statusTheme.selectClass}`}
+                                        >
+                                          {issueStatusOptions.map((opt) => (
+                                            <option
+                                              key={opt.status}
+                                              value={opt.status}
+                                              className="bg-white text-foreground"
+                                            >
+                                              {opt.prefix} {opt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <span
+                                          className={`rounded-full px-2 py-0.5 font-bold ${statusTheme.badgeClass}`}
+                                        >
+                                          {issue.status || 'Open'}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              );
+                                );
                               })}
                             </div>
                           </div>
@@ -1429,91 +1586,115 @@ function IssuesView() {
                               {standardIssues.map((issue) => {
                                 const statusTheme = getIssueStatusTheme(issue.status, issue.severity || 'Medium');
                                 return (
-                                <div
-                                  key={`${project.id}-${issue.id ?? issue.title}-${issue.issueIndex}`}
-                                  className={`rounded-xl border p-4 shadow-sm transition-colors duration-200 ${statusTheme.cardClass}`}
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div>
-                                      <div className="flex flex-wrap items-center gap-1.5">
-                                        <span
-                                          className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase font-bold ${
-                                            issue.severity === 'Medium' ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-[#eef0ed] text-muted-foreground'
-                                          }`}
-                                        >
-                                          {issue.severity || 'Medium'} Severity
-                                        </span>
-                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[8px] uppercase font-bold ${statusTheme.badgeClass}`}>
-                                          <span className="size-1.5 rounded-full" style={{ backgroundColor: statusTheme.dotColor }} />
-                                          {issue.status || 'Open'}
-                                        </span>
-                                        {issue.category && (
-                                          <span className="rounded-full bg-white/80 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[.08em] text-muted-foreground border border-border/70">
-                                            {issue.category}
+                                  <div
+                                    key={`${project.id}-${issue.id ?? issue.title}-${issue.issueIndex}`}
+                                    className={`rounded-xl border p-4 shadow-sm transition-colors duration-200 ${statusTheme.cardClass}`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div>
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <span
+                                            className={`rounded-full px-2 py-0.5 font-mono text-[8px] uppercase font-bold ${
+                                              issue.severity === 'Medium'
+                                                ? 'bg-[#f8edcf] text-[#9a711f]'
+                                                : 'bg-[#eef0ed] text-muted-foreground'
+                                            }`}
+                                          >
+                                            {issue.severity || 'Medium'} Severity
+                                          </span>
+                                          <span
+                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[8px] uppercase font-bold ${statusTheme.badgeClass}`}
+                                          >
+                                            <span
+                                              className="size-1.5 rounded-full"
+                                              style={{ backgroundColor: statusTheme.dotColor }}
+                                            />
+                                            {issue.status || 'Open'}
+                                          </span>
+                                          {issue.category && (
+                                            <span className="rounded-full bg-white/80 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[.08em] text-muted-foreground border border-border/70">
+                                              {issue.category}
+                                            </span>
+                                          )}
+                                          {issue.stage && (
+                                            <span className="font-mono text-[9px] text-muted-foreground">
+                                              Stage: <strong className="text-foreground">{issue.stage}</strong>
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h5 className="mt-2 text-[12px] font-bold text-foreground">{issue.title}</h5>
+                                      </div>
+                                    </div>
+
+                                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{issue.detail}</p>
+
+                                    {(issue.impactSchedule ||
+                                      issue.impactCost ||
+                                      issue.impactScope ||
+                                      issue.action) && (
+                                      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/50 pt-2 text-[10px]">
+                                        {issue.impactSchedule && (
+                                          <span className="rounded-md bg-white/90 px-2 py-0.5 font-mono text-[#9a711f] border border-border/70">
+                                            Schedule: {issue.impactSchedule}
                                           </span>
                                         )}
-                                        {issue.stage && (
-                                          <span className="font-mono text-[9px] text-muted-foreground">
-                                            Stage: <strong className="text-foreground">{issue.stage}</strong>
+                                        {issue.impactCost && (
+                                          <span className="rounded-md bg-white/90 px-2 py-0.5 font-mono text-[#9a711f] border border-border/70">
+                                            Cost: {issue.impactCost}
+                                          </span>
+                                        )}
+                                        {issue.action && (
+                                          <span className="rounded-md bg-white/90 px-2 py-0.5 text-muted-foreground border border-border/70">
+                                            Action: <strong className="text-foreground">{issue.action}</strong>
                                           </span>
                                         )}
                                       </div>
-                                      <h5 className="mt-2 text-[12px] font-bold text-foreground">{issue.title}</h5>
-                                    </div>
-                                  </div>
-
-                                  <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{issue.detail}</p>
-
-                                  {(issue.impactSchedule || issue.impactCost || issue.impactScope || issue.action) && (
-                                    <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/50 pt-2 text-[10px]">
-                                      {issue.impactSchedule && (
-                                        <span className="rounded-md bg-white/90 px-2 py-0.5 font-mono text-[#9a711f] border border-border/70">
-                                          Schedule: {issue.impactSchedule}
-                                        </span>
-                                      )}
-                                      {issue.impactCost && (
-                                        <span className="rounded-md bg-white/90 px-2 py-0.5 font-mono text-[#9a711f] border border-border/70">
-                                          Cost: {issue.impactCost}
-                                        </span>
-                                      )}
-                                      {issue.action && (
-                                        <span className="rounded-md bg-white/90 px-2 py-0.5 text-muted-foreground border border-border/70">
-                                          Action: <strong className="text-foreground">{issue.action}</strong>
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2.5 font-mono text-[9px]">
-                                    <div className="text-muted-foreground">
-                                      <span>Owner: <strong className="text-foreground">{issue.owner || 'Unassigned'}</strong></span>
-                                      {(issue.targetClosureDate || issue.dueDate) && (
-                                        <span className="ml-2">
-                                          Target: <strong className="text-foreground">{issue.targetClosureDate || issue.dueDate}</strong>
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {canEditProject(project) ? (
-                                      <select
-                                        value={issue.status || 'Open'}
-                                        onChange={(e) => handleStatusChange(project.id, issue.issueIndex, e.target.value)}
-                                        className={`rounded-lg border px-2 py-1 text-[10px] font-bold outline-none cursor-pointer transition-colors shadow-sm ${statusTheme.selectClass}`}
-                                      >
-                                        {issueStatusOptions.map((opt) => (
-                                          <option key={opt.status} value={opt.status} className="bg-white text-foreground">
-                                            {opt.prefix} {opt.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <span className={`rounded-full px-2 py-0.5 font-bold ${statusTheme.badgeClass}`}>
-                                        {issue.status || 'Open'}
-                                      </span>
                                     )}
+
+                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2.5 font-mono text-[9px]">
+                                      <div className="text-muted-foreground">
+                                        <span>
+                                          Owner:{' '}
+                                          <strong className="text-foreground">{issue.owner || 'Unassigned'}</strong>
+                                        </span>
+                                        {(issue.targetClosureDate || issue.dueDate) && (
+                                          <span className="ml-2">
+                                            Target:{' '}
+                                            <strong className="text-foreground">
+                                              {issue.targetClosureDate || issue.dueDate}
+                                            </strong>
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {canEditProject(project) ? (
+                                        <select
+                                          value={issue.status || 'Open'}
+                                          onChange={(e) =>
+                                            handleStatusChange(project.id, issue.issueIndex, e.target.value)
+                                          }
+                                          className={`rounded-lg border px-2 py-1 text-[10px] font-bold outline-none cursor-pointer transition-colors shadow-sm ${statusTheme.selectClass}`}
+                                        >
+                                          {issueStatusOptions.map((opt) => (
+                                            <option
+                                              key={opt.status}
+                                              value={opt.status}
+                                              className="bg-white text-foreground"
+                                            >
+                                              {opt.prefix} {opt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <span
+                                          className={`rounded-full px-2 py-0.5 font-bold ${statusTheme.badgeClass}`}
+                                        >
+                                          {issue.status || 'Open'}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              );
+                                );
                               })}
                             </div>
                           </div>
@@ -1544,7 +1725,9 @@ function CommercialView() {
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-5 flex flex-col justify-between">
           <div>
-            <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Approved Budget (AOP)</p>
+            <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
+              Approved Budget (AOP)
+            </p>
             <p className="mt-4 text-[27px] font-extrabold">{formatCrore(portfolio.totalAop)}</p>
           </div>
           <div className="mt-2 space-y-0.5 text-[10px] text-muted-foreground">
@@ -1559,19 +1742,30 @@ function CommercialView() {
           </div>
           <p className="mt-2 text-[10px] text-[#2e7c67]">{formatRatio(portfolio.awardRatePct)} commitment rate</p>
         </div>
-        <div className={`rounded-2xl border p-5 flex flex-col justify-between transition-colors ${
-          portfolio.totalProjectedCost > portfolio.totalAop ? 'border-[#f0c8c2] bg-[#fff6f5]' : 'border-border bg-card'
-        }`}>
+        <div
+          className={`rounded-2xl border p-5 flex flex-col justify-between transition-colors ${
+            portfolio.totalProjectedCost > portfolio.totalAop
+              ? 'border-[#f0c8c2] bg-[#fff6f5]'
+              : 'border-border bg-card'
+          }`}
+        >
           <div>
             <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">Projected Cost</p>
-            <p className={`mt-4 text-[27px] font-extrabold ${
-              portfolio.totalProjectedCost > portfolio.totalAop ? 'text-[#b2473d]' : ''
-            }`}>{formatCrore(portfolio.totalProjectedCost)}</p>
+            <p
+              className={`mt-4 text-[27px] font-extrabold ${
+                portfolio.totalProjectedCost > portfolio.totalAop ? 'text-[#b2473d]' : ''
+              }`}
+            >
+              {formatCrore(portfolio.totalProjectedCost)}
+            </p>
           </div>
-          <p className={`mt-2 text-[10px] font-bold ${
-            portfolio.totalProjectedCost > portfolio.totalAop ? 'text-[#b2473d]' : 'text-muted-foreground'
-          }`}>
-            Variance: {portfolio.totalProjectedCost >= portfolio.totalAop ? '+' : ''}{formatCrore(portfolio.totalProjectedCost - portfolio.totalAop)}
+          <p
+            className={`mt-2 text-[10px] font-bold ${
+              portfolio.totalProjectedCost > portfolio.totalAop ? 'text-[#b2473d]' : 'text-muted-foreground'
+            }`}
+          >
+            Variance: {portfolio.totalProjectedCost >= portfolio.totalAop ? '+' : ''}
+            {formatCrore(portfolio.totalProjectedCost - portfolio.totalAop)}
             {portfolio.totalProjectedCost > portfolio.totalAop && ' (Over Budget)'}
           </p>
         </div>
@@ -1596,7 +1790,9 @@ function CommercialView() {
           <span>Access</span>
         </div>
         {projects.length === 0 && (
-          <p className="px-5 py-10 text-center text-[12px] text-muted-foreground">No projects found. Create a project to view commercials.</p>
+          <p className="px-5 py-10 text-center text-[12px] text-muted-foreground">
+            No projects found. Create a project to view commercials.
+          </p>
         )}
         {sortProjectsIncompleteFirst(projects).map((project) => {
           const commercial = getCommercialSummary(project);
@@ -1607,7 +1803,10 @@ function CommercialView() {
                 commercial.overBudget ? 'bg-[#fffbfb] hover:bg-[#fff5f5]' : 'hover:bg-muted/30'
               }`}
             >
-              <Link href={`/project/${project.id}`} className="text-[12px] font-bold hover:text-[#2e7c67] flex items-center gap-1.5">
+              <Link
+                href={`/project/${project.id}`}
+                className="text-[12px] font-bold hover:text-[#2e7c67] flex items-center gap-1.5"
+              >
                 {commercial.overBudget && (
                   <span title="Over Budget" className="inline-block size-2 rounded-full bg-[#d66254] shrink-0" />
                 )}
@@ -1620,7 +1819,9 @@ function CommercialView() {
                   <span className="block text-[8px] uppercase font-bold tracking-wider text-[#b2473d]">Over AOP</span>
                 )}
               </span>
-              <span className={`text-[11px] font-mono font-semibold ${commercial.overBudget ? 'font-bold text-[#b2473d]' : ''}`}>
+              <span
+                className={`text-[11px] font-mono font-semibold ${commercial.overBudget ? 'font-bold text-[#b2473d]' : ''}`}
+              >
                 {formatCrore(commercial.projectedCost)}
                 {commercial.overBudget && (
                   <span className="block text-[8px] uppercase font-bold tracking-wider text-[#b2473d]">Overrun</span>
@@ -1629,22 +1830,30 @@ function CommercialView() {
               <span className={`text-[11px] font-mono ${commercial.overSpent ? 'font-bold text-[#b2473d]' : ''}`}>
                 {formatCrore(commercial.spent)}
                 {commercial.overSpent && (
-                  <span className="block text-[8px] uppercase font-bold tracking-wider text-[#b2473d]">Over Awarded</span>
+                  <span className="block text-[8px] uppercase font-bold tracking-wider text-[#b2473d]">
+                    Over Awarded
+                  </span>
                 )}
               </span>
               <div>
-                <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-mono font-bold ${
-                  commercial.costVariance > 0
-                    ? 'bg-[#fae5e1] text-[#b2473d]'
-                    : commercial.costVariance < 0
-                      ? 'bg-[#edf5f0] text-[#2e7c67]'
-                      : 'text-muted-foreground'
-                }`}>
-                  {commercial.costVariance > 0 ? `+${formatCrore(commercial.costVariance)}` : formatCrore(commercial.costVariance)}
+                <span
+                  className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-mono font-bold ${
+                    commercial.costVariance > 0
+                      ? 'bg-[#fae5e1] text-[#b2473d]'
+                      : commercial.costVariance < 0
+                        ? 'bg-[#edf5f0] text-[#2e7c67]'
+                        : 'text-muted-foreground'
+                  }`}
+                >
+                  {commercial.costVariance > 0
+                    ? `+${formatCrore(commercial.costVariance)}`
+                    : formatCrore(commercial.costVariance)}
                 </span>
               </div>
               <span className="text-[10px] text-muted-foreground">{project.status || 'Yet to start'}</span>
-              <span className="text-[10px] font-semibold text-muted-foreground">{canEdit ? 'Editable' : 'View only'}</span>
+              <span className="text-[10px] font-semibold text-muted-foreground">
+                {canEdit ? 'Editable' : 'View only'}
+              </span>
             </div>
           );
         })}
@@ -1655,8 +1864,58 @@ function CommercialView() {
 
 function UpdatesView() {
   const { projects, role, canEdit } = useAppState();
-  const updates = projects.flatMap((project) => project.updates.map((update) => ({ ...update, project }))).sort((a, b) => b.date.localeCompare(a.date));
-  return <><PageHeader eyebrow="Project updates" title="Update feed" description="A chronological read of the decisions, progress signals, and changes coming from project teams." action={canEdit ? <Link href="/my-projects" className="inline-flex items-center gap-2 rounded-xl bg-[#d6a95d] px-4 py-3 text-[11px] font-extrabold text-[#173e49] hover:bg-[#e2bd73]"><Plus size={15} /> Post an update</Link> : undefined} /><div className="mt-8 max-w-[900px] space-y-3">{updates.length === 0 && <p className="rounded-2xl border border-dashed border-border p-10 text-center text-[12px] text-muted-foreground">No project updates posted yet.</p>}{updates.slice(0, 15).map((update, index) => <Link href={`/project/${update.project.id}`} key={`${update.project.id}-${update.date}-${update.author}-${index}`} className="flex gap-4 rounded-2xl border border-border bg-card p-5 transition hover:border-[#d9c585]"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#e4f1ec] text-[10px] font-bold text-[#2e7c67]">{initialsOf(update.author)}</span><span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2"><strong className="text-[12px]">{update.project.name}</strong><span className="font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">{update.date}</span></span><p className="mt-2 text-[12px] leading-5 text-muted-foreground">{update.text}</p><span className="mt-3 block font-mono text-[9px] uppercase tracking-[.1em] text-[#2e7c67]">Updated by {update.author} · {update.role}</span></span></Link>)}</div></>;
+  const updates = projects
+    .flatMap((project) => project.updates.map((update) => ({ ...update, project })))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return (
+    <>
+      <PageHeader
+        eyebrow="Project updates"
+        title="Update feed"
+        description="A chronological read of the decisions, progress signals, and changes coming from project teams."
+        action={
+          canEdit ? (
+            <Link
+              href="/my-projects"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#d6a95d] px-4 py-3 text-[11px] font-extrabold text-[#173e49] hover:bg-[#e2bd73]"
+            >
+              <Plus size={15} /> Post an update
+            </Link>
+          ) : undefined
+        }
+      />
+      <div className="mt-8 max-w-[900px] space-y-3">
+        {updates.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-border p-10 text-center text-[12px] text-muted-foreground">
+            No project updates posted yet.
+          </p>
+        )}
+        {updates.slice(0, 15).map((update, index) => (
+          <Link
+            href={`/project/${update.project.id}`}
+            key={`${update.project.id}-${update.date}-${update.author}-${index}`}
+            className="flex gap-4 rounded-2xl border border-border bg-card p-5 transition hover:border-[#d9c585]"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#e4f1ec] text-[10px] font-bold text-[#2e7c67]">
+              {initialsOf(update.author)}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-2">
+                <strong className="text-[12px]">{update.project.name}</strong>
+                <span className="font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">
+                  {update.date}
+                </span>
+              </span>
+              <p className="mt-2 text-[12px] leading-5 text-muted-foreground">{update.text}</p>
+              <span className="mt-3 block font-mono text-[9px] uppercase tracking-[.1em] text-[#2e7c67]">
+                Updated by {update.author} · {update.role}
+              </span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
 }
 
 function ReportsView() {
@@ -1729,7 +1988,11 @@ function ReportsView() {
         }
         toast({ title: 'Backup restored', description: `Restored ${count} projects successfully.` });
       } catch (err: any) {
-        toast({ variant: 'destructive', title: 'Restore failed', description: err.message || 'Could not parse JSON file.' });
+        toast({
+          variant: 'destructive',
+          title: 'Restore failed',
+          description: err.message || 'Could not parse JSON file.',
+        });
       }
     };
     reader.readAsText(file);
@@ -1788,13 +2051,7 @@ function ReportsView() {
           <Download size={15} /> Download Full Backup (JSON)
         </button>
 
-        <input
-          type="file"
-          accept=".json"
-          ref={fileInputRef}
-          onChange={handleImportFile}
-          className="hidden"
-        />
+        <input type="file" accept=".json" ref={fileInputRef} onChange={handleImportFile} className="hidden" />
 
         <button
           type="button"
@@ -1836,11 +2093,25 @@ function NewProjectView() {
 
   const progressNum = Math.max(0, Math.min(100, Number(form.progress) || 0));
 
-  const set = (key: keyof typeof form, value: string) =>
-    setForm((current) => ({ ...current, [key]: value }));
+  const set = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
   if (!canEdit) {
-    return <><PageHeader eyebrow="Project workspace" title="Create new project" description="Creating projects is restricted to Project Leads and Coordinators." /><div className="mt-8 flex max-w-[620px] items-start gap-3 rounded-2xl border border-[#eadcb1] bg-[#fbf1d8] p-5"><ShieldAlert size={18} className="mt-0.5 shrink-0 text-[#9a711f]" /><p className="text-[12px] leading-6 text-[#8e681c]">You are signed in with read-only portfolio access. Project creation is managed by the Project Coordinator or Leads.</p></div></>;
+    return (
+      <>
+        <PageHeader
+          eyebrow="Project workspace"
+          title="Create new project"
+          description="Creating projects is restricted to Project Leads and Coordinators."
+        />
+        <div className="mt-8 flex max-w-[620px] items-start gap-3 rounded-2xl border border-[#eadcb1] bg-[#fbf1d8] p-5">
+          <ShieldAlert size={18} className="mt-0.5 shrink-0 text-[#9a711f]" />
+          <p className="text-[12px] leading-6 text-[#8e681c]">
+            You are signed in with read-only portfolio access. Project creation is managed by the Project Coordinator or
+            Leads.
+          </p>
+        </div>
+      </>
+    );
   }
 
   const submit = async (event: FormEvent) => {
@@ -1856,13 +2127,11 @@ function NewProjectView() {
     if (!isValidIsoDate(form.startDate)) found.push('Enter a valid start date.');
     if (!isValidIsoDate(form.targetDate)) found.push('Enter a valid target completion date.');
     if (!Number.isFinite(aopCrore) || aopCrore < 0) found.push('Approved Budget (AOP) must be a number of 0 or more.');
-    if (!Number.isFinite(awardedCrore) || awardedCrore < 0) found.push('Committed/Awarded amount must be a number of 0 or more.');
-    if (!Number.isFinite(projectedCrore) || projectedCrore < 0) found.push('Projected Cost must be a number of 0 or more.');
-    if (
-      isValidIsoDate(form.startDate) &&
-      isValidIsoDate(form.targetDate) &&
-      form.targetDate < form.startDate
-    ) {
+    if (!Number.isFinite(awardedCrore) || awardedCrore < 0)
+      found.push('Committed/Awarded amount must be a number of 0 or more.');
+    if (!Number.isFinite(projectedCrore) || projectedCrore < 0)
+      found.push('Projected Cost must be a number of 0 or more.');
+    if (isValidIsoDate(form.startDate) && isValidIsoDate(form.targetDate) && form.targetDate < form.startDate) {
       found.push('Target completion must fall on or after the start date.');
     }
 
@@ -1872,7 +2141,10 @@ function NewProjectView() {
     }
     setErrors([]);
 
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
     const id = `${form.location.toLowerCase()}-${slug || 'project'}-${Date.now()}`;
 
     const created = await addProject({
@@ -1927,7 +2199,27 @@ function NewProjectView() {
     toast({ title: 'Project created', description: `${name} is now in the portfolio.` });
   };
 
-  if (createdName) return <div className="mx-auto max-w-[760px] py-16 text-center"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#e4f1ec] text-[#2e7c67]"><CheckCircle2 size={25} /></span><p className="mt-6 font-mono text-[10px] uppercase tracking-[.16em] text-[#2e7c67]">Project created</p><h1 className="mt-3 font-serif text-[44px] leading-none tracking-[-.05em] text-[#173e49]">{createdName} is ready for updates.</h1><p className="mx-auto mt-4 max-w-[480px] text-[13px] leading-6 text-muted-foreground">The project is saved and synced with the portfolio database.</p><Link href="/projects" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-[#173e49] px-4 py-3 text-[11px] font-bold text-white">View all projects <ArrowUpRight size={15} /></Link></div>;
+  if (createdName)
+    return (
+      <div className="mx-auto max-w-[760px] py-16 text-center">
+        <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#e4f1ec] text-[#2e7c67]">
+          <CheckCircle2 size={25} />
+        </span>
+        <p className="mt-6 font-mono text-[10px] uppercase tracking-[.16em] text-[#2e7c67]">Project created</p>
+        <h1 className="mt-3 font-serif text-[44px] leading-none tracking-[-.05em] text-[#173e49]">
+          {createdName} is ready for updates.
+        </h1>
+        <p className="mx-auto mt-4 max-w-[480px] text-[13px] leading-6 text-muted-foreground">
+          The project is saved and synced with the portfolio database.
+        </p>
+        <Link
+          href="/projects"
+          className="mt-8 inline-flex items-center gap-2 rounded-xl bg-[#173e49] px-4 py-3 text-[11px] font-bold text-white"
+        >
+          View all projects <ArrowUpRight size={15} />
+        </Link>
+      </div>
+    );
 
   return (
     <>
@@ -1988,7 +2280,9 @@ function NewProjectView() {
                 className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[12px]"
               >
                 {locations.map((item) => (
-                  <option key={item} value={item}>{item}</option>
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
                 ))}
               </select>
             </label>
@@ -2000,7 +2294,9 @@ function NewProjectView() {
                 className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[12px]"
               >
                 {categories.map((item) => (
-                  <option key={item} value={item}>{item}</option>
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
                 ))}
               </select>
             </label>
@@ -2017,9 +2313,7 @@ function NewProjectView() {
               />
             </label>
             <div>
-              <span className="mb-2 block text-[11px] font-bold">
-                Project Status *
-              </span>
+              <span className="mb-2 block text-[11px] font-bold">Project Status *</span>
               <select
                 value={form.status}
                 onChange={(event) => set('status', event.target.value)}
@@ -2136,7 +2430,8 @@ function NewProjectView() {
                 </h2>
               </div>
               <p className="mt-1 text-[12px] text-muted-foreground">
-                Optional comprehensive architectural breakdown: Plot area, Total BUA, floor stacking, keys/bays, FOH public areas with pax, floor-wise BUA table, and room matrix.
+                Optional comprehensive architectural breakdown: Plot area, Total BUA, floor stacking, keys/bays, FOH
+                public areas with pax, floor-wise BUA table, and room matrix.
               </p>
             </div>
             <label className="inline-flex items-center gap-2 cursor-pointer rounded-xl border border-border bg-muted/30 px-3.5 py-2 text-[12px] font-bold text-foreground hover:bg-muted/50 transition shrink-0 select-none">
@@ -2159,9 +2454,7 @@ function NewProjectView() {
                 </h3>
                 <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <label>
-                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">
-                      Plot Area (SQ.M.)
-                    </span>
+                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">Plot Area (SQ.M.)</span>
                     <input
                       type="number"
                       min="0"
@@ -2187,9 +2480,7 @@ function NewProjectView() {
                   </label>
 
                   <label>
-                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">
-                      Site Area (Acres)
-                    </span>
+                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">Site Area (Acres)</span>
                     <input
                       type="number"
                       min="0"
@@ -2208,9 +2499,7 @@ function NewProjectView() {
                   </label>
 
                   <label>
-                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">
-                      Total BUA (SQ.M.)
-                    </span>
+                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">Total BUA (SQ.M.)</span>
                     <input
                       type="number"
                       min="0"
@@ -2267,9 +2556,7 @@ function NewProjectView() {
                 </h3>
                 <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <label>
-                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">
-                      Total Room Keys
-                    </span>
+                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">Total Room Keys</span>
                     <input
                       type="number"
                       min="0"
@@ -2290,9 +2577,7 @@ function NewProjectView() {
                   </label>
 
                   <label>
-                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">
-                      Total Room Bays
-                    </span>
+                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">Total Room Bays</span>
                     <input
                       type="number"
                       min="0"
@@ -2334,9 +2619,7 @@ function NewProjectView() {
                   </label>
 
                   <label>
-                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">
-                      Number of Elevators
-                    </span>
+                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">Number of Elevators</span>
                     <input
                       type="number"
                       min="0"
@@ -2354,9 +2637,7 @@ function NewProjectView() {
                   </label>
 
                   <label className="sm:col-span-2">
-                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">
-                      Elevator / Core Notes
-                    </span>
+                    <span className="mb-1.5 block text-[11px] font-bold text-foreground">Elevator / Core Notes</span>
                     <input
                       type="text"
                       value={areaProgram.summary.elevatorRemarks}
@@ -2401,7 +2682,8 @@ function NewProjectView() {
                       Detailed Breakdown Tables (FOH Pax, Floor BUA & Room Matrix)
                     </h4>
                     <p className="mt-1 text-[12px] text-muted-foreground">
-                      Add row-by-row entries for Ground/2nd Floor public spaces (Banquet, ADD, Lounge Bar, etc.) with Pax capacities, floor-wise BUA allocations, and room inventory across guest floors.
+                      Add row-by-row entries for Ground/2nd Floor public spaces (Banquet, ADD, Lounge Bar, etc.) with
+                      Pax capacities, floor-wise BUA allocations, and room inventory across guest floors.
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px]">
                       <span className="inline-flex items-center gap-1 rounded-md bg-white border border-[#eadcb1] px-2.5 py-1 text-[#8f691b] font-semibold">
@@ -2429,7 +2711,8 @@ function NewProjectView() {
           ) : (
             <div className="mt-4 rounded-xl border border-dashed border-border/80 bg-muted/20 p-5 text-center">
               <p className="text-[12px] text-muted-foreground">
-                Advanced Architectural Space Program is currently disabled for this project. Check the box above to enter plot area, BUA, floor stacking, keys, bays, and detailed space allocation tables.
+                Advanced Architectural Space Program is currently disabled for this project. Check the box above to
+                enter plot area, BUA, floor stacking, keys, bays, and detailed space allocation tables.
               </p>
             </div>
           )}
@@ -2443,7 +2726,10 @@ function NewProjectView() {
               setAreaProgram(updated);
               setIncludeAdvancedAreaProgram(true);
               if (updated.summary.builtUpAreaSqm) {
-                set('area', `${updated.summary.builtUpAreaSqm.toLocaleString()} SQ.M. / ${updated.summary.builtUpAreaSqft.toLocaleString()} SQ.FT.`);
+                set(
+                  'area',
+                  `${updated.summary.builtUpAreaSqm.toLocaleString()} SQ.M. / ${updated.summary.builtUpAreaSqft.toLocaleString()} SQ.FT.`,
+                );
               }
               if (updated.summary.totalRoomKeys) {
                 set('paxKeys', `${updated.summary.totalRoomKeys} Keys / ${updated.summary.totalBays} Bays`);
@@ -2458,7 +2744,10 @@ function NewProjectView() {
         )}
 
         <div className="flex justify-end">
-          <button type="submit" className="rounded-xl bg-[#d6a95d] px-5 py-3 text-[11px] font-extrabold text-[#173e49] hover:bg-[#e2bd73]">
+          <button
+            type="submit"
+            className="rounded-xl bg-[#d6a95d] px-5 py-3 text-[11px] font-extrabold text-[#173e49] hover:bg-[#e2bd73]"
+          >
             Create project
           </button>
         </div>
@@ -2479,12 +2768,20 @@ function TeamView() {
   const [allottingProjectId, setAllottingProjectId] = useState<string | null>(null);
 
   const handleResetPassword = async (lead: { id: string; name: string }) => {
-    if (!window.confirm(`Reset the password for ${lead.name}? They will have to choose a new one at next sign-in.`)) return;
+    if (!window.confirm(`Reset the password for ${lead.name}? They will have to choose a new one at next sign-in.`))
+      return;
     try {
       const res = await api.auth.resetPassword(lead.id);
-      window.prompt(`Temporary password for ${lead.name}. Copy it now and share it securely; it will not be shown again.`, res.temporaryPassword);
+      window.prompt(
+        `Temporary password for ${lead.name}. Copy it now and share it securely; it will not be shown again.`,
+        res.temporaryPassword,
+      );
     } catch (err: any) {
-      toast({ title: 'Password reset failed', description: err.message || 'Please try again.', variant: 'destructive' });
+      toast({
+        title: 'Password reset failed',
+        description: err.message || 'Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -2569,11 +2866,7 @@ function TeamView() {
             </div>
 
             <form onSubmit={handleCreateLead} className="mt-5 space-y-4">
-              {error && (
-                <p className="rounded-xl bg-[#fae5e1] p-3 text-[11px] font-bold text-[#b2473d]">
-                  {error}
-                </p>
-              )}
+              {error && <p className="rounded-xl bg-[#fae5e1] p-3 text-[11px] font-bold text-[#b2473d]">{error}</p>}
 
               <label className="block">
                 <span className="mb-1.5 block text-[11px] font-bold text-[#173e49]">Full Name *</span>
@@ -2741,12 +3034,15 @@ function TeamView() {
                             <span className="rounded-full bg-[#eef0ed] px-2 py-0.5 font-mono text-[9px] text-muted-foreground">
                               {project.code}
                             </span>
-                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${statusTone[project.status || 'Yet to start']}`}>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${statusTone[project.status || 'Yet to start']}`}
+                            >
                               {project.status || 'Yet to start'}
                             </span>
                           </div>
                           <p className="mt-1 font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">
-                            {project.location} · {project.category} · Target: {project.targetLabel} · Progress: {project.progress}%
+                            {project.location} · {project.category} · Target: {project.targetLabel} · Progress:{' '}
+                            {project.progress}%
                           </p>
                         </div>
 
@@ -2770,7 +3066,9 @@ function TeamView() {
                             onChange={(e) => handleAllot(project.id, e.target.value)}
                             className="h-9 rounded-xl border border-border bg-white px-2.5 text-[11px] font-bold text-[#173e49] outline-none focus:border-[#d6a95d] disabled:opacity-50"
                           >
-                            <option value="" disabled>Select lead...</option>
+                            <option value="" disabled>
+                              Select lead...
+                            </option>
                             {leads.map((l) => (
                               <option key={l.id} value={l.id}>
                                 Allot to {l.name}
@@ -2859,16 +3157,12 @@ function SitePhotographsView() {
         </div>
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Active Photographs</p>
-          <p className="mt-3 text-3xl font-extrabold tracking-tight text-[#2e7c67]">
-            {filteredItems.length}
-          </p>
+          <p className="mt-3 text-3xl font-extrabold tracking-tight text-[#2e7c67]">{filteredItems.length}</p>
           <p className="mt-1 text-[11px] text-muted-foreground">Verified progress photos on server</p>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Gallery Multi-Upload</p>
-          <p className="mt-3 text-3xl font-extrabold tracking-tight text-[#2e7c67]">
-            Active
-          </p>
+          <p className="mt-3 text-3xl font-extrabold tracking-tight text-[#2e7c67]">Active</p>
           <p className="mt-1 text-[11px] text-muted-foreground">Multiple photos supported per project</p>
         </div>
       </div>
@@ -2884,7 +3178,9 @@ function SitePhotographsView() {
           >
             <option value="all">All Locations</option>
             {locations.map((loc) => (
-              <option key={loc} value={loc}>{loc}</option>
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
             ))}
           </select>
 
@@ -2896,7 +3192,9 @@ function SitePhotographsView() {
           >
             <option value="all">All Photo Categories</option>
             {photoCategories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
         </div>
@@ -2969,9 +3267,7 @@ function SitePhotographsView() {
                     </h3>
                   </Link>
 
-                  <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed">
-                    "{photo.caption}"
-                  </p>
+                  <p className="text-[12px] text-muted-foreground line-clamp-2 leading-relaxed">"{photo.caption}"</p>
                 </div>
               </div>
 
@@ -3014,7 +3310,10 @@ function SitePhotographsView() {
           onDelete={async (photoId) => {
             const ok = await deletePhoto(lightboxPhoto.project.id, photoId);
             if (ok) {
-              toast({ title: 'Photograph deleted', description: 'The site photograph was permanently removed from the server.' });
+              toast({
+                title: 'Photograph deleted',
+                description: 'The site photograph was permanently removed from the server.',
+              });
             }
           }}
         />

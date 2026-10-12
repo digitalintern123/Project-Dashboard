@@ -38,7 +38,8 @@ describe('settings encryption (AES-256-GCM)', () => {
     expect(JSON.stringify(res.body)).not.toContain('Sup3r-secret');
     expect(JSON.stringify(res.body)).not.toContain('graph-secret-value');
 
-    const raw = (key: string) => (db.prepare('SELECT value FROM system_settings WHERE key = ?').get(key) as { value: string }).value;
+    const raw = (key: string) =>
+      (db.prepare('SELECT value FROM system_settings WHERE key = ?').get(key) as { value: string }).value;
     expect(isEncrypted(raw('smtp_pass'))).toBe(true);
     expect(isEncrypted(raw('graph_client_secret'))).toBe(true);
     expect(getSmtpConfig().pass).toBe('Sup3r-secret');
@@ -51,7 +52,8 @@ describe('settings encryption (AES-256-GCM)', () => {
   it('encrypts legacy plaintext values in place', () => {
     db.prepare("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('smtp_pass', 'legacy-plain')").run();
     encryptPlaintextSettings();
-    const raw = (db.prepare("SELECT value FROM system_settings WHERE key = 'smtp_pass'").get() as { value: string }).value;
+    const raw = (db.prepare("SELECT value FROM system_settings WHERE key = 'smtp_pass'").get() as { value: string })
+      .value;
     expect(isEncrypted(raw)).toBe(true);
     expect(getSmtpConfig().pass).toBe('legacy-plain');
   });
@@ -68,8 +70,24 @@ describe('email templates escape user content', () => {
       projectName: XSS,
       dashboardUrl: 'https://projects.encalm.com/project/x" onmouseover="alert(1)',
     });
-    const issue = buildCriticalIssueHtml({ recipientName: 'R', issueTitle: XSS, severity: 'High', detail: XSS, projectName: 'P', dashboardUrl: 'https://x' });
-    const summary = buildProjectSummaryHtml({ recipientName: 'R', projectName: 'P', senderName: XSS, progress: 5, health: 'On track', status: 'In Design', customNote: XSS, dashboardUrl: 'https://x' });
+    const issue = buildCriticalIssueHtml({
+      recipientName: 'R',
+      issueTitle: XSS,
+      severity: 'High',
+      detail: XSS,
+      projectName: 'P',
+      dashboardUrl: 'https://x',
+    });
+    const summary = buildProjectSummaryHtml({
+      recipientName: 'R',
+      projectName: 'P',
+      senderName: XSS,
+      progress: 5,
+      health: 'On track',
+      status: 'In Design',
+      customNote: XSS,
+      dashboardUrl: 'https://x',
+    });
 
     for (const html of [tag, issue, summary]) {
       expect(html).not.toContain('<img src=x');
@@ -89,7 +107,9 @@ describe('links in emails', () => {
 
   it('ignores a spoofed Origin header', () => {
     delete process.env.APP_BASE_URL;
-    expect(publicBaseUrl(fakeReq({ host: 'projects.encalm.com', origin: 'https://evil.example' }))).toBe('https://projects.encalm.com');
+    expect(publicBaseUrl(fakeReq({ host: 'projects.encalm.com', origin: 'https://evil.example' }))).toBe(
+      'https://projects.encalm.com',
+    );
   });
 
   it('prefers APP_BASE_URL when configured', () => {

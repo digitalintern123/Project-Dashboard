@@ -145,9 +145,12 @@ export const api = {
         body: JSON.stringify({ currentPassword, newPassword }),
       }),
     resetPassword: (userId: string) =>
-      request<{ message: string; temporaryPassword: string }>(`/api/auth/users/${encodeURIComponent(userId)}/reset-password`, {
-        method: 'POST',
-      }),
+      request<{ message: string; temporaryPassword: string }>(
+        `/api/auth/users/${encodeURIComponent(userId)}/reset-password`,
+        {
+          method: 'POST',
+        },
+      ),
     logout: () => request<{ message: string }>('/api/auth/logout', { method: 'POST' }),
     logoutAll: () => request<{ message: string }>('/api/auth/logout-all', { method: 'POST' }),
     getUsers: () => request<{ users: User[] }>('/api/auth/users'),
@@ -247,7 +250,7 @@ export const api = {
   updates: {
     getAll: () =>
       request<{ updates: (ProjectUpdate & { id: string; project: { id: string; name: string; code: string } })[] }>(
-        '/api/updates'
+        '/api/updates',
       ),
     add: (projectId: string, update: Partial<ProjectUpdate>) =>
       request<{ project: Project }>(`/api/projects/${projectId}/updates`, {
@@ -273,7 +276,9 @@ export const api = {
       for (const item of items) form.append('photos', item.file, item.file.name);
       form.append(
         'meta',
-        JSON.stringify(items.map(({ caption, stage, category, takenDate }) => ({ caption, stage, category, takenDate }))),
+        JSON.stringify(
+          items.map(({ caption, stage, category, takenDate }) => ({ caption, stage, category, takenDate })),
+        ),
       );
       return request<{ message: string; photos: SitePhoto[]; photo: SitePhoto; project: Project }>(
         `/api/projects/${encodeURIComponent(projectId)}/photos`,
@@ -318,9 +323,10 @@ export const api = {
 
   email: {
     getLogs: (projectId?: string) =>
-      request<{ logs: EmailLogItem[] }>(`/api/email/logs${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`),
-    searchDirectory: (q: string) =>
-      request<{ users: User[] }>(`/api/email/directory?q=${encodeURIComponent(q)}`),
+      request<{ logs: EmailLogItem[] }>(
+        `/api/email/logs${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`,
+      ),
+    searchDirectory: (q: string) => request<{ users: User[] }>(`/api/email/directory?q=${encodeURIComponent(q)}`),
     getSettings: () => request<{ settings: EmailSettings }>('/api/email/settings'),
     saveSettings: (settings: Partial<EmailSettings>) =>
       request<{ message: string; settings: EmailSettings }>('/api/email/settings', {
@@ -338,7 +344,7 @@ export const api = {
       }),
     sendProjectUpdate: (
       projectId: string,
-      payload: { recipients?: (string | { email: string; name?: string })[]; customNote?: string }
+      payload: { recipients?: (string | { email: string; name?: string })[]; customNote?: string },
     ) =>
       request<{ success: boolean; message: string; results: any[] }>('/api/email/send-project-update', {
         method: 'POST',

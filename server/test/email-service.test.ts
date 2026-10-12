@@ -39,7 +39,14 @@ afterEach(() => {
 
 const log = (id: string) => db.prepare('SELECT status, error, reply_to FROM email_logs WHERE id = ?').get(id) as any;
 const queued = (id: string) => db.prepare('SELECT * FROM email_queue WHERE log_id = ?').get(id) as any;
-const mail = { to: 'r@test.local', recipientName: 'R', subject: 'S', html: '<p>x</p>', templateType: 'test_email' as const, replyTo: 'lead@test.local' };
+const mail = {
+  to: 'r@test.local',
+  recipientName: 'R',
+  subject: 'S',
+  html: '<p>x</p>',
+  templateType: 'test_email' as const,
+  replyTo: 'lead@test.local',
+};
 
 describe('queueing', () => {
   it('returns immediately with a queued log entry, without contacting the provider', () => {
@@ -63,7 +70,15 @@ describe('queueing', () => {
 describe('SMTP delivery through the queue', () => {
   beforeAll(() => {
     saveActiveEmailProvider('smtp');
-    saveSmtpConfig({ host: 'smtp.office365.com', port: 587, secure: false, user: 'notify@test.local', pass: 'pw', fromName: 'Encalm', fromEmail: 'notify@test.local' });
+    saveSmtpConfig({
+      host: 'smtp.office365.com',
+      port: 587,
+      secure: false,
+      user: 'notify@test.local',
+      pass: 'pw',
+      fromName: 'Encalm',
+      fromEmail: 'notify@test.local',
+    });
   });
 
   it('delivers through the IPv4-resolved host with TLS and SNI', async () => {
@@ -73,8 +88,16 @@ describe('SMTP delivery through the queue', () => {
     expect(log(id)).toMatchObject({ status: 'sent', error: null });
     expect(queued(id)).toBeUndefined();
     const opts = (nodemailer.createTransport as any).mock.calls.at(-1)[0];
-    expect(opts).toMatchObject({ host: '192.0.2.10', port: 587, requireTLS: true, tls: { servername: 'smtp.office365.com', rejectUnauthorized: true } });
-    expect(sendMail.mock.calls[0][0]).toMatchObject({ to: { name: 'R', address: 'r@test.local' }, replyTo: 'lead@test.local' });
+    expect(opts).toMatchObject({
+      host: '192.0.2.10',
+      port: 587,
+      requireTLS: true,
+      tls: { servername: 'smtp.office365.com', rejectUnauthorized: true },
+    });
+    expect(sendMail.mock.calls[0][0]).toMatchObject({
+      to: { name: 'R', address: 'r@test.local' },
+      replyTo: 'lead@test.local',
+    });
   });
 
   it('retries with exponential backoff, then gives up after the maximum attempts', async () => {
@@ -146,7 +169,10 @@ describe('SMTP delivery through the queue', () => {
   it('the worker delivers new emails on its own and recovers interrupted ones', async () => {
     sendMail.mockResolvedValue({});
     const { id: stale } = queueEmail(mail);
-    db.prepare('UPDATE email_queue SET locked_until = ? WHERE log_id = ?').run(new Date(Date.now() + 3_600_000).toISOString(), stale);
+    db.prepare('UPDATE email_queue SET locked_until = ? WHERE log_id = ?').run(
+      new Date(Date.now() + 3_600_000).toISOString(),
+      stale,
+    );
     startEmailWorker(50);
     const { id } = queueEmail(mail);
     await vi.waitFor(() => {
@@ -159,7 +185,13 @@ describe('SMTP delivery through the queue', () => {
 describe('Microsoft Graph provider', () => {
   beforeAll(() => {
     saveActiveEmailProvider('microsoft_graph');
-    saveGraphConfig({ tenantId: 'tenant', clientId: 'client', clientSecret: 'secret', senderEmail: 'notify@test.local', saveToSentItems: true });
+    saveGraphConfig({
+      tenantId: 'tenant',
+      clientId: 'client',
+      clientSecret: 'secret',
+      senderEmail: 'notify@test.local',
+      saveToSentItems: true,
+    });
   });
 
   function graphFetch(sendStatus = 202) {
@@ -196,22 +228,40 @@ describe('Microsoft Graph provider', () => {
   });
 
   it('reports token errors from Azure AD', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('bad secret', { status: 401 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('bad secret', { status: 401 })),
+    );
     saveGraphConfig({ clientSecret: 'rotated' }); // clears the cached token
     await expect(acquireGraphAccessToken({ tenantId: 't', clientId: 'c', clientSecret: 's' })).rejects.toThrow(/401/);
-    await expect(acquireGraphAccessToken({ tenantId: '', clientId: 'c', clientSecret: 's' })).rejects.toThrow(/not fully configured/);
+    await expect(acquireGraphAccessToken({ tenantId: '', clientId: 'c', clientSecret: 's' })).rejects.toThrow(
+      /not fully configured/,
+    );
   });
 
   it('searches the directory, maps users and registers them locally', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.includes('/token')) return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
-      return new Response(JSON.stringify({
-        value: [
-          { id: 'g1', displayName: 'Asha Rao', mail: 'asha.rao@test.local', jobTitle: 'Project Lead', department: 'Projects' },
-          { id: 'g2', displayName: 'No Mail', mail: null, userPrincipalName: null },
-        ],
-      }), { status: 200 });
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/token'))
+          return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 });
+        return new Response(
+          JSON.stringify({
+            value: [
+              {
+                id: 'g1',
+                displayName: 'Asha Rao',
+                mail: 'asha.rao@test.local',
+                jobTitle: 'Project Lead',
+                department: 'Projects',
+              },
+              { id: 'g2', displayName: 'No Mail', mail: null, userPrincipalName: null },
+            ],
+          }),
+          { status: 200 },
+        );
+      }),
+    );
     saveGraphConfig({ clientSecret: 'secret' });
     const users = await searchEncalmDirectory('asha');
     expect(users).toHaveLength(1);
@@ -220,8 +270,14 @@ describe('Microsoft Graph provider', () => {
   });
 
   it('returns no directory users when Graph errors', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
-      url.includes('/token') ? new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 }) : new Response('nope', { status: 403 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url.includes('/token')
+          ? new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), { status: 200 })
+          : new Response('nope', { status: 403 }),
+      ),
+    );
     expect(await searchEncalmDirectory('x')).toEqual([]);
   });
 });

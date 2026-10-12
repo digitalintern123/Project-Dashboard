@@ -38,16 +38,22 @@ function signAccessToken(userId: string, tokenVersion: number): string {
 function createRefreshToken(userId: string): { id: string; token: string } {
   const id = crypto.randomUUID();
   const token = crypto.randomBytes(32).toString('base64url');
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
     VALUES (?, ?, ?, ?)
-  `).run(id, userId, hashToken(token), new Date(Date.now() + REFRESH_TTL_MS).toISOString());
+  `,
+  ).run(id, userId, hashToken(token), new Date(Date.now() + REFRESH_TTL_MS).toISOString());
   return { id, token };
 }
 
 function setSessionCookies(res: Response, accessToken: string, refreshToken: string) {
   res.cookie(ACCESS_COOKIE, accessToken, { ...baseCookieOptions(), path: '/', maxAge: ACCESS_TTL_SECONDS * 1000 });
-  res.cookie(REFRESH_COOKIE, refreshToken, { ...baseCookieOptions(), path: REFRESH_COOKIE_PATH, maxAge: REFRESH_TTL_MS });
+  res.cookie(REFRESH_COOKIE, refreshToken, {
+    ...baseCookieOptions(),
+    path: REFRESH_COOKIE_PATH,
+    maxAge: REFRESH_TTL_MS,
+  });
 }
 
 export function clearSessionCookies(res: Response) {
@@ -56,7 +62,8 @@ export function clearSessionCookies(res: Response) {
 }
 
 function currentTokenVersion(userId: string): number | null {
-  const row = db.prepare('SELECT token_version FROM users WHERE id = ?').get(userId) as { token_version: number } | undefined;
+  const row = db.prepare('SELECT token_version FROM users WHERE id = ?').get(userId) as
+    { token_version: number } | undefined;
   return row ? row.token_version : null;
 }
 
@@ -71,10 +78,7 @@ export function startSession(res: Response, userId: string): void {
 // rotated this recently is treated as that race, not as theft.
 const ROTATION_GRACE_MS = 15 * 1000;
 
-export type RotateResult =
-  | { status: 'rotated'; userId: string }
-  | { status: 'raced' }
-  | { status: 'invalid' };
+export type RotateResult = { status: 'rotated'; userId: string } | { status: 'raced' } | { status: 'invalid' };
 
 /**
  * Exchanges a refresh token for a new access token and a new refresh token
@@ -103,7 +107,10 @@ export function rotateSession(res: Response, presentedToken: string | undefined)
   if (tv === null) return { status: 'invalid' };
 
   const next = createRefreshToken(row.user_id);
-  db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now'), replaced_by = ? WHERE id = ?").run(next.id, row.id);
+  db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now'), replaced_by = ? WHERE id = ?").run(
+    next.id,
+    row.id,
+  );
   setSessionCookies(res, signAccessToken(row.user_id, tv), next.token);
   return { status: 'rotated', userId: row.user_id };
 }
@@ -112,8 +119,11 @@ export function rotateSession(res: Response, presentedToken: string | undefined)
 export function revokeSession(presentedToken: string | undefined): string | null {
   if (!presentedToken) return null;
   const hash = hashToken(presentedToken);
-  const row = db.prepare('SELECT user_id FROM refresh_tokens WHERE token_hash = ?').get(hash) as { user_id: string } | undefined;
-  db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE token_hash = ? AND revoked_at IS NULL").run(hash);
+  const row = db.prepare('SELECT user_id FROM refresh_tokens WHERE token_hash = ?').get(hash) as
+    { user_id: string } | undefined;
+  db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE token_hash = ? AND revoked_at IS NULL").run(
+    hash,
+  );
   return row?.user_id ?? null;
 }
 
@@ -121,11 +131,15 @@ export function revokeSession(presentedToken: string | undefined): string | null
 export function revokeAllSessions(userId: string): void {
   db.transaction(() => {
     db.prepare('UPDATE users SET token_version = token_version + 1 WHERE id = ?').run(userId);
-    db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL").run(userId);
+    db.prepare("UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL").run(
+      userId,
+    );
   })();
 }
 
 /** Removes refresh tokens that expired more than a day ago. */
 export function pruneExpiredRefreshTokens(): void {
-  db.prepare("DELETE FROM refresh_tokens WHERE expires_at < ?").run(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  db.prepare('DELETE FROM refresh_tokens WHERE expires_at < ?').run(
+    new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  );
 }

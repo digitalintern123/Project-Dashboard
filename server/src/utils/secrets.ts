@@ -62,7 +62,9 @@ export function decryptSecret(stored: string | null | undefined): string {
     decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
     return Buffer.concat([decipher.update(Buffer.from(dataB64, 'base64')), decipher.final()]).toString('utf8');
   } catch {
-    console.error('[Secrets] Could not decrypt a stored secret. Was SETTINGS_ENCRYPTION_KEY changed? Re-enter it in Email settings.');
+    console.error(
+      '[Secrets] Could not decrypt a stored secret. Was SETTINGS_ENCRYPTION_KEY changed? Re-enter it in Email settings.',
+    );
     return '';
   }
 }

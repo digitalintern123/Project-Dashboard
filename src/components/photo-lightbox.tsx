@@ -85,9 +85,10 @@ export function PhotoLightbox({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [confirmDelete, onClose, hasMultiple, photoList.length]);
 
-  const catStyle = currentPhoto.category && categoryStyles[currentPhoto.category]
-    ? categoryStyles[currentPhoto.category]
-    : categoryStyles.General;
+  const catStyle =
+    currentPhoto.category && categoryStyles[currentPhoto.category]
+      ? categoryStyles[currentPhoto.category]
+      : categoryStyles.General;
 
   const handleDownload = () => {
     const link = document.createElement('a');
@@ -253,11 +254,21 @@ export function PhotoLightbox({
           <div className="flex flex-wrap items-center gap-6 text-[11px] text-white/70">
             <div className="flex items-center gap-1.5">
               <Calendar size={13} className="text-white/50" />
-              <span>Captured: <strong className="text-white">{currentPhoto.takenDate ? formatFullDate(currentPhoto.takenDate) : 'Unknown'}</strong></span>
+              <span>
+                Captured:{' '}
+                <strong className="text-white">
+                  {currentPhoto.takenDate ? formatFullDate(currentPhoto.takenDate) : 'Unknown'}
+                </strong>
+              </span>
             </div>
             <div className="flex items-center gap-1.5">
               <User size={13} className="text-white/50" />
-              <span>Uploaded by: <strong className="text-white">{currentPhoto.uploadedBy || 'Team'} ({currentPhoto.role || 'Lead'})</strong></span>
+              <span>
+                Uploaded by:{' '}
+                <strong className="text-white">
+                  {currentPhoto.uploadedBy || 'Team'} ({currentPhoto.role || 'Lead'})
+                </strong>
+              </span>
             </div>
           </div>
         </div>

@@ -98,7 +98,8 @@ export function removePhotoFiles(photo: { url?: string | null; thumbnail_url?: s
  */
 async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
   const projectId = req.params.id as string;
-  const project = db.prepare('SELECT id, name FROM projects WHERE id = ?').get(projectId) as { id: string; name: string } | undefined;
+  const project = db.prepare('SELECT id, name FROM projects WHERE id = ?').get(projectId) as
+    { id: string; name: string } | undefined;
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
@@ -157,7 +158,9 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
   } catch (err) {
     for (const f of written) removeUploadFile(`/uploads/${f}`);
     console.warn('[Photos] Image processing failed:', err);
-    return res.status(400).json({ error: 'One of the images could not be read. Please check the files and try again.' });
+    return res
+      .status(400)
+      .json({ error: 'One of the images could not be read. Please check the files and try again.' });
   }
 
   const uploaderName = req.user!.name;
@@ -188,7 +191,20 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
         const caption = p.meta.caption || 'Site progress photograph';
         const category = p.meta.category || 'Progress';
         const takenDate = p.meta.takenDate || today;
-        insert.run(p.id, projectId, p.url, p.thumbnailUrl, caption, p.meta.stage || null, category, takenDate, uploaderName, uploaderRole, p.size, nowIso);
+        insert.run(
+          p.id,
+          projectId,
+          p.url,
+          p.thumbnailUrl,
+          caption,
+          p.meta.stage || null,
+          category,
+          takenDate,
+          uploaderName,
+          uploaderRole,
+          p.size,
+          nowIso,
+        );
         return {
           id: p.id,
           projectId,
@@ -210,7 +226,6 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
     throw err;
   }
 
-
   res.locals.auditEntityId = createdPhotos.map((p) => p.id).join(',');
   res.locals.auditAfter = createdPhotos;
   saveDatabaseSnapshot();
@@ -225,36 +240,61 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
 
 const photoUploadAudit = audited({ action: 'create', entityType: 'photo' });
 
-projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams }), photoUploadAudit, receivePhotos, handlePhotoUpload);
-projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), validate({ params: S.projectParams }), photoUploadAudit, receivePhotos, handlePhotoUpload);
+projectPhotosRouter.post(
+  '/',
+  requireAuth,
+  requireProjectAccess(),
+  validate({ params: S.projectParams }),
+  photoUploadAudit,
+  receivePhotos,
+  handlePhotoUpload,
+);
+projectPhotosRouter.post(
+  '/batch',
+  requireAuth,
+  requireProjectAccess(),
+  validate({ params: S.projectParams }),
+  photoUploadAudit,
+  receivePhotos,
+  handlePhotoUpload,
+);
 
 /**
  * Delete a specific site photograph
  */
-projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), validate({ params: S.photoParams }), audited({ action: 'delete', entityType: 'photo', table: 'photos', id: (req) => req.params.photoId as string }), transactional((req: AuthenticatedRequest, res) => {
-  const projectId = req.params.id as string;
-  const photoId = req.params.photoId as string;
+projectPhotosRouter.delete(
+  '/:photoId',
+  requireAuth,
+  requireProjectAccess(),
+  validate({ params: S.photoParams }),
+  audited({ action: 'delete', entityType: 'photo', table: 'photos', id: (req) => req.params.photoId as string }),
+  transactional((req: AuthenticatedRequest, res) => {
+    const projectId = req.params.id as string;
+    const photoId = req.params.photoId as string;
 
-  const photo = db.prepare('SELECT * FROM photos WHERE id = ? AND project_id = ?').get(photoId, projectId) as any;
-  if (!photo) {
-    return res.status(404).json({ error: 'Photograph not found' });
-  }
+    const photo = db.prepare('SELECT * FROM photos WHERE id = ? AND project_id = ?').get(photoId, projectId) as any;
+    if (!photo) {
+      return res.status(404).json({ error: 'Photograph not found' });
+    }
 
-  db.prepare('DELETE FROM photos WHERE id = ?').run(photoId);
-  afterCommit(() => {
-    removePhotoFiles(photo);
-    saveDatabaseSnapshot();
-  });
+    db.prepare('DELETE FROM photos WHERE id = ?').run(photoId);
+    afterCommit(() => {
+      removePhotoFiles(photo);
+      saveDatabaseSnapshot();
+    });
 
-  return res.json({ message: 'Photograph deleted successfully', project: fetchFullProject(projectId) });
-}));
+    return res.json({ message: 'Photograph deleted successfully', project: fetchFullProject(projectId) });
+  }),
+);
 
 /**
  * Get all photos for a project
  */
 projectPhotosRouter.get('/', requireAuth, validate({ params: S.projectParams }), (req, res) => {
   const projectId = req.params.id as string;
-  const rows = db.prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC').all(projectId);
+  const rows = db
+    .prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC')
+    .all(projectId);
   res.json({ photos: rows });
 });
 
@@ -263,7 +303,9 @@ projectPhotosRouter.get('/', requireAuth, validate({ params: S.projectParams }),
  */
 globalPhotosRouter.get('/', requireAuth, (req, res) => {
   try {
-    const rows = db.prepare(`
+    const rows = db
+      .prepare(
+        `
       SELECT 
         p.id,
         p.project_id as projectId,
@@ -284,7 +326,9 @@ globalPhotosRouter.get('/', requireAuth, (req, res) => {
       FROM photos p
       JOIN projects pr ON p.project_id = pr.id
       ORDER BY p.taken_date DESC, p.created_at DESC
-    `).all();
+    `,
+      )
+      .all();
 
     res.json({ photos: rows });
   } catch (err: any) {

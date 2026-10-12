@@ -6,7 +6,8 @@ export async function login(page: Page, role: E2ERole) {
   // Surface uncaught frontend errors in the test output.
   page.on('pageerror', (err) => console.log(`[pageerror] ${err.message}\n${err.stack ?? ''}`));
   page.on('console', (msg) => {
-    if (msg.type() === 'error' && !/Failed to load resource/.test(msg.text())) console.log(`[console.error] ${msg.text()}`);
+    if (msg.type() === 'error' && !/Failed to load resource/.test(msg.text()))
+      console.log(`[console.error] ${msg.text()}`);
   });
   await page.goto('/');
   await page.getByLabel('Email').fill(user.email);

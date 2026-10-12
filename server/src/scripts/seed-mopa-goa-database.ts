@@ -13,14 +13,18 @@ export function seedMopaGoaHotelToDatabase() {
     floor: 'Basement, Ground, Mezz-1 & 2, 1st floor, 2nd to 6th Guest floor',
     area: '20,000 SQ.M. / 2,15,280 SQ.FT.',
     capacity: '220 Keys • 109 Car Parks • 9 Elevators',
-    scope: 'Plot Area: 8,619 SQ.M. (2.13 Acre), FAR: 15,156 SQ.M. (1,63,139 SQ.FT.), Built-up Area: 20,000 SQ.M. (2,15,280 SQ.FT.), 220 Keys across Basement, Ground, Mezz-1 & 2, 1st floor, 2nd to 6th Guest floors with Ball Room, ADD, Lounge Bar, Gym, Health SPA, Function Terrace, Swimming Pool & MEPF infrastructure.',
+    scope:
+      'Plot Area: 8,619 SQ.M. (2.13 Acre), FAR: 15,156 SQ.M. (1,63,139 SQ.FT.), Built-up Area: 20,000 SQ.M. (2,15,280 SQ.FT.), 220 Keys across Basement, Ground, Mezz-1 & 2, 1st floor, 2nd to 6th Guest floors with Ball Room, ADD, Lounge Bar, Gym, Health SPA, Function Terrace, Swimming Pool & MEPF infrastructure.',
     customFields: [
       { label: 'FAR Area', value: '15,156 SQ.M. / 1,63,139 SQ.FT.' },
       { label: 'Car Parking', value: '109 Nos. ((36 X 2) stack parking, 3 single, 34 ground surface)' },
       { label: 'Elevators', value: '9 Nos. (6 Guest Lifts + 3 Service Lifts)' },
       { label: 'STP Capacity', value: '140 KLD (MBBR Technology)' },
       { label: 'Hot Water', value: 'Hot Generation System' },
-      { label: 'HVAC Chillers', value: 'Chilled water - 3 X 300TR (2working + 1standby) rotary screw chillers at Terrace Floor' },
+      {
+        label: 'HVAC Chillers',
+        value: 'Chilled water - 3 X 300TR (2working + 1standby) rotary screw chillers at Terrace Floor',
+      },
       { label: 'Cooling Towers', value: 'Cooling Tower 375 TR X 2no. At Terrace Floor' },
       { label: 'Electrical Sub-station', value: '2 X 800KVA compact type sub-station at Ground Floor level' },
       { label: 'DG Power Backup', value: '2 X 750 + 1 X 500 KVA DG for 100% power backup in Basement Floor' },
@@ -43,35 +47,145 @@ export function seedMopaGoaHotelToDatabase() {
       },
       fohAreas: {
         groundFloor: [
-          { sNo: 1, floor: 'Ground Floor', description: 'Ball Room', areaSqm: 465, areaSqft: 5005, capacityPax: '300', remarks: 'Large ballroom banquet facility' },
-          { sNo: 2, floor: 'Ground Floor', description: 'Pre-function', areaSqm: 217, areaSqft: 2336, remarks: 'Grand pre-event registration foyer' },
-          { sNo: 3, floor: 'Ground Floor', description: 'ADD (All Day Dining)', areaSqm: 610, areaSqft: 6566, capacityPax: '174', remarks: 'Main all day dining restaurant' },
-          { sNo: 4, floor: 'Ground Floor', description: 'Lounge BAR', areaSqm: 115, areaSqft: 1238, capacityPax: '23', remarks: 'Premium lounge & cocktail bar' },
-          { sNo: 5, floor: 'Ground Floor', description: 'Kitchen', areaSqm: 304, areaSqft: 3272, remarks: 'Main commercial kitchen and banqueting support' },
+          {
+            sNo: 1,
+            floor: 'Ground Floor',
+            description: 'Ball Room',
+            areaSqm: 465,
+            areaSqft: 5005,
+            capacityPax: '300',
+            remarks: 'Large ballroom banquet facility',
+          },
+          {
+            sNo: 2,
+            floor: 'Ground Floor',
+            description: 'Pre-function',
+            areaSqm: 217,
+            areaSqft: 2336,
+            remarks: 'Grand pre-event registration foyer',
+          },
+          {
+            sNo: 3,
+            floor: 'Ground Floor',
+            description: 'ADD (All Day Dining)',
+            areaSqm: 610,
+            areaSqft: 6566,
+            capacityPax: '174',
+            remarks: 'Main all day dining restaurant',
+          },
+          {
+            sNo: 4,
+            floor: 'Ground Floor',
+            description: 'Lounge BAR',
+            areaSqm: 115,
+            areaSqft: 1238,
+            capacityPax: '23',
+            remarks: 'Premium lounge & cocktail bar',
+          },
+          {
+            sNo: 5,
+            floor: 'Ground Floor',
+            description: 'Kitchen',
+            areaSqm: 304,
+            areaSqft: 3272,
+            remarks: 'Main commercial kitchen and banqueting support',
+          },
         ],
         groundFloorSubtotal: { areaSqm: 1711, areaSqft: 18417 },
         secondFloor: [
-          { sNo: 1, floor: '1st Floor', description: 'GYM', areaSqm: 59, areaSqft: 635, remarks: 'Modern fitness studio & workout floor' },
-          { sNo: 2, floor: '1st Floor', description: 'Health SPA', areaSqm: 139, areaSqft: 1496, remarks: '1no. Relaxation Room, 2no. Of treatment rooms & SPA BOH area' },
-          { sNo: 3, floor: '1st Floor', description: 'Function Terrace', areaSqm: 325, areaSqft: 3498, capacityPax: '34', remarks: 'Pool BAR Counter, semi covered seating' },
-          { sNo: 4, floor: '1st Floor', description: 'Swimming Pool', areaSqm: 250, areaSqft: 2691, remarks: "Swimming Pool, Kid's Pool" },
+          {
+            sNo: 1,
+            floor: '1st Floor',
+            description: 'GYM',
+            areaSqm: 59,
+            areaSqft: 635,
+            remarks: 'Modern fitness studio & workout floor',
+          },
+          {
+            sNo: 2,
+            floor: '1st Floor',
+            description: 'Health SPA',
+            areaSqm: 139,
+            areaSqft: 1496,
+            remarks: '1no. Relaxation Room, 2no. Of treatment rooms & SPA BOH area',
+          },
+          {
+            sNo: 3,
+            floor: '1st Floor',
+            description: 'Function Terrace',
+            areaSqm: 325,
+            areaSqft: 3498,
+            capacityPax: '34',
+            remarks: 'Pool BAR Counter, semi covered seating',
+          },
+          {
+            sNo: 4,
+            floor: '1st Floor',
+            description: 'Swimming Pool',
+            areaSqm: 250,
+            areaSqft: 2691,
+            remarks: "Swimming Pool, Kid's Pool",
+          },
         ],
         secondFloorSubtotal: { areaSqm: 773, areaSqft: 8320 },
         grandSubtotal: { areaSqm: 2484, areaSqft: 26737 },
       },
       floorWiseBua: {
         items: [
-          { sNo: 1, floor: 'Basement Floor', areaSqm: 2800, areaSqft: 30139, remarks: 'Parking (75 cars), 100% DG backup, Main electrical panel room, STP (140 KLD)' },
-          { sNo: 2, floor: 'Ground Floor', areaSqm: 3200, areaSqft: 34445, remarks: 'Main Lobby, Ball Room (300 Pax), Pre-function, ADD (174 Pax), Lounge Bar (23 Pax), Kitchen, Sub-station, Surface parking' },
-          { sNo: 3, floor: 'Mezzanine 1 Floor', areaSqm: 1400, areaSqft: 15070, remarks: 'Administration, engineering offices, BOH locker rooms' },
-          { sNo: 4, floor: 'Mezzanine 2 Floor', areaSqm: 1400, areaSqft: 15070, remarks: 'MEP service routing, storage, banquet back-of-house' },
-          { sNo: 5, floor: '1st Floor', areaSqm: 2200, areaSqft: 23681, remarks: 'Gym, Health SPA, Function Terrace (Pool Bar, 34 Pax), Swimming Pool & Kid’s pool' },
+          {
+            sNo: 1,
+            floor: 'Basement Floor',
+            areaSqm: 2800,
+            areaSqft: 30139,
+            remarks: 'Parking (75 cars), 100% DG backup, Main electrical panel room, STP (140 KLD)',
+          },
+          {
+            sNo: 2,
+            floor: 'Ground Floor',
+            areaSqm: 3200,
+            areaSqft: 34445,
+            remarks:
+              'Main Lobby, Ball Room (300 Pax), Pre-function, ADD (174 Pax), Lounge Bar (23 Pax), Kitchen, Sub-station, Surface parking',
+          },
+          {
+            sNo: 3,
+            floor: 'Mezzanine 1 Floor',
+            areaSqm: 1400,
+            areaSqft: 15070,
+            remarks: 'Administration, engineering offices, BOH locker rooms',
+          },
+          {
+            sNo: 4,
+            floor: 'Mezzanine 2 Floor',
+            areaSqm: 1400,
+            areaSqft: 15070,
+            remarks: 'MEP service routing, storage, banquet back-of-house',
+          },
+          {
+            sNo: 5,
+            floor: '1st Floor',
+            areaSqm: 2200,
+            areaSqft: 23681,
+            remarks: 'Gym, Health SPA, Function Terrace (Pool Bar, 34 Pax), Swimming Pool & Kid’s pool',
+          },
           { sNo: 6, floor: '2nd Guest Floor', areaSqm: 1800, areaSqft: 19375, remarks: '44 Guest keys' },
           { sNo: 7, floor: '3rd Guest Floor', areaSqm: 1800, areaSqft: 19375, remarks: '44 Guest keys' },
           { sNo: 8, floor: '4th Guest Floor', areaSqm: 1800, areaSqft: 19375, remarks: '44 Guest keys' },
           { sNo: 9, floor: '5th Guest Floor', areaSqm: 1800, areaSqft: 19375, remarks: '44 Guest keys' },
-          { sNo: 10, floor: '6th Guest Floor', areaSqm: 1700, areaSqft: 18299, remarks: '44 Keys (4 Executive Suites, 4 Presidential Suites)' },
-          { sNo: 11, floor: 'Terrace Floor', areaSqm: 100, areaSqft: 1076, remarks: '3x300TR screw chillers, 2x375TR cooling towers, lift machine room' },
+          {
+            sNo: 10,
+            floor: '6th Guest Floor',
+            areaSqm: 1700,
+            areaSqft: 18299,
+            remarks: '44 Keys (4 Executive Suites, 4 Presidential Suites)',
+          },
+          {
+            sNo: 11,
+            floor: 'Terrace Floor',
+            areaSqm: 100,
+            areaSqft: 1076,
+            remarks: '3x300TR screw chillers, 2x375TR cooling towers, lift machine room',
+          },
         ],
         subtotal: { areaSqm: 20000, areaSqft: 215280 },
       },
@@ -81,7 +195,13 @@ export function seedMopaGoaHotelToDatabase() {
           { sNo: 2, floor: '3rd Guest Floor', keys: 44, bays: 44, remarks: '44 Standard Deluxe Rooms' },
           { sNo: 3, floor: '4th Guest Floor', keys: 44, bays: 44, remarks: '44 Standard Deluxe Rooms' },
           { sNo: 4, floor: '5th Guest Floor', keys: 44, bays: 44, remarks: '44 Standard Deluxe Rooms' },
-          { sNo: 5, floor: '6th Guest Floor', keys: 44, bays: 44, remarks: '36 Standard Rooms, 4 Executive Suites, 4 Presidential Suites' },
+          {
+            sNo: 5,
+            floor: '6th Guest Floor',
+            keys: 44,
+            bays: 44,
+            remarks: '36 Standard Rooms, 4 Executive Suites, 4 Presidential Suites',
+          },
         ],
         totalKeys: 220,
         totalBays: 220,
@@ -134,7 +254,8 @@ export function seedMopaGoaHotelToDatabase() {
       planned_start: '2025-06-01',
       planned_finish: '2025-08-31',
       actual_finish: '2025-08-25',
-      work_completed: 'Site boundary survey, soil investigation, traffic impact study and 220-key operator brief ratified.',
+      work_completed:
+        'Site boundary survey, soil investigation, traffic impact study and 220-key operator brief ratified.',
       next_action: 'Proceed to statutory filings',
       decision_required: 'Operator architectural sign-off completed.',
     },
@@ -149,7 +270,8 @@ export function seedMopaGoaHotelToDatabase() {
       planned_start: '2025-09-01',
       planned_finish: '2026-03-31',
       actual_finish: null,
-      work_completed: 'Architectural schematic drawings, structural transfer slab layout, and terrace MEPF chillers layout frozen.',
+      work_completed:
+        'Architectural schematic drawings, structural transfer slab layout, and terrace MEPF chillers layout frozen.',
       next_action: 'Finalize BOQ and tender packages for substructure and MEPF packages.',
       decision_required: 'Confirmation on façade material and chiller energy efficiency specifications.',
     },
@@ -276,7 +398,8 @@ export function seedMopaGoaHotelToDatabase() {
       status: 'Open',
       stage: 'Design',
       impact_cost: null,
-      impact_schedule: 'Tender release must be advanced to Q1 2026 to ensure chillers arrive before terrace slab closure.',
+      impact_schedule:
+        'Tender release must be advanced to Q1 2026 to ensure chillers arrive before terrace slab closure.',
       impact_scope: null,
       action: 'Issue advance procurement package for long-lead HVAC equipment.',
       resolution: null,
@@ -288,7 +411,8 @@ export function seedMopaGoaHotelToDatabase() {
 
   const tx = db.transaction(() => {
     // Upsert project
-    db.prepare(`
+    db.prepare(
+      `
       INSERT OR REPLACE INTO projects (
         id, name, location, category, code, health, status, progress, target_date, target_label,
         aop, awarded, spent, projected_cost, area, pax_keys, next_milestone, next_milestone_date,
@@ -298,7 +422,8 @@ export function seedMopaGoaHotelToDatabase() {
         @aop, @awarded, @spent, @projected_cost, @area, @pax_keys, @next_milestone, @next_milestone_date,
         @lead_id, @start_date, @last_updated, @specification_json, @template_id
       )
-    `).run(projectRecord);
+    `,
+    ).run(projectRecord);
 
     // Delete existing child records for clean insert
     db.prepare('DELETE FROM phases WHERE project_id = ?').run(projectId);

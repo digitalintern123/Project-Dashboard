@@ -1,16 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent, type ChangeEvent } from 'react';
-import {
-  X,
-  Upload,
-  Image as ImageIcon,
-  Calendar,
-  Layers,
-  Tag,
-  Trash2,
-  Plus,
-  CheckCircle2,
-  Camera,
-} from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Calendar, Layers, Tag, Trash2, Plus, CheckCircle2, Camera } from 'lucide-react';
 import { photoCategories, type PhotoCategory, type Phase } from '@/data/projects';
 import { todayIso } from '@/lib/date';
 
@@ -99,7 +88,9 @@ export function PhotoUploadDialog({
 
     const room = MAX_PHOTOS_PER_UPLOAD - queue.length;
     if (accepted.length > room) {
-      problems.push(`At most ${MAX_PHOTOS_PER_UPLOAD} photographs per upload; ${accepted.length - Math.max(room, 0)} not added`);
+      problems.push(
+        `At most ${MAX_PHOTOS_PER_UPLOAD} photographs per upload; ${accepted.length - Math.max(room, 0)} not added`,
+      );
       accepted.splice(Math.max(room, 0));
     }
 
@@ -146,9 +137,7 @@ export function PhotoUploadDialog({
   };
 
   const handleUpdateItemCaption = (id: string, caption: string) => {
-    setQueue((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, caption } : item))
-    );
+    setQueue((prev) => prev.map((item) => (item.id === id ? { ...item, caption } : item)));
   };
 
   const handleApplyBatchMetadata = () => {
@@ -159,7 +148,7 @@ export function PhotoUploadDialog({
         category: batchCategory,
         takenDate: batchDate,
         ...(defaultCaption.trim() ? { caption: defaultCaption.trim() } : {}),
-      }))
+      })),
     );
   };
 
@@ -213,12 +202,8 @@ export function PhotoUploadDialog({
                 Multiple Upload Supported
               </span>
             </div>
-            <h2 className="text-[17px] font-bold text-foreground mt-0.5">
-              Upload Site Photographs
-            </h2>
-            <p className="text-[11px] text-muted-foreground truncate max-w-md">
-              {projectName}
-            </p>
+            <h2 className="text-[17px] font-bold text-foreground mt-0.5">Upload Site Photographs</h2>
+            <p className="text-[11px] text-muted-foreground truncate max-w-md">{projectName}</p>
           </div>
           <button
             type="button"
@@ -259,7 +244,10 @@ export function PhotoUploadDialog({
 
           {/* Device Upload Drop Zone */}
           <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={(e) => {
@@ -277,11 +265,10 @@ export function PhotoUploadDialog({
               <Camera size={20} />
             </div>
             <div>
-              <p className="text-[13px] font-bold text-foreground">
-                Select or drop multiple site photographs
-              </p>
+              <p className="text-[13px] font-bold text-foreground">Select or drop multiple site photographs</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                JPEG, PNG or WebP from your phone camera or computer · up to {MAX_PHOTOS_PER_UPLOAD} photos, {MAX_PHOTO_BYTES / 1024 / 1024} MB each
+                JPEG, PNG or WebP from your phone camera or computer · up to {MAX_PHOTOS_PER_UPLOAD} photos,{' '}
+                {MAX_PHOTO_BYTES / 1024 / 1024} MB each
               </p>
             </div>
             <label
@@ -319,11 +306,7 @@ export function PhotoUploadDialog({
                     {/* Thumbnail */}
                     <div className="size-14 shrink-0 overflow-hidden rounded-lg bg-black/5 flex items-center justify-center border border-border">
                       {item.previewUrl ? (
-                        <img
-                          src={item.previewUrl}
-                          alt={item.fileName}
-                          className="size-full object-cover"
-                        />
+                        <img src={item.previewUrl} alt={item.fileName} className="size-full object-cover" />
                       ) : (
                         <ImageIcon size={18} className="text-muted-foreground" />
                       )}
@@ -435,7 +418,10 @@ export function PhotoUploadDialog({
           {/* Action Buttons */}
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-border shrink-0">
             <span className="text-[11px] text-muted-foreground font-medium">
-              {uploadProgressText || (queue.length > 0 ? `${queue.length} photograph${queue.length > 1 ? 's' : ''} ready` : 'No photos selected yet')}
+              {uploadProgressText ||
+                (queue.length > 0
+                  ? `${queue.length} photograph${queue.length > 1 ? 's' : ''} ready`
+                  : 'No photos selected yet')}
             </span>
 
             <div className="flex items-center gap-2">
@@ -454,7 +440,7 @@ export function PhotoUploadDialog({
               >
                 <Upload size={13} />
                 {isSubmitting
-                  ? (uploadProgressText || 'Uploading...')
+                  ? uploadProgressText || 'Uploading...'
                   : queue.length > 1
                     ? `Upload ${queue.length} Site Photographs`
                     : 'Upload Site Photograph'}

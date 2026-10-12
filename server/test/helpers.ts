@@ -36,25 +36,27 @@ export function makeApp() {
 }
 
 export function insertProject(id: string, leadId: string | null) {
-  db.prepare(`
+  db.prepare(
+    `
     INSERT OR REPLACE INTO projects (
       id, name, location, category, code, health, status, progress,
       target_date, target_label, next_milestone, next_milestone_date, lead_id
     ) VALUES (?, ?, 'Delhi', 'Lounge', ?, 'On track', 'In Design', 10, '2027-01-01', 'Jan 2027', 'Brief', '2026-12-01', ?)
-  `).run(id, `Project ${id}`, id.toUpperCase(), leadId ?? '');
-  db.prepare(`
+  `,
+  ).run(id, `Project ${id}`, id.toUpperCase(), leadId ?? '');
+  db.prepare(
+    `
     INSERT OR REPLACE INTO phases (id, project_id, name, status, progress, owner, order_index)
     VALUES (?, ?, 'Brief & scope', 'active', 0, 'PMO', 0)
-  `).run(`${id}-phase-0`, id);
+  `,
+  ).run(`${id}-phase-0`, id);
 }
 
 /** Returns a supertest agent with a cookie session for the given test user. */
 export async function loginAs(app: ReturnType<typeof createApp>, key: TestUserKey) {
   const agent = request.agent(app);
   agent.set('X-Requested-With', 'XMLHttpRequest');
-  const res = await agent
-    .post('/api/auth/login')
-    .send({ email: testUsers[key].email, password: TEST_PASSWORD });
+  const res = await agent.post('/api/auth/login').send({ email: testUsers[key].email, password: TEST_PASSWORD });
   if (res.status !== 200) {
     throw new Error(`Login as ${key} failed: ${res.status} ${JSON.stringify(res.body)}`);
   }

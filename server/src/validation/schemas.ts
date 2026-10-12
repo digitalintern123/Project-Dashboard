@@ -22,7 +22,14 @@ const money = looseNumber.refine((v) => v === null || (v >= 0 && v < 1e13), 'Out
 const percent = looseNumber.refine((v) => v === null || (v >= 0 && v <= 100), 'Must be between 0 and 100');
 
 export const health = z.enum(['On track', 'At risk', 'Delayed', 'Not started']);
-export const projectStatus = z.enum(['Yet to start', 'In Design', 'In Tendering', 'Under Construction', 'Operational', 'On Hold']);
+export const projectStatus = z.enum([
+  'Yet to start',
+  'In Design',
+  'In Tendering',
+  'Under Construction',
+  'Operational',
+  'On Hold',
+]);
 export const phaseStatus = z.enum(['upcoming', 'active', 'blocked', 'complete']);
 export const milestoneStatus = z.enum(['upcoming', 'complete', 'late']);
 export const approvalStatus = z.enum(['Not required', 'Pending', 'Approved', 'Rejected']);
@@ -31,7 +38,9 @@ export const updateKind = z.enum(['Progress', 'Decision', 'Risk', 'General']);
 
 /** Arbitrary JSON object, capped by serialised size. */
 const boundedObject = (maxBytes: number) =>
-  z.record(z.string(), z.unknown()).refine((v) => JSON.stringify(v).length <= maxBytes, `Must be under ${maxBytes} bytes`);
+  z
+    .record(z.string(), z.unknown())
+    .refine((v) => JSON.stringify(v).length <= maxBytes, `Must be under ${maxBytes} bytes`);
 
 // ---------------------------------------------------------------------------
 // Params and query
@@ -46,16 +55,31 @@ export const idParams = z.object({ id });
 
 export const emailLogsQuery = z.object({
   projectId: id.optional(),
-  limit: z.string().regex(/^\d{1,3}$/).optional(),
+  limit: z
+    .string()
+    .regex(/^\d{1,3}$/)
+    .optional(),
 });
 export const directoryQuery = z.object({ q: z.string().max(100).optional() });
 export const auditQuery = z.object({
-  limit: z.string().regex(/^\d{1,3}$/).optional(),
-  offset: z.string().regex(/^\d{1,7}$/).optional(),
+  limit: z
+    .string()
+    .regex(/^\d{1,3}$/)
+    .optional(),
+  offset: z
+    .string()
+    .regex(/^\d{1,7}$/)
+    .optional(),
   userId: id.optional(),
-  entityType: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+  entityType: z
+    .string()
+    .regex(/^[a-z_]{1,40}$/)
+    .optional(),
   entityId: z.string().max(4000).optional(),
-  action: z.string().regex(/^[a-z_]{1,40}$/).optional(),
+  action: z
+    .string()
+    .regex(/^[a-z_]{1,40}$/)
+    .optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -99,9 +123,12 @@ const phaseFields = {
   taggedUsers,
 };
 
-export const createPhaseBody = z.object({ id: id.optional(), ...phaseFields }).partial().extend({
-  name: text(200).min(1).optional(),
-});
+export const createPhaseBody = z
+  .object({ id: id.optional(), ...phaseFields })
+  .partial()
+  .extend({
+    name: text(200).min(1).optional(),
+  });
 export const updatePhaseBody = z.object(phaseFields).partial().extend({ notify: z.boolean().optional() });
 export const movePhaseBody = z.object({
   phaseIndex: z.number().int().min(0).max(1000),
@@ -120,7 +147,10 @@ const milestoneFields = {
   taggedUsers,
 };
 
-export const createMilestoneBody = z.object({ id: id.optional(), ...milestoneFields }).partial().required({ title: true, date: true });
+export const createMilestoneBody = z
+  .object({ id: id.optional(), ...milestoneFields })
+  .partial()
+  .required({ title: true, date: true });
 export const updateMilestoneBody = z.object(milestoneFields).partial().extend({ notify: z.boolean().optional() });
 
 const issueFields = {
@@ -143,7 +173,10 @@ const issueFields = {
   taggedUsers,
 };
 
-export const createIssueBody = z.object({ id: id.optional(), ...issueFields }).partial().required({ title: true, detail: true });
+export const createIssueBody = z
+  .object({ id: id.optional(), ...issueFields })
+  .partial()
+  .required({ title: true, detail: true });
 export const updateIssueBody = z.object(issueFields).partial().extend({ notify: z.boolean().optional() });
 
 export const createUpdateBody = z.object({
@@ -189,9 +222,33 @@ export const createProjectBody = z
     id: id.optional(),
     templateId: optText(60),
     ...projectScalarFields,
-    phases: z.array(z.object({ id: id.optional(), ...phaseFields }).partial().required({ name: true })).max(50).optional(),
-    milestones: z.array(z.object({ id: id.optional(), ...milestoneFields }).partial().required({ title: true, date: true })).max(200).optional(),
-    issues: z.array(z.object({ id: id.optional(), ...issueFields }).partial().required({ title: true, detail: true })).max(200).optional(),
+    phases: z
+      .array(
+        z
+          .object({ id: id.optional(), ...phaseFields })
+          .partial()
+          .required({ name: true }),
+      )
+      .max(50)
+      .optional(),
+    milestones: z
+      .array(
+        z
+          .object({ id: id.optional(), ...milestoneFields })
+          .partial()
+          .required({ title: true, date: true }),
+      )
+      .max(200)
+      .optional(),
+    issues: z
+      .array(
+        z
+          .object({ id: id.optional(), ...issueFields })
+          .partial()
+          .required({ title: true, detail: true }),
+      )
+      .max(200)
+      .optional(),
   })
   .partial()
   .required({ name: true, location: true, category: true });
@@ -199,7 +256,10 @@ export const createProjectBody = z
 export const updateProjectBody = z
   .object({
     ...projectScalarFields,
-    phases: z.array(z.object({ id: id.optional(), budget: money.optional() })).max(50).optional(),
+    phases: z
+      .array(z.object({ id: id.optional(), budget: money.optional() }))
+      .max(50)
+      .optional(),
   })
   .partial();
 

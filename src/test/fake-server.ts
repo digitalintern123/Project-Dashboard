@@ -4,9 +4,33 @@ import type { User } from '@/data/users';
 export type FakeUser = User & { email: string; password: string };
 
 export const users: Record<'coordinator' | 'lead' | 'hod', FakeUser> = {
-  coordinator: { id: 'u-coord', name: 'Cora Ordinator', email: 'coord@test.local', role: 'coordinator', title: 'Project Coordinator', initials: 'CO', password: 'Coord-pass-123' },
-  lead: { id: 'u-lead', name: 'Lee Lead', email: 'lead@test.local', role: 'lead', title: 'Project Lead', initials: 'LL', password: 'Lead-pass-1234' },
-  hod: { id: 'u-hod', name: 'Hal Od', email: 'hod@test.local', role: 'hod', title: 'Project HOD', initials: 'HO', password: 'Hod-pass-12345' },
+  coordinator: {
+    id: 'u-coord',
+    name: 'Cora Ordinator',
+    email: 'coord@test.local',
+    role: 'coordinator',
+    title: 'Project Coordinator',
+    initials: 'CO',
+    password: 'Coord-pass-123',
+  },
+  lead: {
+    id: 'u-lead',
+    name: 'Lee Lead',
+    email: 'lead@test.local',
+    role: 'lead',
+    title: 'Project Lead',
+    initials: 'LL',
+    password: 'Lead-pass-1234',
+  },
+  hod: {
+    id: 'u-hod',
+    name: 'Hal Od',
+    email: 'hod@test.local',
+    role: 'hod',
+    title: 'Project HOD',
+    initials: 'HO',
+    password: 'Hod-pass-12345',
+  },
 };
 
 export const sampleProject = {
@@ -87,7 +111,8 @@ export function installFakeServer(options: Options = {}) {
       state.mustChangePassword = false;
       return json(200, { user: publicUser(state.session) });
     }
-    if (state.mustChangePassword) return json(403, { error: 'Password change required', code: 'PASSWORD_CHANGE_REQUIRED' });
+    if (state.mustChangePassword)
+      return json(403, { error: 'Password change required', code: 'PASSWORD_CHANGE_REQUIRED' });
 
     if (route === 'GET /api/projects') return json(200, { projects: [sampleProject] });
     if (route === 'GET /api/notifications') return json(200, { notifications: [], unreadCount: 0 });

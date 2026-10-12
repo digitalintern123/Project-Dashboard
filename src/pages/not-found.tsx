@@ -12,9 +12,7 @@ export default function NotFound() {
       <span className="grid size-14 place-items-center rounded-2xl bg-[#f8edcf] text-[#9a711f]">
         <Compass size={25} />
       </span>
-      <p className="mt-6 font-mono text-[10px] uppercase tracking-[.16em] text-muted-foreground">
-        Page not found
-      </p>
+      <p className="mt-6 font-mono text-[10px] uppercase tracking-[.16em] text-muted-foreground">Page not found</p>
       <h1 className="mt-3 font-serif text-[44px] leading-none tracking-[-.05em] text-[#173e49]">
         This page isn&rsquo;t part of the workspace.
       </h1>

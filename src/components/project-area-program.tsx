@@ -75,8 +75,7 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const hasProgram = Boolean(project.specification?.areaProgram);
-  const currentProgram: ArchitecturalAreaProgram =
-    project.specification?.areaProgram || emptyAreaProgram;
+  const currentProgram: ArchitecturalAreaProgram = project.specification?.areaProgram || emptyAreaProgram;
   const upperFloorName = currentProgram.fohAreas.secondFloor[0]?.floor || 'Upper Floor';
 
   const handleExportCSV = () => {
@@ -203,13 +202,7 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
       rows.push(['ROOM CONFIGURATION BY FLOOR']);
       rows.push(['S.No', 'Floor', 'Keys', 'Bays', 'Remarks']);
       currentProgram.roomConfiguration.items.forEach((item) => {
-        rows.push([
-          String(item.sNo),
-          item.floor,
-          String(item.keys),
-          String(item.bays),
-          `"${item.remarks || ''}"`,
-        ]);
+        rows.push([String(item.sNo), item.floor, String(item.keys), String(item.bays), `"${item.remarks || ''}"`]);
       });
       rows.push([
         '',
@@ -256,11 +249,10 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                 <span className="font-mono text-[9px] uppercase tracking-[.15em] text-[#9a711f]">
                   Official Master Area Register · Source: 3rd PDF
                 </span>
-                <h3 className="mt-1 text-[20px] font-bold text-foreground">
-                  Project Area Sheet Specification
-                </h3>
+                <h3 className="mt-1 text-[20px] font-bold text-foreground">Project Area Sheet Specification</h3>
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  Master space allocation for <strong>{project.name}</strong> from the official Project Area Sheet blueprint.
+                  Master space allocation for <strong>{project.name}</strong> from the official Project Area Sheet
+                  blueprint.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -284,19 +276,19 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
 
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-border bg-[#f8f6f0] p-4 text-center">
-                <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Sheet Entry No</span>
-                <span className="mt-1 block text-[20px] font-extrabold text-[#173e49]">
-                  #{sheet?.slNo ?? '—'}
+                <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                  Sheet Entry No
                 </span>
-                <span className="font-mono text-[10px] text-[#2e7c67]">
-                  {sheet?.section ?? 'FACILITIES'}
-                </span>
+                <span className="mt-1 block text-[20px] font-extrabold text-[#173e49]">#{sheet?.slNo ?? '—'}</span>
+                <span className="font-mono text-[10px] text-[#2e7c67]">{sheet?.section ?? 'FACILITIES'}</span>
               </div>
 
               <div className="rounded-xl border border-[#eadcb1] bg-[#fff8e9] p-4 text-center">
-                <span className="block font-mono text-[9px] uppercase tracking-wider text-[#9a711f]">Facility Area</span>
+                <span className="block font-mono text-[9px] uppercase tracking-wider text-[#9a711f]">
+                  Facility Area
+                </span>
                 <span className="mt-1 block text-[18px] font-extrabold text-[#173e49]">
-                  {sheet?.areaSqft ? `${sheet.areaSqft.toLocaleString()} SQ.FT.` : (project.area || '—')}
+                  {sheet?.areaSqft ? `${sheet.areaSqft.toLocaleString()} SQ.FT.` : project.area || '—'}
                 </span>
                 <span className="font-mono text-[10px] text-[#9a711f]">
                   {sheet?.areaSqm ? `${sheet.areaSqm.toLocaleString()} SQ.M.` : ''}
@@ -304,29 +296,30 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
               </div>
 
               <div className="rounded-xl border border-border bg-[#f8f6f0] p-4 text-center">
-                <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Location & Level</span>
-                <span className="mt-1 block text-[16px] font-extrabold text-[#173e49]">
-                  {project.location}
+                <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                  Location & Level
                 </span>
+                <span className="mt-1 block text-[16px] font-extrabold text-[#173e49]">{project.location}</span>
                 <span className="font-mono text-[10px] text-muted-foreground">
                   {project.specification?.floor || 'Terminal / Concourse'}
                 </span>
               </div>
 
               <div className="rounded-xl border border-border bg-[#f8f6f0] p-4 text-center">
-                <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Sheet Status</span>
+                <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                  Sheet Status
+                </span>
                 <span className="mt-1 block text-[13px] font-extrabold text-[#2e7c67]">
                   {sheet?.status || project.status || 'Operational'}
                 </span>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  Progress: {project.progress}%
-                </span>
+                <span className="font-mono text-[10px] text-muted-foreground">Progress: {project.progress}%</span>
               </div>
             </div>
 
             <div className="mt-5 rounded-xl border border-border bg-[#fcfaf4] p-4 text-[12px] leading-relaxed text-muted-foreground">
               <strong className="text-foreground">Facility Scope:</strong>{' '}
-              {project.specification?.scope || `${project.name} at ${project.location} airport. Area: ${project.area || 'Standard'}.`}
+              {project.specification?.scope ||
+                `${project.name} at ${project.location} airport. Area: ${project.area || 'Standard'}.`}
             </div>
           </div>
         ) : (
@@ -334,11 +327,10 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
             <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-[#f8f5ec] text-[#9a711f]">
               <Building2 size={30} />
             </div>
-            <h3 className="mt-4 text-[19px] font-bold text-foreground">
-              Architectural Space Program Not Configured
-            </h3>
+            <h3 className="mt-4 text-[19px] font-bold text-foreground">Architectural Space Program Not Configured</h3>
             <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground max-w-lg mx-auto">
-              No architectural area or room configuration has been entered for <strong>{project.name}</strong> yet. You can manually enter plot area, BUA, keys, bays, floor-wise built-up area, and FOH public facilities.
+              No architectural area or room configuration has been entered for <strong>{project.name}</strong> yet. You
+              can manually enter plot area, BUA, keys, bays, floor-wise built-up area, and FOH public facilities.
             </p>
             {editable && (
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -402,9 +394,7 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
               Architectural Area Program & Summary
             </span>
           </div>
-          <h2 className="mt-1 text-[22px] font-extrabold tracking-tight text-[#173e49]">
-            {project.name} Area Program
-          </h2>
+          <h2 className="mt-1 text-[22px] font-extrabold tracking-tight text-[#173e49]">{project.name} Area Program</h2>
           <p className="mt-1 text-[12px] text-muted-foreground">
             Complete space allocation, FOH area bifurcation, floor-wise built-up area (BUA), and room inventory matrix.
           </p>
@@ -449,7 +439,8 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
           </div>
           <div className="mt-3">
             <span className="text-[20px] font-extrabold text-foreground">
-              {currentProgram.summary.plotAreaSqm.toLocaleString()} <span className="text-[12px] font-medium text-muted-foreground">SQ.M.</span>
+              {currentProgram.summary.plotAreaSqm.toLocaleString()}{' '}
+              <span className="text-[12px] font-medium text-muted-foreground">SQ.M.</span>
             </span>
             <p className="mt-0.5 font-mono text-[11px] text-[#2e7c67] font-semibold">
               {currentProgram.summary.plotAreaSqft.toLocaleString()} SQ.FT.
@@ -467,14 +458,13 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
           </div>
           <div className="mt-3">
             <span className="text-[20px] font-extrabold text-[#173e49]">
-              {currentProgram.summary.builtUpAreaSqm.toLocaleString()} <span className="text-[12px] font-medium text-muted-foreground">SQ.M.</span>
+              {currentProgram.summary.builtUpAreaSqm.toLocaleString()}{' '}
+              <span className="text-[12px] font-medium text-muted-foreground">SQ.M.</span>
             </span>
             <p className="mt-0.5 font-mono text-[11px] text-[#9a711f] font-bold">
               {currentProgram.summary.builtUpAreaSqft.toLocaleString()} SQ.FT.
             </p>
-            <p className="mt-1 text-[10px] text-[#785b20] font-medium">
-              B + G + 1 + Service + 2nd–6th
-            </p>
+            <p className="mt-1 text-[10px] text-[#785b20] font-medium">B + G + 1 + Service + 2nd–6th</p>
           </div>
         </div>
 
@@ -485,12 +475,16 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
           </div>
           <div className="mt-3">
             <span className="text-[20px] font-extrabold text-foreground">
-              {currentProgram.summary.totalRoomKeys} <span className="text-[12px] font-medium text-muted-foreground">Keys</span>
+              {currentProgram.summary.totalRoomKeys}{' '}
+              <span className="text-[12px] font-medium text-muted-foreground">Keys</span>
             </span>
             <p className="mt-0.5 font-mono text-[11px] text-[#2e7c67] font-semibold">
               {currentProgram.summary.totalBays} Total Bays
             </p>
-            <p className="mt-1 text-[10px] text-muted-foreground font-medium truncate" title={currentProgram.summary.generalRemarks}>
+            <p
+              className="mt-1 text-[10px] text-muted-foreground font-medium truncate"
+              title={currentProgram.summary.generalRemarks}
+            >
               {currentProgram.summary.generalRemarks || `${currentProgram.summary.totalRoomKeys} Keys across floors`}
             </p>
           </div>
@@ -503,14 +497,13 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
           </div>
           <div className="mt-3">
             <span className="text-[20px] font-extrabold text-foreground">
-              {currentProgram.summary.standardRoomSizeSqm} <span className="text-[12px] font-medium text-muted-foreground">SQ.M.</span>
+              {currentProgram.summary.standardRoomSizeSqm}{' '}
+              <span className="text-[12px] font-medium text-muted-foreground">SQ.M.</span>
             </span>
             <p className="mt-0.5 font-mono text-[11px] text-[#2e7c67] font-semibold">
               {Math.round(currentProgram.summary.standardRoomSizeSqm * 10.7639)} SQ.FT.
             </p>
-            <p className="mt-1 text-[10px] text-muted-foreground font-medium">
-              Single standard bay unit
-            </p>
+            <p className="mt-1 text-[10px] text-muted-foreground font-medium">Single standard bay unit</p>
           </div>
         </div>
 
@@ -521,14 +514,16 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
           </div>
           <div className="mt-3">
             <span className="text-[20px] font-extrabold text-foreground">
-              {currentProgram.summary.numberOfElevators} <span className="text-[12px] font-medium text-muted-foreground">Total</span>
+              {currentProgram.summary.numberOfElevators}{' '}
+              <span className="text-[12px] font-medium text-muted-foreground">Total</span>
             </span>
-            <p className="mt-0.5 text-[11px] text-foreground font-semibold truncate" title={currentProgram.summary.elevatorRemarks}>
+            <p
+              className="mt-0.5 text-[11px] text-foreground font-semibold truncate"
+              title={currentProgram.summary.elevatorRemarks}
+            >
               {currentProgram.summary.elevatorRemarks || `${currentProgram.summary.numberOfElevators} Elevators`}
             </p>
-            <p className="mt-1 text-[10px] text-muted-foreground font-medium">
-              Passenger & Service Vertical Transport
-            </p>
+            <p className="mt-1 text-[10px] text-muted-foreground font-medium">Passenger & Service Vertical Transport</p>
           </div>
         </div>
 
@@ -539,14 +534,13 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
           </div>
           <div className="mt-3">
             <span className="text-[20px] font-extrabold text-[#173e49]">
-              {currentProgram.fohAreas.grandSubtotal.areaSqm.toLocaleString()} <span className="text-[12px] font-medium text-muted-foreground">SQ.M.</span>
+              {currentProgram.fohAreas.grandSubtotal.areaSqm.toLocaleString()}{' '}
+              <span className="text-[12px] font-medium text-muted-foreground">SQ.M.</span>
             </span>
             <p className="mt-0.5 font-mono text-[11px] text-[#2e7c67] font-semibold">
               {currentProgram.fohAreas.grandSubtotal.areaSqft.toLocaleString()} SQ.FT.
             </p>
-            <p className="mt-1 text-[10px] text-muted-foreground font-medium">
-              Ground + 2nd floor facilities
-            </p>
+            <p className="mt-1 text-[10px] text-muted-foreground font-medium">Ground + 2nd floor facilities</p>
           </div>
         </div>
       </div>
@@ -558,16 +552,16 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
             <span className="font-mono text-[9px] uppercase tracking-[.15em] text-[#9a711f] font-bold">
               Front of House (FOH)
             </span>
-            <h3 className="mt-1 text-[18px] font-extrabold text-[#173e49]">
-              Key FOH Areas Bifurcation
-            </h3>
+            <h3 className="mt-1 text-[18px] font-extrabold text-[#173e49]">Key FOH Areas Bifurcation</h3>
           </div>
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5 font-medium">
-              <span className="size-2 rounded-full bg-[#3d9a7e]" /> Ground Floor: {currentProgram.fohAreas.groundFloorSubtotal.areaSqm.toLocaleString()} SQ.M.
+              <span className="size-2 rounded-full bg-[#3d9a7e]" /> Ground Floor:{' '}
+              {currentProgram.fohAreas.groundFloorSubtotal.areaSqm.toLocaleString()} SQ.M.
             </span>
             <span className="inline-flex items-center gap-1.5 font-medium">
-              <span className="size-2 rounded-full bg-[#d19b35]" /> {upperFloorName}: {currentProgram.fohAreas.secondFloorSubtotal.areaSqm.toLocaleString()} SQ.M.
+              <span className="size-2 rounded-full bg-[#d19b35]" /> {upperFloorName}:{' '}
+              {currentProgram.fohAreas.secondFloorSubtotal.areaSqm.toLocaleString()} SQ.M.
             </span>
           </div>
         </div>
@@ -603,7 +597,9 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                     <td className="px-3 py-2.5 font-medium text-foreground">{item.floor}</td>
                     <td className="px-3 py-2.5 font-bold text-[#173e49]">{item.description}</td>
                     <td className="px-3 py-2.5 text-right font-mono font-semibold">{item.areaSqm.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-muted-foreground">{item.areaSqft.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-muted-foreground">
+                      {item.areaSqft.toLocaleString()}
+                    </td>
                     <td className="px-3 py-2.5 text-center">
                       {item.capacityPax ? (
                         <span className="inline-block rounded-full bg-[#f8edcf] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#9a711f]">
@@ -619,7 +615,10 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-border bg-[#f8f6f0] font-bold text-foreground">
-                  <td colSpan={3} className="py-2.5 pl-4 pr-3 text-right font-mono uppercase text-[10px] tracking-wider text-muted-foreground">
+                  <td
+                    colSpan={3}
+                    className="py-2.5 pl-4 pr-3 text-right font-mono uppercase text-[10px] tracking-wider text-muted-foreground"
+                  >
                     Ground Floor Subtotal
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono text-[#173e49]">
@@ -668,7 +667,9 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                     <td className="px-3 py-2.5 font-medium text-foreground">{item.floor}</td>
                     <td className="px-3 py-2.5 font-bold text-[#173e49]">{item.description}</td>
                     <td className="px-3 py-2.5 text-right font-mono font-semibold">{item.areaSqm.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-muted-foreground">{item.areaSqft.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-muted-foreground">
+                      {item.areaSqft.toLocaleString()}
+                    </td>
                     <td className="px-3 py-2.5 text-center">
                       {item.capacityPax ? (
                         <span className="inline-block rounded-full bg-[#f8edcf] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#9a711f]">
@@ -684,7 +685,10 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-border bg-[#f8f6f0] font-bold text-foreground">
-                  <td colSpan={3} className="py-2.5 pl-4 pr-3 text-right font-mono uppercase text-[10px] tracking-wider text-muted-foreground">
+                  <td
+                    colSpan={3}
+                    className="py-2.5 pl-4 pr-3 text-right font-mono uppercase text-[10px] tracking-wider text-muted-foreground"
+                  >
                     {upperFloorName} Subtotal
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono text-[#173e49]">
@@ -698,7 +702,10 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                   </td>
                 </tr>
                 <tr className="border-t border-border bg-[#faefe4] font-extrabold text-[#173e49]">
-                  <td colSpan={3} className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-[#9a711f]">
+                  <td
+                    colSpan={3}
+                    className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-[#9a711f]"
+                  >
                     Grand Total FOH Areas
                   </td>
                   <td className="px-3 py-3 text-right font-mono text-[14px] text-[#173e49]">
@@ -726,9 +733,7 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
               <span className="font-mono text-[9px] uppercase tracking-[.15em] text-[#2e7c67] font-bold">
                 Vertical Stacking
               </span>
-              <h3 className="mt-1 text-[18px] font-extrabold text-[#173e49]">
-                Floor-Wise Built-Up Area (BUA)
-              </h3>
+              <h3 className="mt-1 text-[18px] font-extrabold text-[#173e49]">Floor-Wise Built-Up Area (BUA)</h3>
             </div>
             <div className="text-right">
               <span className="font-mono text-[14px] font-extrabold text-[#173e49]">
@@ -760,16 +765,18 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                     <tr key={`${item.floor}-${idx}`} className="hover:bg-[#fbfaf6] transition-colors">
                       <td className="py-2.5 pl-3 pr-2 font-mono text-muted-foreground text-[11px]">{item.sNo}</td>
                       <td className="px-2 py-2.5 font-bold text-[#173e49]">{item.floor}</td>
-                      <td className="px-2 py-2.5 text-right font-mono font-semibold">{item.areaSqm.toLocaleString()}</td>
-                      <td className="px-2 py-2.5 text-right font-mono text-muted-foreground text-[11px]">{item.areaSqft.toLocaleString()}</td>
+                      <td className="px-2 py-2.5 text-right font-mono font-semibold">
+                        {item.areaSqm.toLocaleString()}
+                      </td>
+                      <td className="px-2 py-2.5 text-right font-mono text-muted-foreground text-[11px]">
+                        {item.areaSqft.toLocaleString()}
+                      </td>
                       <td className="px-2 py-2.5 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <div className="h-1.5 w-12 rounded-full bg-[#e7e7dc] overflow-hidden">
                             <div className="h-full rounded-full bg-[#3d9a7e]" style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="font-mono text-[10px] font-bold text-foreground w-6 text-right">
-                            {pct}%
-                          </span>
+                          <span className="font-mono text-[10px] font-bold text-foreground w-6 text-right">{pct}%</span>
                         </div>
                       </td>
                       <td className="py-2.5 pl-2 pr-3 text-muted-foreground text-[11px]">{item.remarks || '—'}</td>
@@ -779,7 +786,10 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-border bg-[#f8f6f0] font-extrabold text-[#173e49]">
-                  <td colSpan={2} className="py-2.5 pl-3 pr-2 font-mono uppercase text-[10px] tracking-wider text-muted-foreground">
+                  <td
+                    colSpan={2}
+                    className="py-2.5 pl-3 pr-2 font-mono uppercase text-[10px] tracking-wider text-muted-foreground"
+                  >
                     Total BUA
                   </td>
                   <td className="px-2 py-2.5 text-right font-mono text-[13px] text-[#173e49]">
@@ -806,9 +816,7 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                 <span className="font-mono text-[9px] uppercase tracking-[.15em] text-[#9a711f] font-bold">
                   Guest Inventory
                 </span>
-                <h3 className="mt-1 text-[18px] font-extrabold text-[#173e49]">
-                  Room Configuration by Floor
-                </h3>
+                <h3 className="mt-1 text-[18px] font-extrabold text-[#173e49]">Room Configuration by Floor</h3>
               </div>
               <div className="text-right">
                 <span className="font-mono text-[14px] font-extrabold text-[#173e49]">
@@ -846,13 +854,18 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                           {item.bays}
                         </span>
                       </td>
-                      <td className="py-2.5 pl-2 pr-3 text-[11px] text-muted-foreground">{item.remarks || 'Standard'}</td>
+                      <td className="py-2.5 pl-2 pr-3 text-[11px] text-muted-foreground">
+                        {item.remarks || 'Standard'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-border bg-[#f8f6f0] font-extrabold text-[#173e49]">
-                    <td colSpan={2} className="py-2.5 pl-3 pr-2 font-mono uppercase text-[10px] tracking-wider text-muted-foreground">
+                    <td
+                      colSpan={2}
+                      className="py-2.5 pl-3 pr-2 font-mono uppercase text-[10px] tracking-wider text-muted-foreground"
+                    >
                       Total Keys & Bays
                     </td>
                     <td className="px-3 py-2.5 text-center font-mono text-[13px] text-[#2e7c67]">
@@ -862,7 +875,8 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                       {currentProgram.roomConfiguration.totalBays}
                     </td>
                     <td className="py-2.5 pl-2 pr-3 text-[11px] text-[#173e49] font-medium">
-                      {currentProgram.roomConfiguration.totalKeys} Keys ({currentProgram.roomConfiguration.totalBays} Bays)
+                      {currentProgram.roomConfiguration.totalKeys} Keys ({currentProgram.roomConfiguration.totalBays}{' '}
+                      Bays)
                     </td>
                   </tr>
                 </tfoot>
@@ -882,8 +896,12 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
           </div>
 
           <div className="mt-5 pt-4 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Standard Room Size: <strong>{currentProgram.summary.standardRoomSizeSqm} SQ.M.</strong></span>
-            <span>Total Operational Bays: <strong>{currentProgram.summary.totalBays}</strong></span>
+            <span>
+              Standard Room Size: <strong>{currentProgram.summary.standardRoomSizeSqm} SQ.M.</strong>
+            </span>
+            <span>
+              Total Operational Bays: <strong>{currentProgram.summary.totalBays}</strong>
+            </span>
           </div>
         </section>
       </div>
@@ -896,9 +914,7 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
               <span className="font-mono text-[9px] uppercase tracking-[.15em] text-[#2e7c67] font-bold">
                 Infrastructure & Utilities
               </span>
-              <h3 className="mt-1 text-[18px] font-extrabold text-[#173e49]">
-                MEPF Services & Plant Capacities
-              </h3>
+              <h3 className="mt-1 text-[18px] font-extrabold text-[#173e49]">MEPF Services & Plant Capacities</h3>
             </div>
             <span className="font-mono text-[11px] text-muted-foreground">
               {project.specification.customFields.length} Specifications Recorded
@@ -911,9 +927,7 @@ export function ProjectAreaProgram({ project, editable, onSave }: ProjectAreaPro
                 <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#9a711f]">
                   {field.label}
                 </span>
-                <p className="mt-1 text-[12px] font-semibold text-[#173e49] leading-snug">
-                  {field.value}
-                </p>
+                <p className="mt-1 text-[12px] font-semibold text-[#173e49] leading-snug">{field.value}</p>
               </div>
             ))}
           </div>
@@ -966,9 +980,7 @@ export function AreaProgramEditorModal({
   onClose: () => void;
   onSave: (program: ArchitecturalAreaProgram) => void;
 }) {
-  const [draft, setDraft] = useState<ArchitecturalAreaProgram>(() =>
-    JSON.parse(JSON.stringify(initialProgram))
-  );
+  const [draft, setDraft] = useState<ArchitecturalAreaProgram>(() => JSON.parse(JSON.stringify(initialProgram)));
   const [activeTab, setActiveTab] = useState<'summary' | 'foh' | 'bua' | 'rooms'>('summary');
 
   // Live Calculations
@@ -996,12 +1008,14 @@ export function AreaProgramEditorModal({
   const totalBays = draft.roomConfiguration.items.reduce((acc, it) => acc + (Number(it.bays) || 0), 0);
 
   const hasFloorItems = draft.floorWiseBua.items.length > 0;
-  const effectiveBuaSqm = hasFloorItems ? buaSubtotalSqm : (draft.summary.builtUpAreaSqm || 0);
-  const effectiveBuaSqft = hasFloorItems ? buaSubtotalSqft : (draft.summary.builtUpAreaSqft || Math.round(effectiveBuaSqm * 10.7639));
+  const effectiveBuaSqm = hasFloorItems ? buaSubtotalSqm : draft.summary.builtUpAreaSqm || 0;
+  const effectiveBuaSqft = hasFloorItems
+    ? buaSubtotalSqft
+    : draft.summary.builtUpAreaSqft || Math.round(effectiveBuaSqm * 10.7639);
 
   const hasRoomItems = draft.roomConfiguration.items.length > 0;
-  const effectiveKeys = hasRoomItems ? totalKeys : (draft.summary.totalRoomKeys || 0);
-  const effectiveBays = hasRoomItems ? totalBays : (draft.summary.totalBays || 0);
+  const effectiveKeys = hasRoomItems ? totalKeys : draft.summary.totalRoomKeys || 0;
+  const effectiveBays = hasRoomItems ? totalBays : draft.summary.totalBays || 0;
 
   const updateSummary = (key: keyof ArchitecturalAreaProgram['summary'], value: any) => {
     setDraft((prev) => {
@@ -1055,7 +1069,6 @@ export function AreaProgramEditorModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200">
       <div className="flex max-h-[92vh] w-full max-w-5xl xl:max-w-6xl flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
-        
         {/* Modal Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border bg-[#f8f6f0] px-6 py-4">
           <div className="flex items-center gap-3">
@@ -1064,9 +1077,7 @@ export function AreaProgramEditorModal({
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-[17px] font-extrabold text-[#173e49]">
-                  Edit Architectural Space Program
-                </h3>
+                <h3 className="text-[17px] font-extrabold text-[#173e49]">Edit Architectural Space Program</h3>
                 <span className="rounded-md bg-[#e4f1ec] px-2 py-0.5 font-mono text-[10px] font-bold text-[#2e7c67]">
                   Executive Matrix
                 </span>
@@ -1080,12 +1091,8 @@ export function AreaProgramEditorModal({
           <div className="flex items-center gap-3">
             {/* Live KPI Header Pill */}
             <div className="hidden lg:flex items-center gap-2 rounded-xl border border-[#eadcb1] bg-[#fffbf2] px-3 py-1.5 font-mono text-[11px]">
-              <span className="font-bold text-[#173e49]">
-                BUA: {effectiveBuaSqm.toLocaleString()} SQ.M.
-              </span>
-              <span className="text-[#9a711f] font-medium">
-                ({effectiveBuaSqft.toLocaleString()} SQ.FT.)
-              </span>
+              <span className="font-bold text-[#173e49]">BUA: {effectiveBuaSqm.toLocaleString()} SQ.M.</span>
+              <span className="text-[#9a711f] font-medium">({effectiveBuaSqft.toLocaleString()} SQ.FT.)</span>
               <span className="text-border">|</span>
               <span className="font-bold text-[#2e7c67]">
                 {effectiveKeys} Keys / {effectiveBays} Bays
@@ -1146,9 +1153,7 @@ export function AreaProgramEditorModal({
                 {tab.badge !== null && (
                   <span
                     className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition ${
-                      isActive
-                        ? 'bg-[#173e49] text-white'
-                        : 'bg-muted border border-border text-muted-foreground'
+                      isActive ? 'bg-[#173e49] text-white' : 'bg-muted border border-border text-muted-foreground'
                     }`}
                   >
                     {tab.badge}
@@ -1161,7 +1166,6 @@ export function AreaProgramEditorModal({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          
           {/* TAB 1: EXECUTIVE SUMMARY */}
           {activeTab === 'summary' && (
             <div className="space-y-6">
@@ -1238,7 +1242,8 @@ export function AreaProgramEditorModal({
                   </div>
                   {hasFloorItems && (
                     <span className="font-mono text-[10px] font-bold text-[#2e7c67] flex items-center gap-1">
-                      <CheckCircle2 size={13} /> Synced from Floor-Wise BUA Table ({draft.floorWiseBua.items.length} Floors)
+                      <CheckCircle2 size={13} /> Synced from Floor-Wise BUA Table ({draft.floorWiseBua.items.length}{' '}
+                      Floors)
                     </span>
                   )}
                 </div>
@@ -1305,7 +1310,8 @@ export function AreaProgramEditorModal({
                   </div>
                   {hasRoomItems && (
                     <span className="font-mono text-[10px] font-bold text-[#2e7c67] flex items-center gap-1">
-                      <CheckCircle2 size={13} /> Synced from Room Configuration Matrix ({draft.roomConfiguration.items.length} Floors)
+                      <CheckCircle2 size={13} /> Synced from Room Configuration Matrix (
+                      {draft.roomConfiguration.items.length} Floors)
                     </span>
                   )}
                 </div>
@@ -1325,9 +1331,7 @@ export function AreaProgramEditorModal({
                   </label>
 
                   <label className="block">
-                    <span className="mb-1.5 block font-mono text-[11px] font-bold text-foreground">
-                      Total Bays
-                    </span>
+                    <span className="mb-1.5 block font-mono text-[11px] font-bold text-foreground">Total Bays</span>
                     <input
                       type="number"
                       min="0"
@@ -1412,16 +1416,13 @@ export function AreaProgramEditorModal({
           {/* TAB 2: KEY FOH AREAS BIFURCATION */}
           {activeTab === 'foh' && (
             <div className="space-y-8">
-              
               {/* Ground Floor FOH Table */}
               <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/70 pb-4 mb-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="size-2.5 rounded-full bg-[#3d9a7e]" />
-                      <h4 className="text-[15px] font-extrabold text-[#173e49]">
-                        Ground Floor Public & Banquet Areas
-                      </h4>
+                      <h4 className="text-[15px] font-extrabold text-[#173e49]">Ground Floor Public & Banquet Areas</h4>
                       <span className="rounded-md bg-[#e4f1ec] px-2 py-0.5 font-mono text-[11px] font-bold text-[#2e7c67]">
                         {draft.fohAreas.groundFloor.length} Allocated
                       </span>
@@ -1459,7 +1460,6 @@ export function AreaProgramEditorModal({
                     >
                       <Plus size={13} /> Add Area
                     </button>
-
                   </div>
                 </div>
 
@@ -1481,7 +1481,8 @@ export function AreaProgramEditorModal({
                       {draft.fohAreas.groundFloor.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="py-8 text-center text-muted-foreground text-[12px]">
-                            No Ground Floor public areas entered yet. Click <strong>+ Add Area</strong> to add a public facility.
+                            No Ground Floor public areas entered yet. Click <strong>+ Add Area</strong> to add a public
+                            facility.
                           </td>
                         </tr>
                       ) : (
@@ -1528,7 +1529,9 @@ export function AreaProgramEditorModal({
                               />
                             </td>
                             <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                              {item.areaSqft ? item.areaSqft.toLocaleString() : Math.round(item.areaSqm * 10.7639).toLocaleString()}
+                              {item.areaSqft
+                                ? item.areaSqft.toLocaleString()
+                                : Math.round(item.areaSqm * 10.7639).toLocaleString()}
                             </td>
                             <td className="px-2 py-2">
                               <input
@@ -1586,7 +1589,10 @@ export function AreaProgramEditorModal({
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-border bg-[#f8f6f0] font-bold">
-                        <td colSpan={2} className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-muted-foreground">
+                        <td
+                          colSpan={2}
+                          className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-muted-foreground"
+                        >
                           Ground Floor Subtotal:
                         </td>
                         <td className="px-3 py-3 font-mono text-[12px] text-[#173e49]">
@@ -1719,7 +1725,9 @@ export function AreaProgramEditorModal({
                               />
                             </td>
                             <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                              {item.areaSqft ? item.areaSqft.toLocaleString() : Math.round(item.areaSqm * 10.7639).toLocaleString()}
+                              {item.areaSqft
+                                ? item.areaSqft.toLocaleString()
+                                : Math.round(item.areaSqm * 10.7639).toLocaleString()}
                             </td>
                             <td className="px-2 py-2">
                               <input
@@ -1777,7 +1785,10 @@ export function AreaProgramEditorModal({
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-border bg-[#f8f6f0] font-bold">
-                        <td colSpan={2} className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-muted-foreground">
+                        <td
+                          colSpan={2}
+                          className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-muted-foreground"
+                        >
                           2nd Floor Subtotal:
                         </td>
                         <td className="px-3 py-3 font-mono text-[12px] text-[#173e49]">
@@ -1810,9 +1821,7 @@ export function AreaProgramEditorModal({
                   <span className="text-[16px] font-extrabold text-[#173e49]">
                     {fohGrandSqm.toLocaleString()} SQ.M.
                   </span>
-                  <span className="text-[14px] font-bold text-[#9a711f]">
-                    {fohGrandSqft.toLocaleString()} SQ.FT.
-                  </span>
+                  <span className="text-[14px] font-bold text-[#9a711f]">{fohGrandSqft.toLocaleString()} SQ.FT.</span>
                   <span className="rounded-md bg-[#e4f1ec] px-2.5 py-1 text-[11px] font-bold text-[#2e7c67]">
                     {(gfPax + sfPax).toLocaleString()} Total Pax
                   </span>
@@ -1867,7 +1876,6 @@ export function AreaProgramEditorModal({
                     >
                       <Plus size={13} /> Add Floor Level
                     </button>
-
                   </div>
                 </div>
 
@@ -1888,7 +1896,8 @@ export function AreaProgramEditorModal({
                       {draft.floorWiseBua.items.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="py-8 text-center text-muted-foreground text-[12px]">
-                            No floor levels configured yet. Click <strong>+ Add Floor Level</strong> to configure a floor level.
+                            No floor levels configured yet. Click <strong>+ Add Floor Level</strong> to configure a
+                            floor level.
                           </td>
                         </tr>
                       ) : (
@@ -1935,7 +1944,9 @@ export function AreaProgramEditorModal({
                               />
                             </td>
                             <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                              {item.areaSqft ? item.areaSqft.toLocaleString() : Math.round(item.areaSqm * 10.7639).toLocaleString()}
+                              {item.areaSqft
+                                ? item.areaSqft.toLocaleString()
+                                : Math.round(item.areaSqm * 10.7639).toLocaleString()}
                             </td>
                             <td className="px-2 py-2">
                               <input
@@ -1977,7 +1988,10 @@ export function AreaProgramEditorModal({
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-border bg-[#f8f6f0] font-bold">
-                        <td colSpan={2} className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-muted-foreground">
+                        <td
+                          colSpan={2}
+                          className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-muted-foreground"
+                        >
                           Total Floor-Wise BUA ({draft.floorWiseBua.items.length} Floors):
                         </td>
                         <td className="px-3 py-3 font-mono text-[13px] text-[#173e49]">
@@ -2013,7 +2027,8 @@ export function AreaProgramEditorModal({
                       </span>
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Floor-wise breakdown of guest keys, architectural bays, and presidential / executive suite distribution.
+                      Floor-wise breakdown of guest keys, architectural bays, and presidential / executive suite
+                      distribution.
                     </p>
                   </div>
 
@@ -2043,7 +2058,6 @@ export function AreaProgramEditorModal({
                     >
                       <Plus size={13} /> Add Guest Floor
                     </button>
-
                   </div>
                 </div>
 
@@ -2064,7 +2078,8 @@ export function AreaProgramEditorModal({
                       {draft.roomConfiguration.items.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="py-8 text-center text-muted-foreground text-[12px]">
-                            No guest floors configured yet. Click <strong>+ Add Guest Floor</strong> to add room inventory.
+                            No guest floors configured yet. Click <strong>+ Add Guest Floor</strong> to add room
+                            inventory.
                           </td>
                         </tr>
                       ) : (
@@ -2161,15 +2176,14 @@ export function AreaProgramEditorModal({
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-border bg-[#f8f6f0] font-bold">
-                        <td colSpan={2} className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-muted-foreground">
+                        <td
+                          colSpan={2}
+                          className="py-3 pl-4 pr-3 text-right font-mono uppercase text-[11px] tracking-wider text-muted-foreground"
+                        >
                           Total Room Inventory ({draft.roomConfiguration.items.length} Floors):
                         </td>
-                        <td className="px-3 py-3 text-center font-mono text-[13px] text-[#173e49]">
-                          {totalKeys} Keys
-                        </td>
-                        <td className="px-3 py-3 text-center font-mono text-[12px] text-[#2e7c67]">
-                          {totalBays} Bays
-                        </td>
+                        <td className="px-3 py-3 text-center font-mono text-[13px] text-[#173e49]">{totalKeys} Keys</td>
+                        <td className="px-3 py-3 text-center font-mono text-[12px] text-[#2e7c67]">{totalBays} Bays</td>
                         <td colSpan={2} className="py-3 pl-3 pr-4 text-[11px] text-muted-foreground font-normal">
                           Auto-synchronizes to Total Keys & Bays on Executive Summary
                         </td>
@@ -2180,7 +2194,6 @@ export function AreaProgramEditorModal({
               </div>
             </div>
           )}
-
         </div>
 
         {/* Modal Footer */}
@@ -2188,7 +2201,10 @@ export function AreaProgramEditorModal({
           <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
             <Info size={15} className="text-[#9a711f]" />
             <span>
-              Ready to apply: <strong>{effectiveBuaSqm.toLocaleString()} SQ.M.</strong> • <strong>{effectiveKeys} Keys / {effectiveBays} Bays</strong>
+              Ready to apply: <strong>{effectiveBuaSqm.toLocaleString()} SQ.M.</strong> •{' '}
+              <strong>
+                {effectiveKeys} Keys / {effectiveBays} Bays
+              </strong>
             </span>
           </div>
 

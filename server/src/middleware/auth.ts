@@ -19,7 +19,12 @@ export type UserPayload = {
 };
 
 // Routes a user may still call while their password must be changed.
-const PASSWORD_CHANGE_ALLOWED = new Set(['/api/auth/me', '/api/auth/change-password', '/api/auth/logout', '/api/auth/logout-all']);
+const PASSWORD_CHANGE_ALLOWED = new Set([
+  '/api/auth/me',
+  '/api/auth/change-password',
+  '/api/auth/logout',
+  '/api/auth/logout-all',
+]);
 
 /** Cookie holding the short-lived access JWT (set by utils/session.ts). */
 export const ACCESS_COOKIE_NAME = 'encalm_at';
@@ -28,7 +33,9 @@ type UserRow = Omit<UserPayload, 'mustChangePassword'> & { must_change_password:
 
 function loadUser(id: string): (UserPayload & { tokenVersion: number }) | undefined {
   const row = db
-    .prepare('SELECT id, name, email, role, title, initials, must_change_password, token_version FROM users WHERE id = ?')
+    .prepare(
+      'SELECT id, name, email, role, title, initials, must_change_password, token_version FROM users WHERE id = ?',
+    )
     .get(id) as UserRow | undefined;
   if (!row) return undefined;
   const { must_change_password, token_version, ...rest } = row;
@@ -58,7 +65,9 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     }
 
     if (user.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.has(`${req.baseUrl}${req.path}`)) {
-      return res.status(403).json({ error: 'You must change your password before continuing.', code: 'PASSWORD_CHANGE_REQUIRED' });
+      return res
+        .status(403)
+        .json({ error: 'You must change your password before continuing.', code: 'PASSWORD_CHANGE_REQUIRED' });
     }
 
     const { tokenVersion: _tv, ...publicUser } = user;
@@ -77,7 +86,7 @@ export function requireRole(allowedRoles: ('hod' | 'lead' | 'coordinator')[]) {
 
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
-        error: `Forbidden: Action restricted to ${allowedRoles.join(' or ')} role(s). Current role is ${req.user.role}.`
+        error: `Forbidden: Action restricted to ${allowedRoles.join(' or ')} role(s). Current role is ${req.user.role}.`,
       });
     }
 
@@ -95,7 +104,8 @@ export function canUserEditProject(projectId: string, user: UserPayload): boolea
   if (user.role === 'coordinator') return true;
   if (user.role === 'hod') return false;
   if (user.role === 'lead') {
-    const project = db.prepare('SELECT lead_id FROM projects WHERE id = ?').get(projectId) as { lead_id: string | null } | undefined;
+    const project = db.prepare('SELECT lead_id FROM projects WHERE id = ?').get(projectId) as
+      { lead_id: string | null } | undefined;
     if (!project) return false;
     return !project.lead_id || project.lead_id === user.id;
   }
@@ -120,9 +130,10 @@ export function requireProjectAccess(projectIdParam: string = 'id') {
 
     if (!canUserEditProject(projectId, req.user)) {
       return res.status(403).json({
-        error: req.user.role === 'hod'
-          ? 'Forbidden: HOD role has strict view-only oversight'
-          : 'Forbidden: You can only edit projects allotted to you',
+        error:
+          req.user.role === 'hod'
+            ? 'Forbidden: HOD role has strict view-only oversight'
+            : 'Forbidden: You can only edit projects allotted to you',
       });
     }
 

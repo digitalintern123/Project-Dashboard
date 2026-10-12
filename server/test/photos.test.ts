@@ -19,8 +19,12 @@ beforeAll(async () => {
     .jpeg()
     .withExif({ IFD0: { Make: 'TestCam', Model: 'X1' }, IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '28/1 33/1 0/1' } })
     .toBuffer();
-  smallPng = await sharp({ create: { width: 300, height: 200, channels: 4, background: '#d6a95d' } }).png().toBuffer();
-  gif = await sharp({ create: { width: 10, height: 10, channels: 3, background: '#000' } }).gif().toBuffer();
+  smallPng = await sharp({ create: { width: 300, height: 200, channels: 4, background: '#d6a95d' } })
+    .png()
+    .toBuffer();
+  gif = await sharp({ create: { width: 10, height: 10, channels: 3, background: '#000' } })
+    .gif()
+    .toBuffer();
 });
 
 function fileOnDisk(url: string) {
@@ -32,7 +36,10 @@ describe('photo uploads', () => {
     const lead = await loginAs(app, 'leadA');
     const res = await lead
       .post(`${P}/photos`)
-      .field('meta', JSON.stringify([{ caption: 'Façade', stage: 'Execution', category: 'Progress', takenDate: '2026-10-01' }, {}]))
+      .field(
+        'meta',
+        JSON.stringify([{ caption: 'Façade', stage: 'Execution', category: 'Progress', takenDate: '2026-10-01' }, {}]),
+      )
       .attach('photos', bigJpegWithGps, 'site.jpg')
       .attach('photos', smallPng, 'plan.png');
     expect(res.status).toBe(201);

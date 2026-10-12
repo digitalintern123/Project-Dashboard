@@ -13,12 +13,7 @@ import { Loader2 } from 'lucide-react';
 import { AppStateProvider, useAppState } from '@/state/app-state';
 import Workspace from '@/pages/workspace';
 import AreaSheet from '@/pages/area-sheet';
-import {
-  Route,
-  Switch,
-  useLocation,
-  Router as WouterRouter,
-} from 'wouter';
+import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
 
