@@ -16,7 +16,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "create-user": "tsx server/src/scripts/create-user.ts",
     "restore:all": "tsx server/src/scripts/restore-all-pdfs.ts",
-    "seed:all": "tsx server/src/scripts/restore-all-pdfs.ts"
+    "seed:all": "tsx server/src/scripts/restore-all-pdfs.ts",
+    "test:unit": "vitest run --project unit",
+    "test:api": "vitest run --project server",
+    "coverage": "vitest run --project server --project unit --coverage"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
