@@ -9,15 +9,11 @@ import {
   Activity,
   CircleDollarSign,
   ArrowUpRight,
-  Filter,
-  CheckCircle2,
-  Clock3,
-  AlertTriangle,
   MapPin,
   Maximize2,
 } from 'lucide-react';
 import { useAppState } from '@/state/app-state';
-import { locations, type Project, type Location } from '@/data/projects';
+import { locations, type Location } from '@/data/projects';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AreaSheet() {

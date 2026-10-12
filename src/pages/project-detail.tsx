@@ -48,10 +48,8 @@ import {
   type ProjectIssue,
   type ProjectStatus,
   type SitePhoto,
-  type PhotoCategory,
   type Location,
   type Category,
-  photoCategories,
 } from '@/data/projects';
 import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
@@ -65,6 +63,7 @@ import { ProjectAreaProgram } from '@/components/project-area-program';
 import { TagUserPopover } from '@/components/tag-user-popover';
 import { EmailHubModal } from '@/components/email-hub-modal';
 import { getIssueStatusTheme, issueStatusOptions } from '@/lib/issue-theme';
+import { activateOnKey } from '@/lib/a11y';
 
 const healthStyles: Record<Health, { dot: string; text: string; bg: string; border: string }> = {
   'On track': { dot: 'bg-[#3d9a7e]', text: 'text-[#2e7c67]', bg: 'bg-[#e4f1ec]', border: 'border-[#cbe4d9]' },
@@ -224,7 +223,6 @@ function DetailCard({
 }
 
 const stageStatuses: Phase['status'][] = ['upcoming', 'active', 'blocked', 'complete'];
-const issueStatuses: IssueStatus[] = ['Open', 'Under review', 'Action in progress', 'Resolved', 'Closed'];
 
 function StageProgressPanel({
   project,
@@ -1146,7 +1144,6 @@ function StageMilestonesPanel({
                 .map(({ milestone, originalIndex }) => {
                   const milestoneId = (milestone as any).id || `${project.id}-${milestone.title}`;
                   const isPendingApproval = milestone.approvalRequired && milestone.approvalStatus === 'Pending';
-                  const isComplete = true;
                   return (
                     <div
                       key={`${milestone.title}-${milestone.date}-${originalIndex}`}
@@ -1870,7 +1867,11 @@ function StagePhotosPanel({
               <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr] items-start">
                 {/* Clickable Featured Image */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Open the latest site photograph"
                   onClick={() => latestPhoto && onInspect(latestPhoto)}
+                  onKeyDown={activateOnKey(() => latestPhoto && onInspect(latestPhoto))}
                   className="group relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black/5 cursor-pointer shadow-md"
                 >
                   <img
@@ -1967,7 +1968,11 @@ function StagePhotosPanel({
                       className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition flex flex-col justify-between"
                     >
                       <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Open photograph: ${ph.caption || 'site photograph'}`}
                         onClick={() => onInspect(ph)}
+                        onKeyDown={activateOnKey(() => onInspect(ph))}
                         className="relative aspect-video w-full overflow-hidden bg-black/5 cursor-pointer"
                       >
                         <img
@@ -2051,7 +2056,6 @@ export default function ProjectDetail() {
     removePhase,
     movePhase,
     addMilestone,
-    updateMilestone,
     addIssue,
     updateIssue,
     addUpdate,
@@ -3129,7 +3133,11 @@ function OverviewPanel({
               return (
                 <div className="mt-5 space-y-3">
                   <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Open the current site photograph"
                     onClick={() => onInspect?.(currentPhoto)}
+                    onKeyDown={activateOnKey(() => onInspect?.(currentPhoto))}
                     className="group relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-black/5 cursor-pointer shadow-sm"
                   >
                     <img
@@ -3696,7 +3704,6 @@ function CommercialPanel({
           ) : (
             <div className="space-y-4">
               {project.phases.map((phase, index) => {
-                const totalAwardedCr = project.awarded / CRORE;
                 const numPhases = Math.max(1, project.phases.length);
                 const legacyAmounts = [0.12, 0.24, 0.31, 0.33];
                 const phaseBudget =

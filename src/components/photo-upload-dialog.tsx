@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, type FormEvent, type ChangeEvent } from 'r
 import { X, Upload, Image as ImageIcon, Calendar, Layers, Tag, Trash2, Plus, CheckCircle2, Camera } from 'lucide-react';
 import { photoCategories, type PhotoCategory, type Phase } from '@/data/projects';
 import { todayIso } from '@/lib/date';
+import { activateOnKey } from '@/lib/a11y';
 
 // Must match the server limits in server/src/routes/photos.ts.
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -39,16 +40,14 @@ interface PhotoUploadDialogProps {
 }
 
 export function PhotoUploadDialog({
-  projectId,
   projectName,
   stages,
-  existingPhotoUrl,
   onClose,
   onUpload,
   onUploadBatch,
 }: PhotoUploadDialogProps) {
   const [queue, setQueue] = useState<QueuePhoto[]>([]);
-  const [defaultCaption, setDefaultCaption] = useState<string>('');
+  const [defaultCaption] = useState<string>('');
   const [batchStage, setBatchStage] = useState<string>(stages[0]?.name || '');
   const [batchCategory, setBatchCategory] = useState<PhotoCategory>('Progress');
   const [batchDate, setBatchDate] = useState<string>(todayIso());
@@ -244,6 +243,10 @@ export function PhotoUploadDialog({
 
           {/* Device Upload Drop Zone */}
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Choose site photographs to upload"
+            onKeyDown={activateOnKey(openFilePicker)}
             onDragOver={(e) => {
               e.preventDefault();
               setDragOver(true);

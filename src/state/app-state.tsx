@@ -8,13 +8,12 @@ import {
   type ProjectStatus,
   type ProjectUpdate,
   type SitePhoto,
-  type PhotoCategory,
 } from '@/data/projects';
 import { removeItem } from '@/lib/storage';
 import { todayLabel } from '@/lib/date';
 import { getUserById, users as defaultUsers, type User } from '@/data/users';
 import { api, onUnauthorized, type NotificationItem, type PhotoUploadInput } from '@/lib/api';
-import { calculateWeightedProgress, sortProjectsIncompleteFirst } from '@/lib/calculations';
+import { calculateWeightedProgress } from '@/lib/calculations';
 
 export type AppRole = 'hod' | 'lead' | 'coordinator';
 export type AuthUser = User;

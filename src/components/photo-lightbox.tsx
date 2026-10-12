@@ -211,14 +211,21 @@ export function PhotoLightbox({
           </>
         )}
 
-        <img
-          src={currentPhoto.url}
-          alt={currentPhoto.caption || 'Site photograph'}
+        <button
+          type="button"
           onClick={() => setZoomed(!zoomed)}
-          className={`transition-all duration-200 cursor-pointer object-contain rounded-lg shadow-2xl ${
-            zoomed ? 'max-w-none scale-125' : 'max-h-[75vh] max-w-full'
-          }`}
-        />
+          aria-label={zoomed ? 'Zoom out' : 'Zoom in'}
+          aria-pressed={zoomed}
+          className="cursor-pointer"
+        >
+          <img
+            src={currentPhoto.url}
+            alt={currentPhoto.caption || 'Site photograph'}
+            className={`transition-all duration-200 object-contain rounded-lg shadow-2xl ${
+              zoomed ? 'max-w-none scale-125' : 'max-h-[75vh] max-w-full'
+            }`}
+          />
+        </button>
       </div>
 
       {/* Bottom Metadata Drawer */}

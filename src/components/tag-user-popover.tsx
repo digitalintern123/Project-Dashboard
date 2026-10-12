@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Tag, X, Check, Users, Send, Mail, Loader2, MessageSquare } from 'lucide-react';
+import { Tag, X, Check, Users, Send, Mail, Loader2 } from 'lucide-react';
 import { users as defaultUsers, getUserById, initialsOf, type User } from '@/data/users';
 import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +23,6 @@ export function TagUserPopover({
   taggedUsers = [],
   onChange,
   canTag = true,
-  compact = false,
   label = 'Tag',
   projectId,
   entityType = 'Stage',
@@ -37,7 +36,7 @@ export function TagUserPopover({
   const [stagedUserIds, setStagedUserIds] = useState<string[]>(taggedUsers || []);
   const [externalMentionedUsers, setExternalMentionedUsers] = useState<User[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { leads, users: contextUsers, resolveUser, user: currentUser } = useAppState();
+  const { leads, users: contextUsers, resolveUser } = useAppState();
   const { toast } = useToast();
 
   // Reset staged selections whenever popover opens
@@ -348,7 +347,7 @@ export function TagUserPopover({
           {/* Comment & Mail Form */}
           <form onSubmit={handleSendMail} className="mt-3 border-t border-border/70 pt-2.5">
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-[10px] font-bold text-[#173e49]">Add Message / Comment:</label>
+              <span className="block text-[10px] font-bold text-[#173e49]">Add Message / Comment:</span>
               <span className="text-[9px] text-[#2e7c67] font-semibold">Type @ to tag recipient</span>
             </div>
             <MentionTextarea

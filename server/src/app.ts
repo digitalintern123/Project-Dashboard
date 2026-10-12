@@ -215,7 +215,7 @@ export function createApp() {
   }
 
   // 11. Global Error Handler
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('[API Unhandled Error]', err);
     const status = typeof err.status === 'number' ? err.status : 500;
     res.status(status).json({

@@ -22,15 +22,13 @@ describe('email settings and outbox (no provider configured)', () => {
   });
 
   it('switches provider and saves legacy flat Graph fields', async () => {
-    const res = await coord
-      .post('/api/email/settings')
-      .send({
-        provider: 'microsoft_graph',
-        tenantId: 'tenant',
-        clientId: 'client',
-        senderEmail: 'notify@test.local',
-        saveToSentItems: false,
-      });
+    const res = await coord.post('/api/email/settings').send({
+      provider: 'microsoft_graph',
+      tenantId: 'tenant',
+      clientId: 'client',
+      senderEmail: 'notify@test.local',
+      saveToSentItems: false,
+    });
     expect(res.body.settings).toMatchObject({
       provider: 'microsoft_graph',
       tenantId: 'tenant',
@@ -53,13 +51,11 @@ describe('email settings and outbox (no provider configured)', () => {
   });
 
   it('filters logs by project', async () => {
-    await lead
-      .post('/api/email/send-project-update')
-      .send({
-        projectId: 'proj-e',
-        recipients: ['boss@test.local', { email: 'cfo@test.local', name: 'CFO' }],
-        customNote: 'On track',
-      });
+    await lead.post('/api/email/send-project-update').send({
+      projectId: 'proj-e',
+      recipients: ['boss@test.local', { email: 'cfo@test.local', name: 'CFO' }],
+      customNote: 'On track',
+    });
     const logs = await coord.get('/api/email/logs?projectId=proj-e');
     expect(logs.body.logs).toHaveLength(2);
     expect(logs.body.logs.every((l: any) => l.projectId === 'proj-e')).toBe(true);

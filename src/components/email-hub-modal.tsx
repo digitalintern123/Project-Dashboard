@@ -9,15 +9,12 @@ import {
   CheckCircle2,
   Inbox,
   X,
-  Server,
-  Lock,
   ExternalLink,
   Key,
-  ShieldCheck,
   Globe,
   Clock,
 } from 'lucide-react';
-import { api, type EmailLogItem, type EmailSettings } from '@/lib/api';
+import { api, type EmailLogItem } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { users as defaultUsers, type User } from '@/data/users';
 import { useAppState } from '@/state/app-state';
@@ -56,7 +53,7 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
     saveToSentItems: true,
   });
   const [isConfigured, setIsConfigured] = useState(false);
-  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [testEmailAddress, setTestEmailAddress] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
@@ -496,9 +493,9 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
               <div className="rounded-xl border border-border bg-white p-4 space-y-4">
                 <div>
                   <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-bold text-foreground">
+                    <span className="block text-[11px] font-bold text-foreground">
                       Executive Recipients (@mention to add)
-                    </label>
+                    </span>
                     <span className="text-[10px] font-mono text-[#2e7c67] font-semibold">
                       {selectedRecipients.length} recipient{selectedRecipients.length !== 1 ? 's' : ''} tagged
                     </span>
@@ -550,8 +547,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-foreground">Executive Commentary / Note</label>
+                  <label
+                    htmlFor="email-hub-modal-executive-commentary-note"
+                    className="block text-[11px] font-bold text-foreground"
+                  >
+                    Executive Commentary / Note
+                  </label>
                   <textarea
+                    id="email-hub-modal-executive-commentary-note"
                     rows={4}
                     value={customNote}
                     onChange={(e) => setCustomNote(e.target.value)}
@@ -696,8 +699,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">Email Address / Username</label>
+                        <label
+                          htmlFor="email-hub-modal-email-address-username"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
+                          Email Address / Username
+                        </label>
                         <input
+                          id="email-hub-modal-email-address-username"
                           type="email"
                           value={smtpForm.user}
                           onChange={(e) => setSmtpForm({ ...smtpForm, user: e.target.value })}
@@ -708,8 +717,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">Password / App Password</label>
+                        <label
+                          htmlFor="email-hub-modal-password-app-password"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
+                          Password / App Password
+                        </label>
                         <input
+                          id="email-hub-modal-password-app-password"
                           type="password"
                           value={smtpForm.pass}
                           onChange={(e) => setSmtpForm({ ...smtpForm, pass: e.target.value })}
@@ -723,7 +738,12 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="sm:col-span-2">
                         <div className="flex items-center justify-between">
-                          <label className="block text-[11px] font-bold text-foreground">SMTP Server (Host)</label>
+                          <label
+                            htmlFor="email-hub-modal-smtp-server-host"
+                            className="block text-[11px] font-bold text-foreground"
+                          >
+                            SMTP Server (Host)
+                          </label>
                           {smtpForm.user.includes('@encalm.com') && smtpForm.host !== 'smtp.office365.com' && (
                             <button
                               type="button"
@@ -735,6 +755,7 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                           )}
                         </div>
                         <input
+                          id="email-hub-modal-smtp-server-host"
                           type="text"
                           value={smtpForm.host}
                           onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })}
@@ -751,9 +772,15 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">Port & Encryption</label>
+                        <label
+                          htmlFor="email-hub-modal-port-encryption"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
+                          Port & Encryption
+                        </label>
                         <div className="flex gap-2 mt-1">
                           <input
+                            id="email-hub-modal-port-encryption"
                             type="number"
                             value={smtpForm.port}
                             onChange={(e) => setSmtpForm({ ...smtpForm, port: parseInt(e.target.value, 10) || 587 })}
@@ -774,8 +801,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">Sender Display Name</label>
+                        <label
+                          htmlFor="email-hub-modal-sender-display-name"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
+                          Sender Display Name
+                        </label>
                         <input
+                          id="email-hub-modal-sender-display-name"
                           type="text"
                           value={smtpForm.fromName}
                           onChange={(e) => setSmtpForm({ ...smtpForm, fromName: e.target.value })}
@@ -785,10 +818,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
+                        <label
+                          htmlFor="email-hub-modal-sender-from-email-optional"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
                           Sender "From" Email (Optional)
                         </label>
                         <input
+                          id="email-hub-modal-sender-from-email-optional"
                           type="email"
                           value={smtpForm.fromEmail}
                           onChange={(e) => setSmtpForm({ ...smtpForm, fromEmail: e.target.value })}
@@ -813,10 +850,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
+                        <label
+                          htmlFor="email-hub-modal-azure-directory-tenant-id"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
                           Azure Directory (Tenant) ID
                         </label>
                         <input
+                          id="email-hub-modal-azure-directory-tenant-id"
                           type="text"
                           value={graphForm.tenantId}
                           onChange={(e) => setGraphForm({ ...graphForm, tenantId: e.target.value })}
@@ -826,8 +867,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">Application (Client) ID</label>
+                        <label
+                          htmlFor="email-hub-modal-application-client-id"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
+                          Application (Client) ID
+                        </label>
                         <input
+                          id="email-hub-modal-application-client-id"
                           type="text"
                           value={graphForm.clientId}
                           onChange={(e) => setGraphForm({ ...graphForm, clientId: e.target.value })}
@@ -839,8 +886,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">Azure Client Secret</label>
+                        <label
+                          htmlFor="email-hub-modal-azure-client-secret"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
+                          Azure Client Secret
+                        </label>
                         <input
+                          id="email-hub-modal-azure-client-secret"
                           type="password"
                           value={graphForm.clientSecret || ''}
                           onChange={(e) => setGraphForm({ ...graphForm, clientSecret: e.target.value })}
@@ -850,10 +903,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-foreground">
+                        <label
+                          htmlFor="email-hub-modal-sender-mailbox-microsoft-365-user"
+                          className="block text-[11px] font-bold text-foreground"
+                        >
                           Sender Mailbox (Microsoft 365 User)
                         </label>
                         <input
+                          id="email-hub-modal-sender-mailbox-microsoft-365-user"
                           type="email"
                           value={graphForm.senderEmail}
                           onChange={(e) => setGraphForm({ ...graphForm, senderEmail: e.target.value })}

@@ -115,7 +115,6 @@ export function AppShell({ children }: AppShellProps) {
     isConnected,
     notifications,
     unreadNotifCount,
-    canEdit,
     markNotificationRead,
     markAllNotificationsRead,
   } = useAppState();
@@ -509,14 +508,15 @@ export function AppShell({ children }: AppShellProps) {
         <div
           role="presentation"
           className="fixed inset-0 z-50 flex items-start justify-end bg-[#123b45]/30 p-3 backdrop-blur-[2px] sm:p-5"
-          onClick={closeNotifications}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeNotifications();
+          }}
         >
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="notifications-title"
             className="fade-up flex max-h-[calc(100dvh-24px)] w-full max-w-[450px] flex-col overflow-hidden rounded-2xl border border-border bg-[#f7f4ec] shadow-2xl shadow-[#173e49]/20 sm:max-h-[calc(100dvh-40px)]"
-            onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-border bg-white/70 p-5">
               <div>
@@ -646,14 +646,15 @@ export function AppShell({ children }: AppShellProps) {
         <div
           role="presentation"
           className="fixed inset-0 z-50 flex items-start justify-end bg-[#123b45]/25 p-3 backdrop-blur-[2px] sm:p-5"
-          onClick={closeSettings}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeSettings();
+          }}
         >
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
             className="fade-up max-h-[calc(100dvh-24px)] w-full max-w-[430px] overflow-y-auto rounded-2xl border border-border bg-[#f7f4ec] p-5 shadow-2xl shadow-[#173e49]/20 sm:max-h-[calc(100dvh-40px)] sm:p-6"
-            onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
               <div>

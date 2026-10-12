@@ -5,15 +5,12 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
-  CheckCheck,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   CircleDollarSign,
-  Clock3,
   Download,
   FileBarChart,
-  Filter,
   Flag,
   Plus,
   Search,
@@ -25,10 +22,8 @@ import {
   Trash2,
   TrendingUp,
   UserPlus,
-  Users,
   Camera,
   Upload,
-  Sparkles,
   Building2,
   MapPin,
 } from 'lucide-react';
@@ -44,10 +39,7 @@ import {
   type Project,
   type ProjectStatus,
   type IssueCategory,
-  type IssueStatus,
-  type ProjectIssue,
   type SitePhoto,
-  type PhotoCategory,
   photoCategories,
   type ArchitecturalAreaProgram,
 } from '@/data/projects';
@@ -67,6 +59,7 @@ import {
 import { PhotoLightbox } from '@/components/photo-lightbox';
 import { PhotoUploadDialog } from '@/components/photo-upload-dialog';
 import { getIssueStatusTheme, issueStatusOptions } from '@/lib/issue-theme';
+import { activateOnKey } from '@/lib/a11y';
 
 export type WorkspaceView =
   | 'projects'
@@ -850,7 +843,7 @@ function MilestonesView() {
 }
 
 function IssuesView() {
-  const { projects, canEdit, canEditProject, updateIssue, addIssue } = useAppState();
+  const { projects, canEditProject, updateIssue, addIssue } = useAppState();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'All' | 'Critical' | 'Open' | 'Resolved'>('All');
@@ -1208,6 +1201,9 @@ function IssuesView() {
                 className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:border-[#d9c585]"
               >
                 {/* Project Header Bar */}
+                {/* Clicking anywhere on the header is a mouse shortcut; keyboard and screen-reader
+                    users use the expand/collapse button inside it. */}
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                 <div
                   className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center bg-card hover:bg-[#fcf5e5]/50 transition cursor-pointer select-none"
                   onClick={() => toggleProject(project.id, expanded)}
@@ -1245,6 +1241,8 @@ function IssuesView() {
                   </div>
 
                   {/* Right Header Metrics & Actions */}
+                  {/* Stops clicks on these controls from also toggling the header (see above). */}
+                  {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5 font-mono text-[10px]">
                       {item.criticalCount > 0 && (
@@ -1713,7 +1711,7 @@ function IssuesView() {
 }
 
 function CommercialView() {
-  const { projects, role, canEdit } = useAppState();
+  const { projects, canEdit } = useAppState();
   const portfolio = getPortfolioCommercialSummary(projects);
   return (
     <>
@@ -1863,7 +1861,7 @@ function CommercialView() {
 }
 
 function UpdatesView() {
-  const { projects, role, canEdit } = useAppState();
+  const { projects, canEdit } = useAppState();
   const updates = projects
     .flatMap((project) => project.updates.map((update) => ({ ...update, project })))
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -3223,7 +3221,11 @@ function SitePhotographsView() {
               <div>
                 {/* Image Container with Hover Overlay */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open photograph: ${photo.caption || 'site photograph'}`}
                   onClick={() => setLightboxPhoto({ photo, project })}
+                  onKeyDown={activateOnKey(() => setLightboxPhoto({ photo, project }))}
                   className="relative aspect-video w-full overflow-hidden bg-black/5 cursor-pointer"
                 >
                   <img

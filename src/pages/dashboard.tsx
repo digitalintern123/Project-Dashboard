@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import {
   Activity,
@@ -20,7 +20,6 @@ import {
   X,
 } from 'lucide-react';
 import {
-  categories,
   formatCrore,
   healthOptions,
   locations,

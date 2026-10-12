@@ -1,34 +1,23 @@
-import { useState, useId } from 'react';
+import { useState } from 'react';
 import { Link } from 'wouter';
 import {
   Building2,
   FileSpreadsheet,
   Printer,
   Edit3,
-  Check,
-  RotateCcw,
   Sparkles,
   Layers,
   DoorClosed,
   Maximize2,
-  HelpCircle,
   Plus,
   Trash2,
   X,
   Save,
   FileText,
-  Calculator,
   Info,
   CheckCircle2,
-  SlidersHorizontal,
 } from 'lucide-react';
-import {
-  type Project,
-  type ArchitecturalAreaProgram,
-  type FOHAreaItem,
-  type FloorBuaItem,
-  type RoomConfigItem,
-} from '@/data/projects';
+import { type Project, type ArchitecturalAreaProgram } from '@/data/projects';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProjectAreaProgramProps {

@@ -394,7 +394,6 @@ router.post(
     const {
       projectId,
       entityType = 'Stage',
-      entityId,
       entityTitle,
       entityContext,
       taggedUserIds = [],

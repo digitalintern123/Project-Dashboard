@@ -104,16 +104,14 @@ describe('stages', () => {
 describe('milestones', () => {
   it('creates a milestone; approval requests notify and email the coordinator', async () => {
     const before = emailCount();
-    const res = await lead
-      .post(`${P}/milestones`)
-      .send({
-        id: 'ms-1',
-        title: 'Design sign-off',
-        date: '2026-12-01',
-        stage: 'Design',
-        approvalRequired: true,
-        taggedUsers: [testUsers.hod.id],
-      });
+    const res = await lead.post(`${P}/milestones`).send({
+      id: 'ms-1',
+      title: 'Design sign-off',
+      date: '2026-12-01',
+      stage: 'Design',
+      approvalRequired: true,
+      taggedUsers: [testUsers.hod.id],
+    });
     expect(res.status).toBe(201);
     expect(res.body.project.milestones[0]).toMatchObject({
       id: 'ms-1',

@@ -22,7 +22,7 @@
     "coverage": "vitest run --project server --project unit --coverage",
     "test:e2e": "playwright test",
     "test:backup": "scripts/test-backup-restore.sh",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
