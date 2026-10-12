@@ -3,6 +3,7 @@ import { X, Upload, Image as ImageIcon, Calendar, Layers, Tag, Trash2, Plus, Che
 import { photoCategories, type PhotoCategory, type Phase } from '@/data/projects';
 import { todayIso } from '@/lib/date';
 import { activateOnKey } from '@/lib/a11y';
+import { errorMessage } from '@/lib/utils';
 
 // Must match the server limits in server/src/routes/photos.ts.
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -39,13 +40,7 @@ interface PhotoUploadDialogProps {
   onUploadBatch?: (photos: PhotoUploadItem[]) => Promise<void>;
 }
 
-export function PhotoUploadDialog({
-  projectName,
-  stages,
-  onClose,
-  onUpload,
-  onUploadBatch,
-}: PhotoUploadDialogProps) {
+export function PhotoUploadDialog({ projectName, stages, onClose, onUpload, onUploadBatch }: PhotoUploadDialogProps) {
   const [queue, setQueue] = useState<QueuePhoto[]>([]);
   const [defaultCaption] = useState<string>('');
   const [batchStage, setBatchStage] = useState<string>(stages[0]?.name || '');
@@ -180,8 +175,8 @@ export function PhotoUploadDialog({
         }
       }
       onClose();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to upload photographs. Please try again.');
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to upload photographs. Please try again.'));
       setIsSubmitting(false);
       setUploadProgressText('');
     }

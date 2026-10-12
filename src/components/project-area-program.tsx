@@ -1006,7 +1006,10 @@ export function AreaProgramEditorModal({
   const effectiveKeys = hasRoomItems ? totalKeys : draft.summary.totalRoomKeys || 0;
   const effectiveBays = hasRoomItems ? totalBays : draft.summary.totalBays || 0;
 
-  const updateSummary = (key: keyof ArchitecturalAreaProgram['summary'], value: any) => {
+  const updateSummary = <K extends keyof ArchitecturalAreaProgram['summary']>(
+    key: K,
+    value: ArchitecturalAreaProgram['summary'][K],
+  ) => {
     setDraft((prev) => {
       const summary = { ...prev.summary, [key]: value };
       if (key === 'plotAreaSqm') {

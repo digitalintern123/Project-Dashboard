@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   Mail,
   Send,
@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { users as defaultUsers, type User } from '@/data/users';
 import { useAppState } from '@/state/app-state';
 import { MentionTextarea } from './mention-textarea';
+import { errorMessage } from '@/lib/utils';
 
 interface EmailHubModalProps {
   isOpen: boolean;
@@ -84,26 +85,19 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadLogs();
-      loadSettings();
-    }
-  }, [isOpen, projectId]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setLoadingLogs(true);
     try {
       const res = await api.email.getLogs(projectId);
       setLogs(res.logs || []);
-    } catch (err: any) {
+    } catch (err) {
       console.warn('Failed to load email logs:', err);
     } finally {
       setLoadingLogs(false);
     }
-  };
+  }, [projectId]);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     setLoadingSettings(true);
     try {
       const res = await api.email.getSettings();
@@ -119,9 +113,8 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
             fromName: res.settings.smtp.fromName || 'Encalm Project Dashboard',
             fromEmail: res.settings.smtp.fromEmail || '',
           });
-          if (res.settings.smtp.user && !testEmailAddress) {
-            setTestEmailAddress(res.settings.smtp.user);
-          }
+          const smtpUser = res.settings.smtp.user;
+          if (smtpUser) setTestEmailAddress((current) => current || smtpUser);
         }
         if (res.settings.graph) {
           setGraphForm({
@@ -131,9 +124,8 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
             senderEmail: res.settings.graph.senderEmail || 'notifications@encalm.com',
             saveToSentItems: res.settings.graph.saveToSentItems !== false,
           });
-          if (res.settings.graph.senderEmail && !testEmailAddress) {
-            setTestEmailAddress(res.settings.graph.senderEmail);
-          }
+          const graphSender = res.settings.graph.senderEmail;
+          if (graphSender) setTestEmailAddress((current) => current || graphSender);
         }
         setIsConfigured(Boolean(res.settings.isConfigured));
       }
@@ -142,7 +134,14 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
     } finally {
       setLoadingSettings(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadLogs();
+      loadSettings();
+    }
+  }, [isOpen, loadLogs, loadSettings]);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,10 +158,10 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
         title: 'Settings Saved',
         description: `${provider === 'smtp' ? 'SMTP (Outlook/Office 365)' : 'Microsoft Graph API'} configuration saved successfully.`,
       });
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Save Failed',
-        description: err.message || 'Could not save email settings.',
+        description: errorMessage(err, 'Could not save email settings.'),
         variant: 'destructive',
       });
     } finally {
@@ -201,10 +200,10 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
       });
       loadLogs();
       loadSettings();
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Test Failed',
-        description: err.message || 'Could not dispatch test email.',
+        description: errorMessage(err, 'Could not dispatch test email.'),
         variant: 'destructive',
       });
     } finally {
@@ -230,10 +229,10 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
         });
       }
       loadLogs();
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Resend Failed',
-        description: err.message,
+        description: errorMessage(err),
         variant: 'destructive',
       });
     }
@@ -275,10 +274,10 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
       setRecipientMentionText('');
       setActiveTab('outbox');
       loadLogs();
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Dispatch Failed',
-        description: err.message || 'Could not send project update.',
+        description: errorMessage(err, 'Could not send project update.'),
         variant: 'destructive',
       });
     } finally {

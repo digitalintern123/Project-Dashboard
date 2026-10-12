@@ -5,6 +5,7 @@ import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import { MentionTextarea, extractMentionedUserIds } from './mention-textarea';
+import { errorMessage } from '@/lib/utils';
 
 interface TagUserPopoverProps {
   taggedUsers?: string[];
@@ -205,10 +206,10 @@ export function TagUserPopover({
 
       setComment('');
       setIsOpen(false);
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Notification Error',
-        description: err?.message || 'Could not dispatch email notification.',
+        description: errorMessage(err, 'Could not dispatch email notification.'),
         variant: 'destructive',
       });
     } finally {

@@ -14,6 +14,7 @@ import { todayLabel } from '@/lib/date';
 import { getUserById, users as defaultUsers, type User } from '@/data/users';
 import { api, onUnauthorized, type NotificationItem, type PhotoUploadInput } from '@/lib/api';
 import { calculateWeightedProgress } from '@/lib/calculations';
+import { errorMessage } from '@/lib/utils';
 
 export type AppRole = 'hod' | 'lead' | 'coordinator';
 export type AuthUser = User;
@@ -137,7 +138,7 @@ function normaliseProject(project: Project): Project {
     phases,
     milestones: (project.milestones ?? []).map((milestone, index) => ({
       ...milestone,
-      id: (milestone as any).id ?? `${project.id}-milestone-${index}`,
+      id: milestone.id ?? `${project.id}-milestone-${index}`,
       approvalStatus: milestone.approvalStatus ?? (milestone.approvalRequired ? 'Pending' : 'Not required'),
       taggedUsers: milestone.taggedUsers ?? [],
     })),
@@ -263,8 +264,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         await refreshLeads();
         await refreshUsers();
         return { success: true, lead: res.lead };
-      } catch (err: any) {
-        return { success: false, error: err.message || 'Failed to create lead' };
+      } catch (err) {
+        return { success: false, error: errorMessage(err, 'Failed to create lead') };
       }
     },
     [refreshLeads, refreshUsers],
@@ -275,8 +276,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const res = await api.projects.allot(projectId, leadId);
       setProjectState((prev) => prev.map((p) => (p.id === projectId ? normaliseProject(res.project) : p)));
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Failed to allot project' };
+    } catch (err) {
+      return { success: false, error: errorMessage(err, 'Failed to allot project') };
     }
   }, []);
 
@@ -359,8 +360,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setRole(result.user.role);
       setIsConnected(true);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Login failed' };
+    } catch (err) {
+      return { success: false, error: errorMessage(err, 'Login failed') };
     }
   }, []);
 
@@ -370,8 +371,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const result = await api.auth.changePassword(currentPassword, newPassword);
         setUser(result.user);
         return { success: true };
-      } catch (err: any) {
-        return { success: false, error: err.message || 'Failed to change password' };
+      } catch (err) {
+        return { success: false, error: errorMessage(err, 'Failed to change password') };
       }
     },
     [],
@@ -650,7 +651,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     (id: string, milestoneIndex: number, patch: Partial<Milestone>): boolean => {
       const targetProject = projectState.find((p) => p.id === id);
       const milestone = targetProject?.milestones[milestoneIndex];
-      const milestoneId = (milestone as any)?.id || milestone?.title;
+      const milestoneId = milestone?.id || milestone?.title;
 
       const ok = patchById(id, (project) => {
         if (milestoneIndex < 0 || milestoneIndex >= project.milestones.length) return project;
@@ -687,7 +688,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return {
             ...project,
             milestones: project.milestones.map((m) =>
-              (m as any).id === milestoneId || m.title === milestoneId ? { ...m, approvalStatus: status } : m,
+              m.id === milestoneId || m.title === milestoneId ? { ...m, approvalStatus: status } : m,
             ),
           };
         }),
@@ -716,9 +717,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return {
             ...project,
             milestones: project.milestones.map((m) =>
-              (m as any).id === milestoneId || m.title === milestoneId
-                ? { ...m, status: 'complete', completedDate: today }
-                : m,
+              m.id === milestoneId || m.title === milestoneId ? { ...m, status: 'complete', completedDate: today } : m,
             ),
           };
         }),
@@ -837,7 +836,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const exportBackup = useCallback(async () => {
     try {
-      let exportData: any = null;
+      let exportData: unknown = null;
       try {
         exportData = await api.system.exportBackup();
       } catch {
@@ -899,8 +898,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         await refreshNotifications();
 
         return { success: true, count: validProjects.length };
-      } catch (err: any) {
-        return { success: false, error: err.message || 'Failed to import backup file' };
+      } catch (err) {
+        return { success: false, error: errorMessage(err, 'Failed to import backup file') };
       }
     },
     [refreshProjects, refreshNotifications],

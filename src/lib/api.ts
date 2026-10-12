@@ -103,6 +103,18 @@ export type EmailLogItem = {
   createdAt: string;
 };
 
+/** A portfolio export, as written by GET /api/system/export. */
+export type PortfolioBackup = {
+  version?: number;
+  exportedAt?: string;
+  projectCount?: number;
+  projects: Project[];
+  notifications?: unknown[];
+};
+
+/** Outcome of queueing or sending one email. */
+export type EmailSendResult = { id: string; status: 'queued' | 'sent' | 'failed' | 'outbox'; error?: string };
+
 export type EmailSettings = {
   provider: 'smtp' | 'microsoft_graph';
   smtp?: {
@@ -300,8 +312,8 @@ export const api = {
   system: {
     health: () => request<{ status: string; database: string; counts: Record<string, number> }>('/api/system/health'),
     reset: () => request<{ message: string }>('/api/system/reset', { method: 'POST' }),
-    exportBackup: () => request<any>('/api/system/export'),
-    importBackup: (data: any) =>
+    exportBackup: () => request<PortfolioBackup>('/api/system/export'),
+    importBackup: (data: PortfolioBackup) =>
       request<{ message: string; count: number }>('/api/system/import', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -320,8 +332,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(settings),
       }),
-    sendTest: (to?: string, recipientName?: string, payload?: { provider?: string; smtp?: any; graph?: any }) =>
-      request<{ success: boolean; message: string; result: any }>('/api/email/test', {
+    sendTest: (
+      to?: string,
+      recipientName?: string,
+      payload?: Partial<Pick<EmailSettings, 'provider' | 'smtp' | 'graph'>>,
+    ) =>
+      request<{ success: boolean; message: string; result: EmailSendResult }>('/api/email/test', {
         method: 'POST',
         body: JSON.stringify({ to, recipientName, ...payload }),
       }),
@@ -333,10 +349,13 @@ export const api = {
       projectId: string,
       payload: { recipients?: (string | { email: string; name?: string })[]; customNote?: string },
     ) =>
-      request<{ success: boolean; message: string; results: any[] }>('/api/email/send-project-update', {
-        method: 'POST',
-        body: JSON.stringify({ projectId, ...payload }),
-      }),
+      request<{ success: boolean; message: string; results: Array<{ recipient: string } & EmailSendResult> }>(
+        '/api/email/send-project-update',
+        {
+          method: 'POST',
+          body: JSON.stringify({ projectId, ...payload }),
+        },
+      ),
     tagAndComment: (payload: {
       projectId: string;
       entityType?: 'Task' | 'Stage' | 'Milestone' | 'Issue' | 'Update' | 'General';

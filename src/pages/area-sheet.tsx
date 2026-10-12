@@ -344,7 +344,7 @@ export default function AreaSheet() {
         {/* Section Filter */}
         <select
           value={selectedSection}
-          onChange={(e) => setSelectedSection(e.target.value as any)}
+          onChange={(e) => setSelectedSection(e.target.value as typeof selectedSection)}
           className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold text-foreground w-full sm:w-auto"
         >
           <option value="All">All Sections (68)</option>
@@ -356,7 +356,7 @@ export default function AreaSheet() {
         {/* Location Filter */}
         <select
           value={selectedLocation}
-          onChange={(e) => setSelectedLocation(e.target.value as any)}
+          onChange={(e) => setSelectedLocation(e.target.value as typeof selectedLocation)}
           className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold text-foreground w-full sm:w-auto"
         >
           <option value="All">All Locations</option>

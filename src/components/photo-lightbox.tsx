@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   X,
   Download,
@@ -56,15 +56,16 @@ export function PhotoLightbox({
 
   const hasMultiple = photoList.length > 1;
 
-  const goToPrevious = () => {
+  const photoCount = photoList.length;
+  const goToPrevious = useCallback(() => {
     setZoomed(false);
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : photoList.length - 1));
-  };
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : photoCount - 1));
+  }, [photoCount]);
 
-  const goToNext = () => {
+  const goToNext = useCallback(() => {
     setZoomed(false);
-    setCurrentIndex((prev) => (prev < photoList.length - 1 ? prev + 1 : 0));
-  };
+    setCurrentIndex((prev) => (prev < photoCount - 1 ? prev + 1 : 0));
+  }, [photoCount]);
 
   // Keyboard navigation: Escape, ArrowLeft, ArrowRight
   useEffect(() => {
@@ -83,7 +84,7 @@ export function PhotoLightbox({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [confirmDelete, onClose, hasMultiple, photoList.length]);
+  }, [confirmDelete, onClose, hasMultiple, goToPrevious, goToNext]);
 
   const catStyle =
     currentPhoto.category && categoryStyles[currentPhoto.category]

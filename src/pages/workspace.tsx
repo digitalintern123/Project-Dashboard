@@ -37,6 +37,7 @@ import {
   type Category,
   type Health,
   type Project,
+  type ProjectIssue,
   type ProjectStatus,
   type IssueCategory,
   type SitePhoto,
@@ -60,6 +61,7 @@ import { PhotoLightbox } from '@/components/photo-lightbox';
 import { PhotoUploadDialog } from '@/components/photo-upload-dialog';
 import { getIssueStatusTheme, issueStatusOptions } from '@/lib/issue-theme';
 import { activateOnKey } from '@/lib/a11y';
+import { errorMessage } from '@/lib/utils';
 
 export type WorkspaceView =
   | 'projects'
@@ -275,11 +277,11 @@ function ProjectTable({ rows }: { rows: Project[] }) {
                         description: 'Could not delete project from database.',
                       });
                     }
-                  } catch (err: any) {
+                  } catch (err) {
                     toast({
                       variant: 'destructive',
                       title: 'Delete failed',
-                      description: err.message || 'An error occurred.',
+                      description: errorMessage(err, 'An error occurred.'),
                     });
                   } finally {
                     setIsDeleting(false);
@@ -608,7 +610,7 @@ function MilestonesView() {
       .flatMap((project) =>
         project.milestones.map((milestone) => ({
           ...milestone,
-          id: (milestone as any).id || `${project.id}-${milestone.title}`,
+          id: milestone.id || `${project.id}-${milestone.title}`,
           project,
         })),
       )
@@ -1011,7 +1013,7 @@ function IssuesView() {
       });
       return;
     }
-    updateIssue(projectId, issueIndex, { status: newStatus as any });
+    updateIssue(projectId, issueIndex, { status: newStatus as ProjectIssue['status'] });
     toast({
       title: 'Issue Status Updated',
       description: `Issue updated to "${newStatus}".`,
@@ -1985,11 +1987,11 @@ function ReportsView() {
           }
         }
         toast({ title: 'Backup restored', description: `Restored ${count} projects successfully.` });
-      } catch (err: any) {
+      } catch (err) {
         toast({
           variant: 'destructive',
           title: 'Restore failed',
-          description: err.message || 'Could not parse JSON file.',
+          description: errorMessage(err, 'Could not parse JSON file.'),
         });
       }
     };
@@ -2774,10 +2776,10 @@ function TeamView() {
         `Temporary password for ${lead.name}. Copy it now and share it securely; it will not be shown again.`,
         res.temporaryPassword,
       );
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Password reset failed',
-        description: err.message || 'Please try again.',
+        description: errorMessage(err, 'Please try again.'),
         variant: 'destructive',
       });
     }
@@ -2814,8 +2816,8 @@ function TeamView() {
       } else {
         setError(res.error || 'Failed to create lead account');
       }
-    } catch (err: any) {
-      setError(err.message || 'Error creating lead');
+    } catch (err) {
+      setError(errorMessage(err, 'Error creating lead'));
     } finally {
       setSubmitting(false);
     }
@@ -3336,11 +3338,11 @@ function SitePhotographsView() {
                 title: `${photos.length} photograph${photos.length > 1 ? 's' : ''} uploaded`,
                 description: 'Successfully added to project site gallery.',
               });
-            } catch (err: any) {
+            } catch (err) {
               toast({
                 variant: 'destructive',
                 title: 'Upload failed',
-                description: err?.message || 'Failed to upload photographs.',
+                description: errorMessage(err, 'Failed to upload photographs.'),
               });
               throw err;
             }
@@ -3352,11 +3354,11 @@ function SitePhotographsView() {
                 title: 'Site photograph added',
                 description: 'New photograph uploaded to project site gallery.',
               });
-            } catch (err: any) {
+            } catch (err) {
               toast({
                 variant: 'destructive',
                 title: 'Upload failed',
-                description: err?.message || 'Failed to upload photograph.',
+                description: errorMessage(err, 'Failed to upload photograph.'),
               });
               throw err;
             }

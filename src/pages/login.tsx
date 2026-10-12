@@ -3,6 +3,7 @@ import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, Loader2 } from
 import { useLocation } from 'wouter';
 import { useAppState } from '@/state/app-state';
 import { BrandLogo } from '@/components/brand-logo';
+import { errorMessage } from '@/lib/utils';
 
 export default function Login() {
   const { login } = useAppState();
@@ -23,8 +24,8 @@ export default function Login() {
       } else if (location === '/login') {
         navigate('/', { replace: true });
       }
-    } catch (err: any) {
-      setError(err.message || 'Unable to connect to server.');
+    } catch (err) {
+      setError(errorMessage(err, 'Unable to connect to server.'));
     } finally {
       setLoading(false);
     }

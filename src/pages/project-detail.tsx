@@ -43,6 +43,7 @@ import {
   type Health,
   type IssueCategory,
   type IssueStatus,
+  type Milestone,
   type Phase,
   type Project,
   type ProjectIssue,
@@ -64,6 +65,7 @@ import { TagUserPopover } from '@/components/tag-user-popover';
 import { EmailHubModal } from '@/components/email-hub-modal';
 import { getIssueStatusTheme, issueStatusOptions } from '@/lib/issue-theme';
 import { activateOnKey } from '@/lib/a11y';
+import { errorMessage } from '@/lib/utils';
 
 const healthStyles: Record<Health, { dot: string; text: string; bg: string; border: string }> = {
   'On track': { dot: 'bg-[#3d9a7e]', text: 'text-[#2e7c67]', bg: 'bg-[#e4f1ec]', border: 'border-[#cbe4d9]' },
@@ -976,8 +978,8 @@ function StageMilestonesPanel({
 
   // Partition into Active/Incomplete (top) and Completed (bottom)
   const sortedMilestones = useMemo(() => {
-    const active: Array<{ milestone: (typeof project.milestones)[0]; originalIndex: number }> = [];
-    const completed: Array<{ milestone: (typeof project.milestones)[0]; originalIndex: number }> = [];
+    const active: Array<{ milestone: Milestone; originalIndex: number }> = [];
+    const completed: Array<{ milestone: Milestone; originalIndex: number }> = [];
 
     project.milestones.forEach((m, idx) => {
       if (m.status === 'complete') {
@@ -1014,7 +1016,7 @@ function StageMilestonesPanel({
             {sortedMilestones
               .filter((item) => item.milestone.status !== 'complete')
               .map(({ milestone, originalIndex }) => {
-                const milestoneId = (milestone as any).id || `${project.id}-${milestone.title}`;
+                const milestoneId = milestone.id || `${project.id}-${milestone.title}`;
                 const isPendingApproval = milestone.approvalRequired && milestone.approvalStatus === 'Pending';
                 const isComplete = milestone.status === 'complete';
                 return (
@@ -1142,7 +1144,7 @@ function StageMilestonesPanel({
               {sortedMilestones
                 .filter((item) => item.milestone.status === 'complete')
                 .map(({ milestone, originalIndex }) => {
-                  const milestoneId = (milestone as any).id || `${project.id}-${milestone.title}`;
+                  const milestoneId = milestone.id || `${project.id}-${milestone.title}`;
                   const isPendingApproval = milestone.approvalRequired && milestone.approvalStatus === 'Pending';
                   return (
                     <div
@@ -1556,7 +1558,7 @@ function StageIssuesPanel({
               </select>
               <select
                 value={draft.severity}
-                onChange={(event) => set('severity', event.target.value as any)}
+                onChange={(event) => set('severity', event.target.value as ProjectIssue['severity'])}
                 className="h-10 rounded-lg border border-border bg-white px-3 text-[11px]"
               >
                 <option>High</option>
@@ -2473,11 +2475,11 @@ export default function ProjectDetail() {
                       });
                       setIsDeleting(false);
                     }
-                  } catch (err: any) {
+                  } catch (err) {
                     toast({
                       variant: 'destructive',
                       title: 'Delete failed',
-                      description: err.message || 'An error occurred.',
+                      description: errorMessage(err, 'An error occurred.'),
                     });
                     setIsDeleting(false);
                   }
@@ -2505,11 +2507,11 @@ export default function ProjectDetail() {
                 title: `${photos.length} photograph${photos.length > 1 ? 's' : ''} uploaded`,
                 description: 'Successfully added to project site gallery.',
               });
-            } catch (err: any) {
+            } catch (err) {
               toast({
                 variant: 'destructive',
                 title: 'Upload failed',
-                description: err?.message || 'Failed to upload photographs.',
+                description: errorMessage(err, 'Failed to upload photographs.'),
               });
               throw err;
             }
@@ -2521,11 +2523,11 @@ export default function ProjectDetail() {
                 title: 'Site photograph added',
                 description: 'New photograph uploaded to project site gallery.',
               });
-            } catch (err: any) {
+            } catch (err) {
               toast({
                 variant: 'destructive',
                 title: 'Upload failed',
-                description: err?.message || 'Failed to upload photograph.',
+                description: errorMessage(err, 'Failed to upload photograph.'),
               });
               throw err;
             }

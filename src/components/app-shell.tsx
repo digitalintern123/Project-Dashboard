@@ -35,18 +35,20 @@ import {
   UserCheck,
   FileSpreadsheet,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useAppState, type AppRole } from '@/state/app-state';
 import { BrandLogo } from './brand-logo';
 import { readItem, writeItem } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { EmailHubModal } from './email-hub-modal';
+import { errorMessage } from '@/lib/utils';
 
 type AppShellProps = { children: ReactNode };
 
 type NavItem = {
   label: string;
   href: string;
-  icon: any;
+  icon: LucideIcon;
   allowedRoles?: AppRole[];
 };
 
@@ -157,10 +159,10 @@ export function AppShell({ children }: AppShellProps) {
           variant: 'destructive',
         });
       }
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Import Error',
-        description: err.message || 'Failed to read file.',
+        description: errorMessage(err, 'Failed to read file.'),
         variant: 'destructive',
       });
     } finally {
