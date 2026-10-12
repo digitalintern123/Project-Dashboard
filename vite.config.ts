@@ -28,7 +28,9 @@ export default defineConfig({
         // Long-lived vendor chunks, so app deploys don't invalidate them.
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
-          if (/node_modules\/(react|react-dom|scheduler|wouter)\//.test(id)) return 'react-vendor';
+          // Only React itself: a library that imports a helper from 'vendor' here would
+          // make the two chunks import each other and crash at startup.
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor';
           if (/node_modules\/(recharts|d3-[^/]+|victory-vendor)\//.test(id)) return 'charts-vendor';
           if (id.includes('node_modules/@radix-ui/')) return 'radix-vendor';
           if (id.includes('node_modules/lucide-react/')) return 'icons-vendor';
