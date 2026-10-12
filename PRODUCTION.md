@@ -509,13 +509,19 @@ A user's password: a coordinator resets it (section 12) and the user chooses a n
 
 For a Plesk server on Windows, where IIS runs Node.js through iisnode, instead of the Linux VPS setup above. The `deploy/` scripts, the GitHub Deploy workflow and `scripts/backup.sh` are for Linux and do not apply here; Plesk's own Git, Node.js and backup tools take their place.
 
-How it works: iisnode starts `server.cjs` and passes a named pipe (such as `\\.\pipe\…`) in `PORT` instead of a port number; the app listens on that pipe (`server/src/listen.ts`). `server.cjs` runs the compiled server in `server/dist/`. `iisnode.yml` (in the repository root, next to `server.cjs`) sets iisnode up: one process, client IPs forwarded, no stack traces shown to visitors, logs in `iisnode/`.
+**Nothing is built on the server.** Windows hosting accounts cannot run the build (esbuild stops with "Cannot read directory …: Access is denied" because the site user may not list `C:\inetpub\vhosts`), and the server has no Python or C++ tools. Instead, every time CI passes on `main`, the **Plesk release** workflow (`.github/workflows/plesk-release.yml`) builds the app on GitHub, checks that it starts with production dependencies only, and commits the ready-to-run files to the branch **`plesk-release`**: `dist/`, `server/dist/`, `package.json`, `package-lock.json`, `.npmrc`, `server.cjs`, `iisnode.yml`. Plesk pulls that branch and only installs the runtime packages.
+
+How it runs: iisnode starts `server.cjs` and passes a named pipe (such as `\\.\pipe\…`) in `PORT` instead of a port number; the app listens on that pipe (`server/src/listen.ts`). `iisnode.yml` sets iisnode up: one process, client IPs forwarded, no stack traces shown to visitors, logs in `iisnode/`.
 
 ### 15.1 Code
 
-Plesk → the domain → **Git**: add the repository, branch **`main`**, deployed to the folder that will contain `package.json` (for example `httpdocs`). If that folder is `httpdocs`, the Document Root **must** be `httpdocs\dist` (15.3): otherwise IIS would serve the source code and the `iisnode` logs to anyone.
+1. GitHub → repository → **Actions → Plesk release**: it runs by itself after each green CI on `main`; the first time, click **Run workflow** to create the `plesk-release` branch.
+2. Plesk → the domain → **Git**: repository `https://github.com/digitalintern123/Project-Dashboard`, branch **`plesk-release`** (not `main`), deployed to the folder that will contain `package.json` (for example `httpdocs`).
+3. When switching an existing site from `main` to `plesk-release`, first empty that folder (it holds source files and a half-installed `node_modules` from earlier attempts); the data folder (15.2) is elsewhere and is not touched.
 
-`dist\` and `node_modules\` are not in git; **NPM install** and the build create them on the server (15.5). Plesk does not pull new commits by itself: after each push, click **Pull Updates** (and **Deploy Now** if the deployment mode is *Manual*), or add Plesk's **Webhook URL** to GitHub → repository → **Settings → Webhooks** so pushes to `main` are pulled automatically.
+If the folder is `httpdocs`, the Document Root **must** be `httpdocs\dist` (15.3): otherwise IIS would serve the server code and the `iisnode` logs to anyone.
+
+Plesk does not pull new commits by itself: after a release, click **Pull Updates** (and **Deploy Now** if the deployment mode is *Manual*), or add Plesk's **Webhook URL** to GitHub → repository → **Settings → Webhooks** so new releases are pulled automatically.
 
 ### 15.2 Data folder
 
@@ -562,15 +568,14 @@ $b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create
 - `CORS_ORIGIN` is not needed: the site and its API are on the same host. Setting it to the site's own URL is harmless.
 - Keep a copy of `JWT_SECRET` and `SETTINGS_ENCRYPTION_KEY` in your password manager. If `SETTINGS_ENCRYPTION_KEY` is lost or changed, the saved email password must be re-entered in Settings.
 
-### 15.5 Install, build, start
+### 15.5 Install and start
 
-1. **Run script** → `build:plesk`. This installs all dependencies, including the dev dependencies the build needs (Plesk's **NPM install** skips them in production mode), and builds `dist/` and `server/dist/`. If you use Git **additional deployment actions**, make the action `npm run build:plesk`.
-   No Python or Visual Studio build tools are needed: the repository's `.npmrc` turns off dependency install scripts, so `better-sqlite3` uses its bundled Windows binary instead of compiling from source.
-   Stop the app first (Node.js page → **Disable Node.js**, or stop the site's application pool) when reinstalling: a running app locks files in `node_modules` and npm fails with `EPERM`.
-3. Click **Enable Node.js**, then **Restart App**.
-4. Open `https://projects.encalmhospitality.com/api/system/ready`: it must show `{"status":"ready"}`.
-5. **HTTPS:** Plesk → **SSL/TLS Certificates** → Let's Encrypt, and turn on *Redirect from HTTP to HTTPS*. Sign-in only works over HTTPS (secure cookies).
-6. **First user:** in a shell in the application folder (Plesk → **Web Hosting Access** / RDP), with the same environment variables set, run `npm run create-user -- "Full Name" you@encalmhospitality.com "Temp-pass-123" coordinator` ([section 12](#12-users-and-passwords)). Alternatively, the first start creates the standard accounts and writes their temporary passwords once to the log in the `iisnode` folder.
+1. Install the runtime packages, either as the Git **additional deployment action** `npm install --omit=dev --no-audit --no-fund`, or on the Node.js page with **NPM install** (production mode installs runtime packages only). No build step, no Python or Visual Studio tools: the `.npmrc` that comes with the release stops npm from compiling `better-sqlite3`, which ships a Windows binary.
+   If npm reports `EPERM` on files in `node_modules`, the running app has them open: **Disable Node.js**, install again, then enable it.
+2. Click **Enable Node.js**, then **Restart App**.
+3. Open `https://projects.encalmhospitality.com/api/system/ready`: it must show `{"status":"ready"}`.
+4. **HTTPS:** Plesk → **SSL/TLS Certificates** → Let's Encrypt, and turn on *Redirect from HTTP to HTTPS*. Sign-in only works over HTTPS (secure cookies).
+5. **First user:** the first start creates the standard accounts and writes their temporary passwords once to the newest log in the `iisnode` folder; sign in with one and change the password. To add someone later: in a shell in the application folder (RDP), with the same environment variables set, `node server/dist/create-user.js "Full Name" you@encalmhospitality.com "Temp-pass-123" coordinator` ([section 12](#12-users-and-passwords)).
 
 ### 15.6 If you get a 500 error
 
@@ -580,16 +585,17 @@ Open the domain's **Files** in Plesk → the `iisnode` folder inside the Applica
 |---|---|
 | `[Config] FATAL: JWT_SECRET …` or `SETTINGS_ENCRYPTION_KEY …` | Add or correct that variable (15.4), Restart App. |
 | `SQLITE_CANTOPEN`, `EPERM` or `EACCES` on `C:\encalm-projects-data` | Folder missing or the domain user lacks Modify (15.2). |
-| `Cannot find module …server\dist\index.js` / `Failed to start server (did you run "npm run build"?)` | Run script `build:plesk` (15.5). |
-| `better_sqlite3.node` or `sharp` "could not load" / "was compiled against a different Node.js version" | Native modules do not match the Node version: stop the app, delete `node_modules`, then Run script `build:plesk`. |
-| npm: `gyp ERR! find Python` / `node-gyp rebuild` failed for `better-sqlite3` | The install ran without the repository's `.npmrc` (an old checkout, or a command outside the application folder). Pull the latest `main`, then run `build:plesk` from the application folder. |
+| `Cannot find module …server\dist\index.js` / `Failed to start server (did you run "npm run build"?)` | Plesk is deploying `main` (source only) instead of `plesk-release`, or the release branch was not pulled (15.1). |
+| `better_sqlite3.node` or `sharp` "could not load" / "was compiled against a different Node.js version" | Native modules do not match the Node version: Disable Node.js, delete `node_modules`, install again (15.5), enable. |
+| npm: `gyp ERR! find Python` / `node-gyp rebuild` failed for `better-sqlite3` | The install ran without the release's `.npmrc` (an old checkout, or a command run outside the application folder). Pull `plesk-release` and install from the application folder. |
 | npm: `EPERM: operation not permitted, rmdir …node_modules…` | Files are locked by the running app: Disable Node.js (or stop the application pool), run the install again, then enable and Restart App. |
+| Build: `Cannot read directory "../../../..": Access is denied` | Something tried to build on the server. Do not run `npm run build` there; deploy `plesk-release` (15.1). |
 | `ERR_ERL_UNDEFINED_IP_ADDRESS` (warning, not a 500) | iisnode is not forwarding client IPs, so all users share one rate limit. Check that `iisnode.yml` is next to `server.cjs`; if Plesk's `web.config` sets its own `<iisnode>` element, add `enableXFF="true"` to it. |
 
 ### 15.7 Updates, rollback, backups
 
-- **Update:** **Git → Pull/Deploy**, **Run script → `build:plesk`**, **Restart App**. Migrations run automatically when the app starts.
-- **Rollback:** there is no automatic rollback on Plesk. Before each update, back up `C:\encalm-projects-data`; to roll back, deploy the previous commit or tag, rebuild, and restore that backup if the update changed the database.
+- **Update:** merge to `main` → CI → the Plesk release workflow publishes `plesk-release` → Plesk **Pull Updates** (or the webhook) → install (15.5) → **Restart App**. Migrations run automatically when the app starts. Each release commit names the `main` commit it was built from (`SOURCE_COMMIT`).
+- **Rollback:** there is no automatic rollback on Plesk. Before each update, back up `C:\encalm-projects-data`. To roll back, deploy the previous commit of `plesk-release` (Plesk Git can deploy a specific commit), reinstall, restart, and restore that backup if the update changed the database.
 - **Backups:** include `C:\encalm-projects-data` in Plesk's **Backup Manager** (scheduled, with remote storage). For a guaranteed-consistent copy, stop the app first, or copy `encalm.db` together with its `-wal` and `-shm` files.
 - **One process only:** `iisnode.yml` sets `nodeProcessCountPerApplication: 1`; do not raise it.
 
