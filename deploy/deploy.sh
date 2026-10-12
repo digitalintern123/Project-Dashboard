@@ -91,6 +91,10 @@ else
   echo "$RELEASE" > "$NEW/RELEASE"
 fi
 
+# A release that failed is kept for inspection but never chosen by rollback.sh,
+# and is removed by the next successful deploy.
+mark_failed() { [ "$DRY_RUN" = 1 ] || touch "$NEW/.failed"; }
+
 # 2. Install and build -----------------------------------------------------
 log "Installing and building"
 cd "$NEW" 2>/dev/null || [ "$DRY_RUN" = 1 ]
@@ -115,8 +119,10 @@ fi
 
 # 4. Migrate (old release still serving) --------------------------------------
 log "Running migrations"
-run env DOTENV_CONFIG_PATH="$ENV_FILE" NODE_ENV=production node "$NEW/server/dist/migrate.js" \
-  || die "migration failed; $ENV_NAME is still on ${PREVIOUS:-nothing}. Release left at $NEW for inspection."
+if ! run env DOTENV_CONFIG_PATH="$ENV_FILE" NODE_ENV=production node "$NEW/server/dist/migrate.js"; then
+  mark_failed
+  die "migration failed; $ENV_NAME is still on ${PREVIOUS:-nothing}. Release left at $NEW for inspection."
+fi
 SCHEMA_AFTER="$( [ -f "$DB_FILE" ] && sqlite3 "$DB_FILE" 'SELECT MAX(version) FROM schema_migrations' 2>/dev/null || echo 0)"
 
 # 5. Switch and reload -----------------------------------------------------
@@ -148,18 +154,24 @@ switch_to "$NEW"
 if health_ok "$RELEASE"; then
   run pm2 save
   log "Healthy. $ENV_NAME is on $RELEASE"
-  # Keep the newest releases, never the live or previous one.
+  # Drop failed releases, then keep the newest good ones (never the live or previous one).
   if [ "$DRY_RUN" != 1 ]; then
-    ls -1dt "$RELEASES"/*/ 2>/dev/null | tail -n +"$((KEEP_RELEASES + 1))" | while read -r old; do
+    for old in "$RELEASES"/*/; do
       old="${old%/}"
-      [ "$old" = "$NEW" ] || [ "$old" = "$PREVIOUS" ] || rm -rf "$old"
+      if [ -e "$old/.failed" ] && [ "$old" != "$NEW" ]; then rm -rf "$old"; fi
     done
+    find "$RELEASES" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r | tail -n +"$((KEEP_RELEASES + 1))" |
+      while read -r old; do
+        old="$RELEASES/$old"
+        [ "$old" = "$NEW" ] || [ "$old" = "$PREVIOUS" ] || rm -rf "$old"
+      done
   fi
   exit 0
 fi
 
 # 7. Roll back -------------------------------------------------------------
 log "Health check failed for $RELEASE; rolling back"
+mark_failed
 run pm2 logs "$PM2_APP" --lines 40 --nostream || true
 if [ -z "$PREVIOUS" ] || [ ! -d "$PREVIOUS" ]; then
   run pm2 stop "$PM2_APP" || true
