@@ -38,22 +38,84 @@ db.pragma('synchronous = NORMAL');
 db.pragma('cache_size = -64000');
 db.pragma('busy_timeout = 5000');
 
+
+const USERS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE,
+  password_hash TEXT DEFAULT '',
+  role TEXT NOT NULL CHECK(role IN ('hod', 'lead', 'coordinator', 'stakeholder')),
+  title TEXT NOT NULL,
+  initials TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  must_change_password INTEGER NOT NULL DEFAULT 0,
+  token_version INTEGER NOT NULL DEFAULT 0,
+  failed_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT
+)`;
+
+const PROJECTS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  location TEXT NOT NULL,
+  category TEXT NOT NULL,
+  code TEXT NOT NULL,
+  health TEXT NOT NULL CHECK(health IN ('On track', 'At risk', 'Delayed', 'Not started')),
+  status TEXT NOT NULL DEFAULT 'Yet to start' CHECK(status IN ('Yet to start', 'In Design', 'In Tendering', 'Under Construction', 'Operational', 'On Hold')),
+  progress REAL NOT NULL DEFAULT 0,
+  target_date TEXT NOT NULL,
+  target_label TEXT NOT NULL,
+  aop REAL NOT NULL DEFAULT 0,
+  awarded REAL NOT NULL DEFAULT 0,
+  spent REAL NOT NULL DEFAULT 0,
+  projected_cost REAL NOT NULL DEFAULT 0,
+  area TEXT,
+  pax_keys TEXT,
+  next_milestone TEXT NOT NULL,
+  next_milestone_date TEXT NOT NULL,
+  lead_id TEXT NOT NULL,
+  start_date TEXT,
+  last_updated TEXT,
+  specification_json TEXT,
+  template_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`;
+
+/**
+ * Rebuilds a table with a new definition, keeping its rows, using SQLite's
+ * documented procedure: foreign keys off, create the new table, copy the
+ * shared columns, drop the old table, rename, then verify foreign keys.
+ * Renaming the old table instead (ALTER ... RENAME) would rewrite other tables'
+ * foreign keys to point at it, and dropping it would then cascade-delete them.
+ */
+function rebuildTable(table: string, createSql: string) {
+  const tempName = `${table}__rebuild`;
+  const createTemp = createSql.replace(new RegExp(`CREATE TABLE (IF NOT EXISTS )?${table}\\b`), `CREATE TABLE ${tempName}`);
+  const columnsOf = (t: string) => (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
+
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(`DROP TABLE IF EXISTS ${tempName}`);
+      db.exec(createTemp);
+      const newColumns = new Set(columnsOf(tempName));
+      const shared = columnsOf(table).filter((c) => newColumns.has(c)).join(', ');
+      db.exec(`INSERT INTO ${tempName} (${shared}) SELECT ${shared} FROM ${table}`);
+      db.exec(`DROP TABLE ${table}`);
+      db.exec(`ALTER TABLE ${tempName} RENAME TO ${table}`);
+      const problems = db.pragma('foreign_key_check') as unknown[];
+      if (problems.length > 0) {
+        throw new Error(`Foreign key check failed after rebuilding ${table}: ${JSON.stringify(problems.slice(0, 5))}`);
+      }
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
 export function initDatabase() {
   db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE,
-      password_hash TEXT DEFAULT '',
-      role TEXT NOT NULL CHECK(role IN ('hod', 'lead', 'coordinator', 'stakeholder')),
-      title TEXT NOT NULL,
-      initials TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      must_change_password INTEGER NOT NULL DEFAULT 0,
-      token_version INTEGER NOT NULL DEFAULT 0,
-      failed_attempts INTEGER NOT NULL DEFAULT 0,
-      locked_until TEXT
-    );
+    ${USERS_TABLE_SQL};
 
     CREATE TABLE IF NOT EXISTS refresh_tokens (
       id TEXT PRIMARY KEY,
@@ -67,32 +129,7 @@ export function initDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 
-    CREATE TABLE IF NOT EXISTS projects (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      location TEXT NOT NULL,
-      category TEXT NOT NULL,
-      code TEXT NOT NULL,
-      health TEXT NOT NULL CHECK(health IN ('On track', 'At risk', 'Delayed', 'Not started')),
-      status TEXT NOT NULL DEFAULT 'Yet to start' CHECK(status IN ('Yet to start', 'In Design', 'In Tendering', 'Under Construction', 'Operational')),
-      progress REAL NOT NULL DEFAULT 0,
-      target_date TEXT NOT NULL,
-      target_label TEXT NOT NULL,
-      aop REAL NOT NULL DEFAULT 0,
-      awarded REAL NOT NULL DEFAULT 0,
-      spent REAL NOT NULL DEFAULT 0,
-      projected_cost REAL NOT NULL DEFAULT 0,
-      area TEXT,
-      pax_keys TEXT,
-      next_milestone TEXT NOT NULL,
-      next_milestone_date TEXT NOT NULL,
-      lead_id TEXT NOT NULL,
-      start_date TEXT,
-      last_updated TEXT,
-      specification_json TEXT,
-      template_id TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+    ${PROJECTS_TABLE_SQL};
 
     CREATE TABLE IF NOT EXISTS phases (
       id TEXT PRIMARY KEY,
@@ -281,35 +318,23 @@ export function initDatabase() {
     // Safe migration of legacy 'Build & install' phase names to 'Execution'
     db.prepare("UPDATE phases SET name = 'Execution' WHERE name IN ('Build & install', 'Build and install', 'Build & installation')").run();
 
-    // Safe migration for users table CHECK constraint to support coordinator and stakeholder roles
-    const userTableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get() as { sql?: string } | undefined;
-    if (userTableInfo?.sql && (!userTableInfo.sql.includes('stakeholder') || !userTableInfo.sql.includes('coordinator'))) {
-      db.exec(`
-        ALTER TABLE users RENAME TO users_old;
-
-        CREATE TABLE users (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          email TEXT UNIQUE,
-          password_hash TEXT DEFAULT '',
-          role TEXT NOT NULL CHECK(role IN ('hod', 'lead', 'coordinator', 'stakeholder')),
-          title TEXT NOT NULL,
-          initials TEXT NOT NULL,
-          created_at TEXT NOT NULL DEFAULT (datetime('now')),
-          must_change_password INTEGER NOT NULL DEFAULT 0,
-          token_version INTEGER NOT NULL DEFAULT 0,
-          failed_attempts INTEGER NOT NULL DEFAULT 0,
-          locked_until TEXT
-        );
-
-        INSERT INTO users (id, name, email, password_hash, role, title, initials, created_at, must_change_password, token_version, failed_attempts, locked_until)
-        SELECT id, name, email, password_hash, role, title, initials, created_at, must_change_password, token_version, failed_attempts, locked_until FROM users_old;
-
-        DROP TABLE users_old;
-      `);
-      console.log('✓ Migrated users table schema to support coordinator and stakeholder roles.');
-    }
   } catch (err) {
     console.warn('Column migration note:', err);
+  }
+
+  // CHECK constraints can only change by rebuilding the table. These run in their
+  // own transaction and fail loudly rather than leaving a half-migrated schema.
+  const tableSql = (name: string) =>
+    (db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name = ?").get(name) as { sql?: string } | undefined)?.sql ?? '';
+
+  const usersSql = tableSql('users');
+  if (!usersSql.includes('stakeholder') || !usersSql.includes('coordinator')) {
+    rebuildTable('users', USERS_TABLE_SQL);
+    console.log('✓ Migrated users table to support coordinator and stakeholder roles.');
+  }
+
+  if (!tableSql('projects').includes("'On Hold'")) {
+    rebuildTable('projects', PROJECTS_TABLE_SQL);
+    console.log("✓ Migrated projects table to allow the 'On Hold' status.");
   }
 }
