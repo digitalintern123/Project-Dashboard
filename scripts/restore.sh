@@ -5,7 +5,7 @@
 #   scripts/restore.sh                     list available backups
 #   scripts/restore.sh <STAMP|latest> [--no-uploads] [--yes]
 #
-# STOP THE APP FIRST (pm2 stop encalm-dashboard / docker compose stop).
+# STOP THE APP FIRST (sudo -u encalm pm2 stop encalm-production / docker compose stop).
 # Nothing is deleted: the current database and uploads are moved to
 # $DATA_DIR/pre-restore-<time>/ before the backup is put in place.
 #
