@@ -1,5 +1,6 @@
 import { db } from '../db/database.js';
 import type { PhotoRow } from './rows.js';
+import type { Page } from '../utils/paging.js';
 
 export type PortfolioPhoto = {
   id: string;
@@ -25,12 +26,18 @@ export const photosRepo = {
     return db.prepare('SELECT * FROM photos WHERE id = ? AND project_id = ?').get(photoId, projectId) as
       PhotoRow | undefined;
   },
-  listForProject(projectId: string): PhotoRow[] {
+  listForProject(projectId: string, page: Page): PhotoRow[] {
     return db
-      .prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC')
-      .all(projectId) as PhotoRow[];
+      .prepare('SELECT * FROM photos WHERE project_id = ? ORDER BY taken_date DESC, created_at DESC LIMIT ? OFFSET ?')
+      .all(projectId, page.limit, page.offset) as PhotoRow[];
   },
-  listPortfolio(): PortfolioPhoto[] {
+  countForProject(projectId: string): number {
+    return (db.prepare('SELECT COUNT(*) AS n FROM photos WHERE project_id = ?').get(projectId) as { n: number }).n;
+  },
+  countAll(): number {
+    return (db.prepare('SELECT COUNT(*) AS n FROM photos').get() as { n: number }).n;
+  },
+  listPortfolio(page: Page): PortfolioPhoto[] {
     return db
       .prepare(
         `SELECT
@@ -52,9 +59,10 @@ export const photosRepo = {
            pr.category AS projectCategory
          FROM photos p
          JOIN projects pr ON p.project_id = pr.id
-         ORDER BY p.taken_date DESC, p.created_at DESC`,
+         ORDER BY p.taken_date DESC, p.created_at DESC
+         LIMIT ? OFFSET ?`,
       )
-      .all() as PortfolioPhoto[];
+      .all(page.limit, page.offset) as PortfolioPhoto[];
   },
   insert(row: PhotoRow): void {
     db.prepare(

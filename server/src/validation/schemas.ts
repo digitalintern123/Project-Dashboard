@@ -53,15 +53,8 @@ export const issueParams = z.object({ id, issueId: id });
 export const photoParams = z.object({ id, photoId: id });
 export const idParams = z.object({ id });
 
-export const emailLogsQuery = z.object({
-  projectId: id.optional(),
-  limit: z
-    .string()
-    .regex(/^\d{1,3}$/)
-    .optional(),
-});
-export const directoryQuery = z.object({ q: z.string().max(100).optional() });
-export const auditQuery = z.object({
+/** limit/offset paging for list endpoints. */
+const pageFields = {
   limit: z
     .string()
     .regex(/^\d{1,3}$/)
@@ -70,6 +63,12 @@ export const auditQuery = z.object({
     .string()
     .regex(/^\d{1,7}$/)
     .optional(),
+};
+export const pageQuery = z.object(pageFields);
+export const emailLogsQuery = z.object({ projectId: id.optional(), ...pageFields });
+export const directoryQuery = z.object({ q: z.string().max(100).optional() });
+export const auditQuery = z.object({
+  ...pageFields,
   userId: id.optional(),
   entityType: z
     .string()

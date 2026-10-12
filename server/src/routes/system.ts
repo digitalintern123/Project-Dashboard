@@ -3,6 +3,7 @@ import { clearAllProjectData } from '../db/seed.js';
 import { getFullProjectRecord, restoreDatabaseFromJSON, saveDatabaseSnapshot } from '../utils/backup.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validate } from '../validation/validate.js';
+import { pageFrom } from '../utils/paging.js';
 import * as S from '../validation/schemas.js';
 import { largeJson } from '../validation/large-json.js';
 import { audited } from '../utils/audit.js';
@@ -89,8 +90,7 @@ const parseJson = (v: string | null): unknown => {
 router.get('/audit', requireAuth, requireRole(['coordinator']), validate({ query: S.auditQuery }), (req, res) => {
   const q = req.query as AuditFilter & { limit?: string; offset?: string };
   const filter: AuditFilter = { userId: q.userId, entityType: q.entityType, entityId: q.entityId, action: q.action };
-  const limit = Math.min(Number(q.limit ?? 50), 200);
-  const offset = Number(q.offset ?? 0);
+  const { limit, offset } = pageFrom(q, 50);
 
   res.json({
     total: auditRepo.count(filter),

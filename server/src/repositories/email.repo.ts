@@ -1,4 +1,5 @@
 import { db } from '../db/database.js';
+import type { Page } from '../utils/paging.js';
 
 export type EmailStatus = 'queued' | 'sent' | 'failed' | 'outbox';
 
@@ -28,13 +29,21 @@ export type EmailJob = {
 
 /** The `email_logs` outbox and the `email_queue` delivery jobs that point at it. */
 export const emailRepo = {
-  listLogs(projectId: string | undefined, limit: number): EmailLogRow[] {
+  countLogs(projectId: string | undefined): number {
+    const row = (
+      projectId
+        ? db.prepare('SELECT COUNT(*) AS n FROM email_logs WHERE project_id = ?').get(projectId)
+        : db.prepare('SELECT COUNT(*) AS n FROM email_logs').get()
+    ) as { n: number };
+    return row.n;
+  },
+  listLogs(projectId: string | undefined, { limit, offset }: Page): EmailLogRow[] {
     return (
       projectId
         ? db
-            .prepare('SELECT * FROM email_logs WHERE project_id = ? ORDER BY created_at DESC LIMIT ?')
-            .all(projectId, limit)
-        : db.prepare('SELECT * FROM email_logs ORDER BY created_at DESC LIMIT ?').all(limit)
+            .prepare('SELECT * FROM email_logs WHERE project_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?')
+            .all(projectId, limit, offset)
+        : db.prepare('SELECT * FROM email_logs ORDER BY created_at DESC LIMIT ? OFFSET ?').all(limit, offset)
     ) as EmailLogRow[];
   },
   findLogStatus(id: string): EmailStatus | undefined {

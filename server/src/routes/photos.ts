@@ -4,6 +4,7 @@ import { requireAuth, requireProjectAccess, type AuthenticatedRequest } from '..
 import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { afterCommit, transactional } from '../utils/tx.js';
 import { validate } from '../validation/validate.js';
+import { pageFrom } from '../utils/paging.js';
 import * as S from '../validation/schemas.js';
 import { audited } from '../utils/audit.js';
 import { photosRepo } from '../repositories/photos.repo.js';
@@ -92,11 +93,14 @@ projectPhotosRouter.delete(
   }),
 );
 
-projectPhotosRouter.get('/', requireAuth, validate({ params: S.projectParams }), (req, res) => {
-  res.json({ photos: photosRepo.listForProject(req.params.id as string) });
+projectPhotosRouter.get('/', requireAuth, validate({ params: S.projectParams, query: S.pageQuery }), (req, res) => {
+  const id = req.params.id as string;
+  const page = pageFrom(req.query, 100);
+  res.json({ photos: photosRepo.listForProject(id, page), total: photosRepo.countForProject(id), ...page });
 });
 
 // Every photograph across the portfolio, with its project's name and code.
-globalPhotosRouter.get('/', requireAuth, (_req, res) => {
-  res.json({ photos: photosRepo.listPortfolio() });
+globalPhotosRouter.get('/', requireAuth, validate({ query: S.pageQuery }), (req, res) => {
+  const page = pageFrom(req.query, 100);
+  res.json({ photos: photosRepo.listPortfolio(page), total: photosRepo.countAll(), ...page });
 });

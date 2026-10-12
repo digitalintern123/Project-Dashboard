@@ -12,6 +12,7 @@ import {
 import { sendProjectUpdate, tagAndComment } from '../services/email-dispatch.service.js';
 import { emailRepo } from '../repositories/email.repo.js';
 import { validate } from '../validation/validate.js';
+import { pageFrom } from '../utils/paging.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
 import { audited } from '../utils/audit.js';
@@ -41,9 +42,11 @@ router.get('/directory', requireAuth, validate({ query: S.directoryQuery }), asy
 // Email outbox, newest first
 router.get('/logs', requireAuth, requireRole(['coordinator']), validate({ query: S.emailLogsQuery }), (req, res) => {
   const projectId = req.query.projectId as string | undefined;
-  const limit = Math.min(100, parseInt((req.query.limit as string) || '50', 10));
+  const page = pageFrom(req.query, 50, 100);
   res.json({
-    logs: emailRepo.listLogs(projectId, limit).map((l) => ({
+    total: emailRepo.countLogs(projectId),
+    ...page,
+    logs: emailRepo.listLogs(projectId, page).map((l) => ({
       id: l.id,
       recipientEmail: l.recipient_email,
       recipientName: l.recipient_name,

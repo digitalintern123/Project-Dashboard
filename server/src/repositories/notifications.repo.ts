@@ -1,4 +1,5 @@
 import { db } from '../db/database.js';
+import type { Page } from '../utils/paging.js';
 
 export type NotificationRow = {
   id: string;
@@ -29,10 +30,15 @@ export const notificationsRepo = {
   deleteLegacy(): void {
     db.prepare('DELETE FROM notifications WHERE recipient_id IS NULL').run();
   },
-  listForRecipient(recipientId: string, limit: number): NotificationRow[] {
+  listForRecipient(recipientId: string, page: Page): NotificationRow[] {
     return db
-      .prepare('SELECT * FROM notifications WHERE recipient_id = ? ORDER BY created_at DESC LIMIT ?')
-      .all(recipientId, limit) as NotificationRow[];
+      .prepare('SELECT * FROM notifications WHERE recipient_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?')
+      .all(recipientId, page.limit, page.offset) as NotificationRow[];
+  },
+  countForRecipient(recipientId: string): number {
+    return (
+      db.prepare('SELECT COUNT(*) AS n FROM notifications WHERE recipient_id = ?').get(recipientId) as { n: number }
+    ).n;
   },
   unreadCount(recipientId: string): number {
     const row = db

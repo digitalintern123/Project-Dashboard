@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { validate } from '../validation/validate.js';
+import { pageFrom } from '../utils/paging.js';
 import * as S from '../validation/schemas.js';
 import { notificationsRepo } from '../repositories/notifications.repo.js';
 
@@ -9,10 +10,11 @@ const router = Router();
 router.use(requireAuth);
 
 // GET the signed-in user's notifications
-router.get('/', (req: AuthenticatedRequest, res) => {
+router.get('/', validate({ query: S.pageQuery }), (req: AuthenticatedRequest, res) => {
   const userId = req.user!.id;
+  const page = pageFrom(req.query, 50);
   res.json({
-    notifications: notificationsRepo.listForRecipient(userId, 50).map((n) => ({
+    notifications: notificationsRepo.listForRecipient(userId, page).map((n) => ({
       id: n.id,
       type: n.type,
       title: n.title,
@@ -23,6 +25,8 @@ router.get('/', (req: AuthenticatedRequest, res) => {
       createdAt: n.created_at,
     })),
     unreadCount: notificationsRepo.unreadCount(userId),
+    total: notificationsRepo.countForRecipient(userId),
+    ...page,
   });
 });
 
