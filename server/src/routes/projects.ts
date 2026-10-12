@@ -1,7 +1,6 @@
 import { Router } from 'express';
-import fs from 'node:fs';
-import path from 'node:path';
-import { db, uploadsDir } from '../db/database.js';
+import { db } from '../db/database.js';
+import { removePhotoFiles } from './photos.js';
 import { requireAuth, requireRole, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
 import { calculateProjectStatus } from '../utils/status.js';
 import { broadcastNotification } from '../utils/notify.js';
@@ -116,6 +115,7 @@ export function fetchFullProject(projectId: string) {
       id: p.id,
       projectId: p.project_id,
       url: p.url,
+      thumbnailUrl: p.thumbnail_url || undefined,
       caption: p.caption,
       stage: p.stage,
       category: p.category,
@@ -467,22 +467,7 @@ router.patch('/:id', requireAuth, requireProjectAccess(), (req: AuthenticatedReq
 router.delete('/:id', requireAuth, requireRole(['coordinator']), (req, res) => {
   const id = req.params.id as string;
 
-  // Unlink physical photo files from disk
-  try {
-    const projectPhotos = db.prepare('SELECT url FROM photos WHERE project_id = ?').all(id) as { url: string }[];
-    for (const p of projectPhotos) {
-      if (p.url && typeof p.url === 'string' && p.url.startsWith('/uploads/')) {
-        const fileName = path.basename(p.url);
-        const filePath = path.join(uploadsDir, fileName);
-        if (fs.existsSync(filePath)) {
-          try {
-            fs.unlinkSync(filePath);
-            console.log(`[Project Delete] Removed photo file: ${fileName}`);
-          } catch {}
-        }
-      }
-    }
-  } catch {}
+  const projectPhotos = db.prepare('SELECT url, thumbnail_url FROM photos WHERE project_id = ?').all(id) as { url: string; thumbnail_url: string | null }[];
 
   db.prepare('DELETE FROM photos WHERE project_id = ?').run(id);
   db.prepare('DELETE FROM notifications WHERE project_id = ?').run(id);
@@ -490,6 +475,7 @@ router.delete('/:id', requireAuth, requireRole(['coordinator']), (req, res) => {
   if (result.changes === 0) {
     return res.status(404).json({ error: 'Project not found' });
   }
+  projectPhotos.forEach(removePhotoFiles);
   saveDatabaseSnapshot();
   return res.json({ message: 'Project deleted successfully' });
 });

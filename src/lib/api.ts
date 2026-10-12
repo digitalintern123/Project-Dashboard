@@ -70,6 +70,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+export type PhotoUploadInput = {
+  file: File;
+  caption: string;
+  stage?: string;
+  category?: PhotoCategory;
+  takenDate?: string;
+};
+
 export type NotificationItem = {
   id: string;
   type: 'milestone_overdue' | 'high_issue' | 'approval_required' | 'system' | 'tagged_issue' | 'tagged_task';
@@ -259,38 +267,19 @@ export const api = {
         })[];
       }>('/api/photos'),
     getByProject: (projectId: string) => request<{ photos: SitePhoto[] }>(`/api/projects/${projectId}/photos`),
-    upload: (
-      projectId: string,
-      data: {
-        fileData?: string;
-        fileName?: string;
-        url?: string;
-        caption: string;
-        stage?: string;
-        category?: PhotoCategory;
-        takenDate?: string;
-      }
-    ) =>
-      request<{ message: string; photo: SitePhoto; photos?: SitePhoto[]; project: Project }>(`/api/projects/${projectId}/photos`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    uploadBatch: (
-      projectId: string,
-      photos: Array<{
-        fileData?: string;
-        fileName?: string;
-        url?: string;
-        caption: string;
-        stage?: string;
-        category?: PhotoCategory;
-        takenDate?: string;
-      }>
-    ) =>
-      request<{ message: string; photos: SitePhoto[]; photo: SitePhoto; project: Project }>(`/api/projects/${projectId}/photos/batch`, {
-        method: 'POST',
-        body: JSON.stringify({ photos }),
-      }),
+    /** Uploads one or more photos as multipart/form-data (field "photos" plus a "meta" JSON array). */
+    upload: (projectId: string, items: PhotoUploadInput[]) => {
+      const form = new FormData();
+      for (const item of items) form.append('photos', item.file, item.file.name);
+      form.append(
+        'meta',
+        JSON.stringify(items.map(({ caption, stage, category, takenDate }) => ({ caption, stage, category, takenDate }))),
+      );
+      return request<{ message: string; photos: SitePhoto[]; photo: SitePhoto; project: Project }>(
+        `/api/projects/${encodeURIComponent(projectId)}/photos`,
+        { method: 'POST', body: form },
+      );
+    },
     delete: (projectId: string, photoId: string) =>
       request<{ message: string; project: Project }>(`/api/projects/${projectId}/photos/${photoId}`, {
         method: 'DELETE',

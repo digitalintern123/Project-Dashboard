@@ -116,6 +116,7 @@ export function getFullProjectRecord(projectId: string) {
       id: p.id,
       projectId: p.project_id,
       url: p.url,
+      thumbnailUrl: p.thumbnail_url || undefined,
       caption: p.caption,
       stage: p.stage,
       category: p.category,
@@ -216,9 +217,9 @@ export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?
 
   const insertPhoto = db.prepare(`
     INSERT OR REPLACE INTO photos (
-      id, project_id, url, caption, stage, category, taken_date, uploaded_by, role, file_size, created_at
+      id, project_id, url, thumbnail_url, caption, stage, category, taken_date, uploaded_by, role, file_size, created_at
     ) VALUES (
-      @id, @project_id, @url, @caption, @stage, @category, @taken_date, @uploaded_by, @role, @file_size, @created_at
+      @id, @project_id, @url, @thumbnail_url, @caption, @stage, @category, @taken_date, @uploaded_by, @role, @file_size, @created_at
     )
   `);
 
@@ -345,6 +346,7 @@ export function restoreDatabaseFromJSON(data: { projects?: any[]; notifications?
             id: ph.id || `${p.id}-photo-${idx}`,
             project_id: p.id,
             url: ph.url,
+            thumbnail_url: ph.thumbnailUrl || ph.thumbnail_url || null,
             caption: ph.caption || '',
             stage: ph.stage || null,
             category: ph.category || 'Progress',

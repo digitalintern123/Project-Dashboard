@@ -1,6 +1,10 @@
-import express, { Router } from 'express';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { Router, type NextFunction, type Response } from 'express';
+import multer from 'multer';
+import sharp from 'sharp';
+import { fileTypeFromBuffer } from 'file-type';
 import { db, uploadsDir } from '../db/database.js';
 import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
 import { broadcastNotification } from '../utils/notify.js';
@@ -10,210 +14,229 @@ import { fetchFullProject } from './projects.js';
 export const projectPhotosRouter = Router({ mergeParams: true });
 export const globalPhotosRouter = Router();
 
-const ALLOWED_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif']);
+export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+export const MAX_PHOTOS_PER_UPLOAD = 20;
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const FULL_SIZE_PX = 2000;
+const THUMBNAIL_PX = 400;
 
-function getExtension(fileName?: string, dataUri?: string): string {
-  if (dataUri) {
-    const match = dataUri.match(/^data:image\/([a-zA-Z0-9+]+);base64,/);
-    if (match && match[1]) {
-      const mime = match[1].toLowerCase();
-      if (mime === 'jpeg' || mime === 'jpg') return 'jpg';
-      if (mime === 'png') return 'png';
-      if (mime === 'webp') return 'webp';
-      if (mime === 'gif') return 'gif';
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_PHOTO_BYTES, files: MAX_PHOTOS_PER_UPLOAD, fields: 10, fieldSize: 256 * 1024 },
+});
+
+/** Turns multer limit errors into 4xx responses instead of 500s. */
+function receivePhotos(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  upload.array('photos', MAX_PHOTOS_PER_UPLOAD)(req, res, (err: unknown) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      const message =
+        err.code === 'LIMIT_FILE_SIZE'
+          ? `Each photograph must be ${MAX_PHOTO_BYTES / 1024 / 1024} MB or smaller.`
+          : err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE'
+            ? `Upload at most ${MAX_PHOTOS_PER_UPLOAD} photographs at a time, in the "photos" field.`
+            : err.message;
+      return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: message });
     }
-  }
-  if (fileName) {
-    const ext = path.extname(fileName).replace('.', '').toLowerCase();
-    if (ext && ALLOWED_IMAGE_EXTENSIONS.has(ext)) return ext;
-  }
-  return 'jpg';
+    next(err);
+  });
 }
 
-function processSinglePhoto(projectId: string, photoInput: any, user: any) {
-  const { fileData, fileName, url, caption, stage, category, takenDate } = photoInput;
-  if (!fileData && !url) {
-    throw new Error('Please provide either an image file or an image URL.');
-  }
+type PhotoMeta = { caption?: string; stage?: string; category?: string; takenDate?: string };
 
-  let finalUrl = '';
-  let fileSize = 0;
-
-  if (fileData) {
-    const ext = getExtension(fileName, fileData);
-    if (!ALLOWED_IMAGE_EXTENSIONS.has(ext)) {
-      throw new Error(`Unsupported image format '.${ext}'. Only JPG, PNG, WEBP, and GIF images are permitted.`);
+function parseMeta(raw: unknown, count: number): PhotoMeta[] {
+  let parsed: unknown = [];
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = [];
     }
-
-    const cleanBase64 = fileData.replace(/^data:image\/[a-zA-Z0-9+]+;base64,/, '');
-    const buffer = Buffer.from(cleanBase64, 'base64');
-    fileSize = buffer.length;
-
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const safeExt = ext === 'jpeg' ? 'jpg' : ext;
-    const safeProjectId = (projectId || 'project').replace(/[^a-zA-Z0-9-_]/g, '');
-    const newFileName = `${safeProjectId}_${Date.now()}_${randomSuffix}.${safeExt}`;
-    const destinationPath = path.join(uploadsDir, newFileName);
-
-    fs.writeFileSync(destinationPath, buffer);
-    finalUrl = `/uploads/${newFileName}`;
-  } else if (url) {
-    finalUrl = url.trim();
   }
+  const list = Array.isArray(parsed) ? parsed : [];
+  return Array.from({ length: count }, (_, i) => {
+    const m = (list[i] ?? {}) as Record<string, unknown>;
+    const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : undefined);
+    return {
+      caption: str(m.caption, 300),
+      stage: str(m.stage, 120),
+      category: str(m.category, 60),
+      takenDate: str(m.takenDate, 30),
+    };
+  });
+}
 
-  const photoId = `photo-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-  const uploaderName = user?.name || 'Project Team';
-  const uploaderRole = user?.title || user?.role || 'Lead';
-  const nowIso = new Date().toISOString();
-  const effectiveTakenDate = takenDate || nowIso.split('T')[0];
-  const effectiveCategory = category || 'Progress';
-  const effectiveCaption = (caption || 'Site progress photograph').trim();
+function removeUploadFile(url: string | null | undefined) {
+  if (!url || typeof url !== 'string' || !url.startsWith('/uploads/')) return;
+  const filePath = path.join(uploadsDir, path.basename(url));
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (e) {
+    console.warn(`[Photos] Could not remove ${filePath}:`, e);
+  }
+}
 
-  db.prepare(`
-    INSERT INTO photos (
-      id, project_id, url, caption, stage, category, taken_date, uploaded_by, role, file_size, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    photoId,
-    projectId,
-    finalUrl,
-    effectiveCaption,
-    stage || null,
-    effectiveCategory,
-    effectiveTakenDate,
-    uploaderName,
-    uploaderRole,
-    fileSize || null,
-    nowIso
-  );
-
-  return {
-    id: photoId,
-    projectId,
-    url: finalUrl,
-    caption: effectiveCaption,
-    stage: stage || null,
-    category: effectiveCategory,
-    takenDate: effectiveTakenDate,
-    uploadedBy: uploaderName,
-    role: uploaderRole,
-    fileSize,
-    createdAt: nowIso,
-  };
+/** Deletes the stored image and thumbnail for a photo row. */
+export function removePhotoFiles(photo: { url?: string | null; thumbnail_url?: string | null }) {
+  removeUploadFile(photo.url);
+  removeUploadFile(photo.thumbnail_url);
 }
 
 /**
- * Upload one or multiple site photographs for a project.
- * Supports:
- * 1. Single photo: { fileData, fileName, url, caption, stage, category, takenDate }
- * 2. Batch photos: { photos: [{ fileData, fileName, url, caption, stage, category, takenDate }] }
+ * Upload one or more site photographs as multipart/form-data:
+ *   photos: image files (JPEG, PNG or WebP; up to 20, 10 MB each)
+ *   meta:   optional JSON array of { caption, stage, category, takenDate },
+ *           one entry per file in the same order
+ *
+ * The real file type is checked from the bytes, then every image is re-encoded
+ * to WebP (max 2000 px) plus a 400 px thumbnail. Re-encoding drops EXIF and
+ * other metadata (including GPS). Files get random UUID names.
  */
-async function handlePhotoUpload(req: AuthenticatedRequest, res: any) {
-  try {
-    const projectId = req.params.id as string;
-    const project = db.prepare('SELECT id, name, code FROM projects WHERE id = ?').get(projectId) as any;
-    if (!project) {
-      return res.status(404).json({ error: `Project not found with id: ${projectId}` });
-    }
-
-    // Role check: HOD cannot upload
-    if (req.user && req.user.role === 'hod') {
-      return res.status(403).json({ error: 'Project HOD has view-only permissions.' });
-    }
-
-    const itemsToProcess: any[] = [];
-    if (Array.isArray(req.body.photos) && req.body.photos.length > 0) {
-      itemsToProcess.push(...req.body.photos);
-    } else if (req.body.fileData || req.body.url) {
-      itemsToProcess.push(req.body);
-    } else {
-      return res.status(400).json({ error: 'Please provide at least one image file or URL to upload.' });
-    }
-
-    const createdPhotos: any[] = [];
-    for (const item of itemsToProcess) {
-      const created = processSinglePhoto(projectId, item, req.user);
-      createdPhotos.push(created);
-    }
-
-    // Create system notification
-    const uploaderName = req.user?.name || 'Project Team';
-    const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const notifMessage = createdPhotos.length === 1
-      ? `${uploaderName} uploaded a new site photograph for ${project.name}`
-      : `${uploaderName} uploaded ${createdPhotos.length} site photographs for ${project.name}`;
-
-    broadcastNotification(
-      'system',
-      notifId,
-      'Site Photograph Updated',
-      notifMessage,
-      projectId,
-      `/project/${projectId}`
-    );
-
-    // Save snapshot
-    saveDatabaseSnapshot();
-
-    const fullProject = fetchFullProject(projectId);
-
-    res.status(201).json({
-      message: `Successfully uploaded ${createdPhotos.length} site photograph${createdPhotos.length > 1 ? 's' : ''}`,
-      photos: createdPhotos,
-      photo: createdPhotos[0],
-      project: fullProject,
-    });
-  } catch (err: any) {
-    console.error('[Upload Photo Error]', err);
-    res.status(500).json({ error: 'Failed to upload photographs', message: err.message });
+async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
+  const projectId = req.params.id as string;
+  const project = db.prepare('SELECT id, name FROM projects WHERE id = ?').get(projectId) as { id: string; name: string } | undefined;
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
   }
+
+  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+  if (files.length === 0) {
+    return res.status(400).json({ error: 'Please attach at least one photograph in the "photos" field.' });
+  }
+
+  // Check every file before writing anything, so a bad file rejects the batch.
+  for (const file of files) {
+    const detected = await fileTypeFromBuffer(file.buffer);
+    if (!detected || !ALLOWED_MIME_TYPES.has(detected.mime)) {
+      return res.status(400).json({
+        error: `"${file.originalname}" is not a JPEG, PNG or WebP image.`,
+      });
+    }
+  }
+
+  const meta = parseMeta(req.body?.meta, files.length);
+  const written: string[] = [];
+  const prepared: Array<{ id: string; url: string; thumbnailUrl: string; size: number; meta: PhotoMeta }> = [];
+
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const name = crypto.randomUUID();
+      const fullName = `${name}.webp`;
+      const thumbName = `${name}_thumb.webp`;
+
+      // rotate() applies the EXIF orientation before the metadata is dropped.
+      const image = sharp(files[i].buffer, { failOn: 'error' }).rotate();
+      const full = await image
+        .clone()
+        .resize({ width: FULL_SIZE_PX, height: FULL_SIZE_PX, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+      const thumb = await image
+        .clone()
+        .resize({ width: THUMBNAIL_PX, height: THUMBNAIL_PX, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 75 })
+        .toBuffer();
+
+      fs.writeFileSync(path.join(uploadsDir, fullName), full);
+      written.push(fullName);
+      fs.writeFileSync(path.join(uploadsDir, thumbName), thumb);
+      written.push(thumbName);
+
+      prepared.push({
+        id: `photo-${crypto.randomUUID()}`,
+        url: `/uploads/${fullName}`,
+        thumbnailUrl: `/uploads/${thumbName}`,
+        size: full.length,
+        meta: meta[i],
+      });
+    }
+  } catch (err) {
+    for (const f of written) removeUploadFile(`/uploads/${f}`);
+    console.warn('[Photos] Image processing failed:', err);
+    return res.status(400).json({ error: 'One of the images could not be read. Please check the files and try again.' });
+  }
+
+  const uploaderName = req.user!.name;
+  const uploaderRole = req.user!.title || req.user!.role;
+  const nowIso = new Date().toISOString();
+  const today = nowIso.split('T')[0];
+
+  const insert = db.prepare(`
+    INSERT INTO photos (
+      id, project_id, url, thumbnail_url, caption, stage, category, taken_date, uploaded_by, role, file_size, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  let createdPhotos: any[];
+  try {
+    createdPhotos = db.transaction(() =>
+      prepared.map((p) => {
+        const caption = p.meta.caption || 'Site progress photograph';
+        const category = p.meta.category || 'Progress';
+        const takenDate = p.meta.takenDate || today;
+        insert.run(p.id, projectId, p.url, p.thumbnailUrl, caption, p.meta.stage || null, category, takenDate, uploaderName, uploaderRole, p.size, nowIso);
+        return {
+          id: p.id,
+          projectId,
+          url: p.url,
+          thumbnailUrl: p.thumbnailUrl,
+          caption,
+          stage: p.meta.stage || null,
+          category,
+          takenDate,
+          uploadedBy: uploaderName,
+          role: uploaderRole,
+          fileSize: p.size,
+          createdAt: nowIso,
+        };
+      }),
+    )();
+  } catch (err) {
+    for (const f of written) removeUploadFile(`/uploads/${f}`);
+    throw err;
+  }
+
+  broadcastNotification(
+    'system',
+    `notif-photo-${crypto.randomUUID()}`,
+    'Site Photograph Updated',
+    createdPhotos.length === 1
+      ? `${uploaderName} uploaded a new site photograph for ${project.name}`
+      : `${uploaderName} uploaded ${createdPhotos.length} site photographs for ${project.name}`,
+    projectId,
+    `/project/${projectId}`,
+  );
+
+  saveDatabaseSnapshot();
+
+  return res.status(201).json({
+    message: `Successfully uploaded ${createdPhotos.length} site photograph${createdPhotos.length > 1 ? 's' : ''}`,
+    photos: createdPhotos,
+    photo: createdPhotos[0],
+    project: fetchFullProject(projectId),
+  });
 }
 
-// Base64 photo uploads need a larger body than the global 1 MB limit.
-const photoJson = express.json({ limit: '50mb' });
-projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), photoJson, handlePhotoUpload);
-projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), photoJson, handlePhotoUpload);
+projectPhotosRouter.post('/', requireAuth, requireProjectAccess(), receivePhotos, handlePhotoUpload);
+projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), receivePhotos, handlePhotoUpload);
 
 /**
  * Delete a specific site photograph
  */
-projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), async (req: AuthenticatedRequest, res) => {
-  try {
-    const projectId = req.params.id as string;
-    const photoId = req.params.photoId as string;
+projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), (req: AuthenticatedRequest, res) => {
+  const projectId = req.params.id as string;
+  const photoId = req.params.photoId as string;
 
-    if (req.user && req.user.role === 'hod') {
-      return res.status(403).json({ error: 'Project HOD has view-only permissions.' });
-    }
-
-    const photo = db.prepare('SELECT * FROM photos WHERE id = ? AND project_id = ?').get(photoId, projectId) as any;
-    if (!photo) {
-      return res.status(404).json({ error: 'Photograph not found' });
-    }
-
-    // Delete disk file if stored locally
-    if (photo.url && typeof photo.url === 'string' && photo.url.startsWith('/uploads/')) {
-      const fileName = path.basename(photo.url);
-      const filePath = path.join(uploadsDir, fileName);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-          console.log(`[Photo Delete] Deleted file: ${filePath}`);
-        } catch (e) {
-          console.warn(`[Photo Delete] Could not unlink ${filePath}:`, e);
-        }
-      }
-    }
-
-    db.prepare('DELETE FROM photos WHERE id = ?').run(photoId);
-    saveDatabaseSnapshot();
-
-    const fullProject = fetchFullProject(projectId);
-    res.json({ message: 'Photograph deleted successfully', project: fullProject });
-  } catch (err: any) {
-    console.error('[Delete Photo Error]', err);
-    res.status(500).json({ error: 'Failed to delete photograph', message: err.message });
+  const photo = db.prepare('SELECT * FROM photos WHERE id = ? AND project_id = ?').get(photoId, projectId) as any;
+  if (!photo) {
+    return res.status(404).json({ error: 'Photograph not found' });
   }
+
+  db.prepare('DELETE FROM photos WHERE id = ?').run(photoId);
+  removePhotoFiles(photo);
+  saveDatabaseSnapshot();
+
+  return res.json({ message: 'Photograph deleted successfully', project: fetchFullProject(projectId) });
 });
 
 /**
@@ -235,6 +258,7 @@ globalPhotosRouter.get('/', requireAuth, (req, res) => {
         p.id,
         p.project_id as projectId,
         p.url,
+        p.thumbnail_url as thumbnailUrl,
         p.caption,
         p.stage,
         p.category,

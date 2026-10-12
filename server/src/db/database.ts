@@ -239,6 +239,11 @@ export function initDatabase() {
       db.prepare("ALTER TABLE phases ADD COLUMN budget REAL").run();
     }
 
+    const photoColumns = db.prepare("PRAGMA table_info(photos)").all() as { name: string }[];
+    if (!photoColumns.some((c) => c.name === 'thumbnail_url')) {
+      db.prepare("ALTER TABLE photos ADD COLUMN thumbnail_url TEXT").run();
+    }
+
     const milestoneColumns = db.prepare("PRAGMA table_info(milestones)").all() as { name: string }[];
     const milestoneColNames = new Set(milestoneColumns.map((c) => c.name));
     if (!milestoneColNames.has('tagged_users')) {

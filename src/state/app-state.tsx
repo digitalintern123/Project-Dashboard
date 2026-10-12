@@ -21,7 +21,7 @@ import {
 import { removeItem } from '@/lib/storage';
 import { todayLabel } from '@/lib/date';
 import { getUserById, users as defaultUsers, type User } from '@/data/users';
-import { api, onUnauthorized, type NotificationItem } from '@/lib/api';
+import { api, onUnauthorized, type NotificationItem, type PhotoUploadInput } from '@/lib/api';
 import { calculateWeightedProgress, sortProjectsIncompleteFirst } from '@/lib/calculations';
 
 export type AppRole = 'hod' | 'lead' | 'coordinator';
@@ -69,30 +69,8 @@ type AppStateValue = {
   addIssue: (id: string, issue: ProjectIssue) => boolean;
   updateIssue: (id: string, issueIndex: number, patch: Partial<ProjectIssue>) => boolean;
   addUpdate: (id: string, update: ProjectUpdate) => boolean;
-  addPhoto: (
-    projectId: string,
-    photo: {
-      fileData?: string;
-      fileName?: string;
-      url?: string;
-      caption: string;
-      stage?: string;
-      category?: PhotoCategory;
-      takenDate?: string;
-    }
-  ) => Promise<SitePhoto | null>;
-  addMultiplePhotos: (
-    projectId: string,
-    photos: Array<{
-      fileData?: string;
-      fileName?: string;
-      url?: string;
-      caption: string;
-      stage?: string;
-      category?: PhotoCategory;
-      takenDate?: string;
-    }>
-  ) => Promise<SitePhoto[]>;
+  addPhoto: (projectId: string, photo: PhotoUploadInput) => Promise<SitePhoto | null>;
+  addMultiplePhotos: (projectId: string, photos: PhotoUploadInput[]) => Promise<SitePhoto[]>;
   deletePhoto: (projectId: string, photoId: string) => Promise<boolean>;
   resetProjects: () => Promise<void>;
   restoreAllPdfs: () => Promise<{ success: boolean; count?: number; error?: string }>;
@@ -832,71 +810,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [patchById],
   );
 
-  const addPhoto = useCallback(
-    async (
-      projectId: string,
-      photoData: {
-        fileData?: string;
-        fileName?: string;
-        url?: string;
-        caption: string;
-        stage?: string;
-        category?: PhotoCategory;
-        takenDate?: string;
+  const addMultiplePhotos = useCallback(
+    async (projectId: string, photoList: PhotoUploadInput[]): Promise<SitePhoto[]> => {
+      const res = await api.photos.upload(projectId, photoList);
+      if (res && res.photos && res.photos.length > 0) {
+        patchById(projectId, (p) => ({
+          ...p,
+          photos: [...res.photos, ...(p.photos || []).filter((oldPh) => !res.photos.some((np) => np.id === oldPh.id))],
+          lastUpdated: todayLabel(),
+        }));
+        refreshNotifications();
+        return res.photos;
       }
-    ): Promise<SitePhoto | null> => {
-      try {
-        const res = await api.photos.upload(projectId, photoData);
-        if (res && res.photo) {
-          const newPhotos = res.photos || [res.photo];
-          patchById(projectId, (p) => ({
-            ...p,
-            photos: [...newPhotos, ...(p.photos || []).filter((oldPh) => !newPhotos.some((np) => np.id === oldPh.id))],
-            lastUpdated: todayLabel(),
-          }));
-          refreshNotifications();
-          return res.photo;
-        }
-        return null;
-      } catch (err) {
-        console.error('Failed to upload photo:', err);
-        throw err;
-      }
+      return [];
     },
     [patchById, refreshNotifications],
   );
 
-  const addMultiplePhotos = useCallback(
-    async (
-      projectId: string,
-      photoList: Array<{
-        fileData?: string;
-        fileName?: string;
-        url?: string;
-        caption: string;
-        stage?: string;
-        category?: PhotoCategory;
-        takenDate?: string;
-      }>
-    ): Promise<SitePhoto[]> => {
-      try {
-        const res = await api.photos.uploadBatch(projectId, photoList);
-        if (res && res.photos && res.photos.length > 0) {
-          patchById(projectId, (p) => ({
-            ...p,
-            photos: [...res.photos, ...(p.photos || []).filter((oldPh) => !res.photos.some((np) => np.id === oldPh.id))],
-            lastUpdated: todayLabel(),
-          }));
-          refreshNotifications();
-          return res.photos;
-        }
-        return [];
-      } catch (err) {
-        console.error('Failed to upload multiple photos:', err);
-        throw err;
-      }
+  const addPhoto = useCallback(
+    async (projectId: string, photo: PhotoUploadInput): Promise<SitePhoto | null> => {
+      const created = await addMultiplePhotos(projectId, [photo]);
+      return created[0] ?? null;
     },
-    [patchById, refreshNotifications],
+    [addMultiplePhotos],
   );
 
   const deletePhoto = useCallback(

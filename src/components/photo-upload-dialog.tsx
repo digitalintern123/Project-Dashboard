@@ -1,4 +1,4 @@
-import { useState, useRef, type FormEvent, type ChangeEvent } from 'react';
+import { useEffect, useState, useRef, type FormEvent, type ChangeEvent } from 'react';
 import {
   X,
   Upload,
@@ -6,8 +6,6 @@ import {
   Calendar,
   Layers,
   Tag,
-  FileText,
-  Link as LinkIcon,
   Trash2,
   Plus,
   CheckCircle2,
@@ -16,10 +14,13 @@ import {
 import { photoCategories, type PhotoCategory, type Phase } from '@/data/projects';
 import { todayIso } from '@/lib/date';
 
+// Must match the server limits in server/src/routes/photos.ts.
+export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+export const MAX_PHOTOS_PER_UPLOAD = 20;
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
 export type PhotoUploadItem = {
-  fileData?: string;
-  fileName?: string;
-  url?: string;
+  file: File;
   caption: string;
   stage?: string;
   category?: PhotoCategory;
@@ -28,10 +29,10 @@ export type PhotoUploadItem = {
 
 interface QueuePhoto {
   id: string;
-  fileData?: string;
+  file: File;
+  previewUrl: string;
   fileName: string;
   fileSizeText: string;
-  url?: string;
   caption: string;
   stage: string;
   category: PhotoCategory;
@@ -57,9 +58,7 @@ export function PhotoUploadDialog({
   onUpload,
   onUploadBatch,
 }: PhotoUploadDialogProps) {
-  const [mode, setMode] = useState<'file' | 'url'>('file');
   const [queue, setQueue] = useState<QueuePhoto[]>([]);
-  const [urlInput, setUrlInput] = useState<string>('');
   const [defaultCaption, setDefaultCaption] = useState<string>('');
   const [batchStage, setBatchStage] = useState<string>(stages[0]?.name || '');
   const [batchCategory, setBatchCategory] = useState<PhotoCategory>('Progress');
@@ -71,8 +70,12 @@ export function PhotoUploadDialog({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Release preview object URLs when the dialog closes.
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  useEffect(() => () => queueRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl)), []);
+
   const openFilePicker = () => {
-    setMode('file');
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -81,38 +84,42 @@ export function PhotoUploadDialog({
 
   const processFiles = (files: FileList | File[]) => {
     setError(null);
-    const validImageFiles: File[] = [];
+    const accepted: File[] = [];
+    const problems: string[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file.type.startsWith('image/')) {
-        validImageFiles.push(file);
+    for (const file of Array.from(files)) {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        problems.push(`${file.name}: only JPEG, PNG and WebP images are accepted`);
+      } else if (file.size > MAX_PHOTO_BYTES) {
+        problems.push(`${file.name}: larger than ${MAX_PHOTO_BYTES / 1024 / 1024} MB`);
+      } else {
+        accepted.push(file);
       }
     }
 
-    if (validImageFiles.length === 0) {
-      setError('Please select valid image files (JPEG, PNG, WebP).');
-      return;
+    const room = MAX_PHOTOS_PER_UPLOAD - queue.length;
+    if (accepted.length > room) {
+      problems.push(`At most ${MAX_PHOTOS_PER_UPLOAD} photographs per upload; ${accepted.length - Math.max(room, 0)} not added`);
+      accepted.splice(Math.max(room, 0));
     }
 
-    validImageFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        const newQueueItem: QueuePhoto = {
-          id: `queue-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          fileData: result,
-          fileName: file.name,
-          fileSizeText: `${Math.round(file.size / 1024)} KB`,
-          caption: defaultCaption || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
-          stage: batchStage,
-          category: batchCategory,
-          takenDate: batchDate,
-        };
-        setQueue((prev) => [...prev, newQueueItem]);
-      };
-      reader.readAsDataURL(file);
-    });
+    if (problems.length > 0) setError(problems.join('. ') + '.');
+    if (accepted.length === 0) return;
+
+    setQueue((prev) => [
+      ...prev,
+      ...accepted.map((file) => ({
+        id: `queue-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        fileName: file.name,
+        fileSizeText: `${Math.round(file.size / 1024)} KB`,
+        caption: defaultCaption || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+        stage: batchStage,
+        category: batchCategory,
+        takenDate: batchDate,
+      })),
+    ]);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -130,29 +137,12 @@ export function PhotoUploadDialog({
     }
   };
 
-  const handleAddUrl = () => {
-    const trimmed = urlInput.trim();
-    if (!trimmed) {
-      setError('Please enter a valid image URL.');
-      return;
-    }
-    const newQueueItem: QueuePhoto = {
-      id: `queue-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      url: trimmed,
-      fileName: trimmed.split('/').pop() || 'Remote Image',
-      fileSizeText: 'URL Link',
-      caption: defaultCaption || 'Site progress photograph',
-      stage: batchStage,
-      category: batchCategory,
-      takenDate: batchDate,
-    };
-    setQueue((prev) => [...prev, newQueueItem]);
-    setUrlInput('');
-    setError(null);
-  };
-
   const handleRemoveItem = (id: string) => {
-    setQueue((prev) => prev.filter((item) => item.id !== id));
+    setQueue((prev) => {
+      const removed = prev.find((item) => item.id === id);
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((item) => item.id !== id);
+    });
   };
 
   const handleUpdateItemCaption = (id: string, caption: string) => {
@@ -184,9 +174,7 @@ export function PhotoUploadDialog({
     setError(null);
 
     const payload: PhotoUploadItem[] = queue.map((item) => ({
-      fileData: item.fileData,
-      fileName: item.fileName,
-      url: item.url,
+      file: item.file,
       caption: item.caption.trim() || 'Site progress photograph',
       stage: item.stage || undefined,
       category: item.category,
@@ -249,41 +237,13 @@ export function PhotoUploadDialog({
             </div>
           )}
 
-          {/* Mode Switch (Device vs URL) */}
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={openFilePicker}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${
-                  mode === 'file'
-                    ? 'bg-[#173e49] text-white shadow-sm'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <Upload size={13} />
-                Upload from Device / Camera
-              </button>
-              <button
-                type="button"
-                onClick={() => { setMode('url'); setError(null); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${
-                  mode === 'url'
-                    ? 'bg-[#173e49] text-white shadow-sm'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <LinkIcon size={13} />
-                Image URL / CDN
-              </button>
-            </div>
-
-            {queue.length > 0 && (
+          {queue.length > 0 && (
+            <div className="flex justify-end border-b border-border pb-3">
               <span className="font-mono text-[10px] font-bold text-[#2e7c67]">
                 {queue.length} photo{queue.length > 1 ? 's' : ''} queued
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Hidden multi-file input */}
           <input
@@ -291,72 +251,47 @@ export function PhotoUploadDialog({
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/*"
+            accept="image/png,image/jpeg,image/webp"
             onChange={handleFileChange}
             className="sr-only"
             tabIndex={-1}
           />
 
           {/* Device Upload Drop Zone */}
-          {mode === 'file' ? (
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              onClick={(e) => {
-                if ((e.target as HTMLElement).tagName !== 'LABEL' && !(e.target as HTMLElement).closest('label')) {
-                  openFilePicker();
-                }
-              }}
-              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2.5 ${
-                dragOver
-                  ? 'border-[#9a711f] bg-[#f8f5ec]'
-                  : 'border-border/80 hover:border-muted-foreground/50 hover:bg-muted/10'
-              }`}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).tagName !== 'LABEL' && !(e.target as HTMLElement).closest('label')) {
+                openFilePicker();
+              }
+            }}
+            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2.5 ${
+              dragOver
+                ? 'border-[#9a711f] bg-[#f8f5ec]'
+                : 'border-border/80 hover:border-muted-foreground/50 hover:bg-muted/10'
+            }`}
+          >
+            <div className="grid size-11 place-items-center rounded-2xl bg-[#f8f5ec] text-[#9a711f]">
+              <Camera size={20} />
+            </div>
+            <div>
+              <p className="text-[13px] font-bold text-foreground">
+                Select or drop multiple site photographs
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                JPEG, PNG or WebP from your phone camera or computer · up to {MAX_PHOTOS_PER_UPLOAD} photos, {MAX_PHOTO_BYTES / 1024 / 1024} MB each
+              </p>
+            </div>
+            <label
+              htmlFor="site-photo-multi-input"
+              className="mt-1 inline-flex items-center gap-2 rounded-xl bg-[#173e49] px-4 py-2 text-[11px] font-bold text-white shadow-sm hover:bg-[#205160] transition cursor-pointer active:scale-95"
             >
-              <div className="grid size-11 place-items-center rounded-2xl bg-[#f8f5ec] text-[#9a711f]">
-                <Camera size={20} />
-              </div>
-              <div>
-                <p className="text-[13px] font-bold text-foreground">
-                  Select or drop multiple site photographs
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Select 1 or more images (JPEG, PNG, WebP) from your phone camera or computer
-                </p>
-              </div>
-              <label
-                htmlFor="site-photo-multi-input"
-                className="mt-1 inline-flex items-center gap-2 rounded-xl bg-[#173e49] px-4 py-2 text-[11px] font-bold text-white shadow-sm hover:bg-[#205160] transition cursor-pointer active:scale-95"
-              >
-                <Upload size={13} />
-                Browse Device / Choose Photos
-              </label>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <input
-                type="url"
-                placeholder="https://images.unsplash.com/... or company CDN link"
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddUrl();
-                  }
-                }}
-                className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-[12px] outline-none focus:border-[#9a711f]"
-              />
-              <button
-                type="button"
-                onClick={handleAddUrl}
-                className="h-10 rounded-xl bg-[#173e49] px-4 text-[11px] font-bold text-white hover:bg-[#205160] transition flex items-center gap-1.5 shrink-0"
-              >
-                <Plus size={14} /> Add to Queue
-              </button>
-            </div>
-          )}
+              <Upload size={13} />
+              Browse Device / Choose Photos
+            </label>
+          </div>
 
           {/* Selected Photos Queue List */}
           {queue.length > 0 && (
@@ -383,9 +318,9 @@ export function PhotoUploadDialog({
                   >
                     {/* Thumbnail */}
                     <div className="size-14 shrink-0 overflow-hidden rounded-lg bg-black/5 flex items-center justify-center border border-border">
-                      {item.fileData || item.url ? (
+                      {item.previewUrl ? (
                         <img
-                          src={item.fileData || item.url}
+                          src={item.previewUrl}
                           alt={item.fileName}
                           className="size-full object-cover"
                         />

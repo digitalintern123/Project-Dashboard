@@ -11,6 +11,7 @@ import cookieParser from 'cookie-parser';
 import { uploadsDir } from './db/database.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './utils/session.js';
 import { envInt } from './config.js';
+import { requireAuth } from './middleware/auth.js';
 
 import authRouter from './routes/auth.js';
 import projectsRouter from './routes/projects.js';
@@ -110,11 +111,9 @@ export function createApp() {
   app.use('/api/email/send-project-update', emailLimiter);
   app.use('/api/email/tag-and-comment', emailLimiter);
 
-  // 5. Body parsers: 1 MB for JSON and forms. Photo uploads parse their own
-  // (larger) bodies in routes/photos.ts.
-  const isPhotoUpload = (req: express.Request) => req.method === 'POST' && /^\/api\/projects\/[^/]+\/photos(\/batch)?\/?$/.test(req.path);
-  const jsonParser = express.json({ limit: '1mb' });
-  app.use((req, res, next) => (isPhotoUpload(req) ? next() : jsonParser(req, res, next)));
+  // 5. Body parsers: 1 MB for JSON and forms. Photo uploads are multipart and
+  // handled by multer in routes/photos.ts.
+  app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   app.use(cookieParser());
@@ -133,8 +132,20 @@ export function createApp() {
     next();
   });
 
-  // 6. Serve Uploaded Media with 1-day Cache
-  app.use('/uploads', express.static(uploadsDir, { maxAge: '1d' }));
+  // 6. Uploaded photos: signed-in users only, never sniffed as another type, and
+  // cached only by the user's own browser.
+  app.use(
+    '/uploads',
+    requireAuth,
+    express.static(uploadsDir, {
+      dotfiles: 'deny',
+      index: false,
+      setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'private, max-age=86400');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+      },
+    })
+  );
 
   // 7. Request Logger
   app.use((req, res, next) => {
