@@ -25,7 +25,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
@@ -132,5 +133,14 @@
     "typescript-eslint": "^8.71.1",
     "vite": "^7.1.0",
     "vitest": "^5.0.3"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,css,yml,yaml,html}": [
+      "prettier --write"
+    ]
   }
 }
