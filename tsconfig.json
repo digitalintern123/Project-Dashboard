@@ -1,6 +1,6 @@
 {
   "include": ["src/**/*", "vite.config.ts", "vitest.config.ts", "playwright.config.ts", "server/**/*", "e2e/**/*"],
-  "exclude": ["node_modules", "dist"],
+  "exclude": ["node_modules", "dist", "server/dist"],
   "compilerOptions": {
     "target": "es2022",
     "lib": ["esnext", "dom", "dom.iterable"],
@@ -16,8 +16,8 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "strict": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "types": ["node", "vite/client"],
     "paths": {

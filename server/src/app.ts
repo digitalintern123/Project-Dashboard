@@ -201,20 +201,20 @@ export function createApp() {
     app.use(express.static(distPath, { maxAge: '1h' }));
 
     // Client-side SPA routing fallback: always serve index.html with fresh no-cache headers
-    app.get('/{*splat}', (req, res) => {
+    app.get('/{*splat}', (_req, res) => {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   } else {
-    app.get('/', (req, res) => {
+    app.get('/', (_req, res) => {
       res.redirect('http://localhost:5173');
     });
   }
 
   // 11. Global Error Handler
-  app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err instanceof HttpError) {
       return res.status(err.status).json({ error: err.message, ...err.extra });
     }
