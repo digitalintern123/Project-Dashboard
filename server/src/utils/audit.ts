@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
-import { db } from '../db/database.js';
+import { auditRepo } from '../repositories/audit.repo.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 
 /** Columns never written to the audit log. */
@@ -11,7 +11,7 @@ const AUDITED_TABLES = new Set(['projects', 'phases', 'milestones', 'issues', 'u
 /** Current row of an audited table, without sensitive columns, or null. */
 export function rowSnapshot(table: string, id: string | undefined | null): Record<string, unknown> | null {
   if (!id || !AUDITED_TABLES.has(table)) return null;
-  const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
+  const row = auditRepo.findRow(table, id);
   if (!row) return null;
   return Object.fromEntries(Object.entries(row).filter(([k]) => !REDACTED_COLUMNS.has(k)));
 }
@@ -28,21 +28,16 @@ export type AuditEntry = {
 
 export function writeAudit(entry: AuditEntry): void {
   try {
-    db.prepare(
-      `
-      INSERT INTO audit_log (id, user_id, action, entity_type, entity_id, before_json, after_json, ip, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    `,
-    ).run(
-      crypto.randomUUID(),
-      entry.userId,
-      entry.action,
-      entry.entityType,
-      entry.entityId ?? null,
-      entry.before == null ? null : JSON.stringify(entry.before),
-      entry.after == null ? null : JSON.stringify(entry.after),
-      entry.ip ?? null,
-    );
+    auditRepo.insert({
+      id: crypto.randomUUID(),
+      user_id: entry.userId,
+      action: entry.action,
+      entity_type: entry.entityType,
+      entity_id: entry.entityId ?? null,
+      before_json: entry.before == null ? null : JSON.stringify(entry.before),
+      after_json: entry.after == null ? null : JSON.stringify(entry.after),
+      ip: entry.ip ?? null,
+    });
   } catch (err) {
     // Auditing must never break the request it describes.
     console.error('[Audit] Failed to write audit entry:', err);
