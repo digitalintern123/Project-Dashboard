@@ -1,0 +1,17 @@
+# iisnode settings for Plesk on Windows. iisnode reads this file from the
+# folder of the startup file (server.cjs) because web.config's configOverrides
+# defaults to "iisnode.yml". See PRODUCTION.md, "Plesk on Windows".
+
+# One process: SQLite, the email queue worker and the login rate limiter assume it.
+nodeProcessCountPerApplication: 1
+
+# Pass the visitor's IP in X-Forwarded-For. Without it the app cannot tell
+# visitors apart and every user shares one login and API rate limit.
+enableXFF: true
+
+# Never show stack traces to visitors; errors go to the log files below.
+devErrorsEnabled: false
+
+# Startup errors and console output land in <application root>/iisnode/.
+loggingEnabled: true
+logDirectory: iisnode

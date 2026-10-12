@@ -30,6 +30,7 @@
     "prepare": "husky || true",
     "seed:pdfs:dev": "tsx server/src/scripts/restore-all-pdfs.ts",
     "build:server": "node scripts/build-server.mjs",
+    "build:plesk": "npm install --include=dev --no-audit --no-fund && npm run build",
     "start:dev": "tsx server/src/index.ts",
     "create-user:dev": "tsx server/src/scripts/create-user.ts"
   },

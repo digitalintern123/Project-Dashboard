@@ -90,3 +90,6 @@ server/dist/
 
 # Lighthouse reports (npm run lighthouse)
 lighthouse-report/
+
+# iisnode log files (Plesk on Windows)
+iisnode/

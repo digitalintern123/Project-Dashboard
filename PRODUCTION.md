@@ -509,27 +509,84 @@ A user's password: a coordinator resets it (section 12) and the user chooses a n
 
 For a Plesk server on Windows, where IIS runs Node.js through iisnode, instead of the Linux VPS setup above. The `deploy/` scripts, the GitHub Deploy workflow and `scripts/backup.sh` are for Linux and do not apply here; Plesk's own Git, Node.js and backup tools take their place.
 
-How it works: iisnode starts `server.cjs` and passes a named pipe (such as `\\.\pipe\…`) in `PORT` instead of a port number. The app listens on that pipe and IIS forwards requests to it (`server/src/listen.ts`). `server.cjs` runs the compiled server in `server/dist/`.
+How it works: iisnode starts `server.cjs` and passes a named pipe (such as `\\.\pipe\…`) in `PORT` instead of a port number; the app listens on that pipe (`server/src/listen.ts`). `server.cjs` runs the compiled server in `server/dist/`. `iisnode.yml` (in the repository root, next to `server.cjs`) sets iisnode up: one process, client IPs forwarded, no stack traces shown to visitors, logs in `iisnode/`.
 
-1. **Code:** Plesk → the domain → **Git**: add the repository (branch `main`) and deploy it to a folder, e.g. `encalm-app` next to `httpdocs` (not inside it).
-2. **Node.js:** Plesk → the domain → **Node.js**:
-   - Node.js version **22**; Application Mode **production**.
-   - Application Root: the repository folder. Application Startup File: **`server.cjs`**.
-   - Document Root: the repository's `dist` folder.
-3. **Environment variables** (same page, *Custom environment variables*; see `.env.example`):
-   - `NODE_ENV=production`
-   - `JWT_SECRET` and `SETTINGS_ENCRYPTION_KEY`: generate them on any machine with `openssl rand -base64 48` and `openssl rand -base64 32`.
-   - `APP_BASE_URL=https://<your domain>`
-   - `DATA_DIR`: a folder **outside** the web root, e.g. `C:\Inetpub\vhosts\<domain>\encalm-data`, writable by the application pool user. The database and photos live there.
-   - Leave `HOST` and `API_PORT` unset; iisnode supplies the pipe.
-4. **Install and build:** click **NPM install**, then **Run script** → `build`. The build needs the dev dependencies, so do not use a production-only install for this step.
-5. **Start:** click **Restart App**, then open `https://<domain>/api/system/ready`; it must show `{"status":"ready"}`.
-6. **First user:** in Plesk's **Run script** (or a shell in the application folder) run `create-user` with the arguments from [section 12](#12-users-and-passwords).
-7. **HTTPS:** Plesk → **SSL/TLS Certificates** → Let's Encrypt, and turn on *Redirect from HTTP to HTTPS*. Session cookies only work over HTTPS.
-8. **Updates:** **Git → Pull/Deploy**, then **NPM install**, **Run script → build**, **Restart App**. Migrations run automatically when the app starts. There is no automatic rollback here: before each update, back up `DATA_DIR`. To roll back, deploy the previous commit or tag and rebuild.
-9. **One process only:** keep iisnode's `nodeProcessCountPerApplication` at its default of 1. SQLite, the email worker and the login rate limiter assume a single process.
-10. **Backups:** include `DATA_DIR` in Plesk's **Backup Manager** (scheduled, with remote storage). For a copy guaranteed to be consistent, stop the app first, or copy `encalm.db` together with its `-wal` and `-shm` files.
-11. **Logs:** iisnode writes the app's JSON log lines to the `iisnode` folder in the application root (Plesk → Node.js → logs).
+### 15.1 Code
+
+Plesk → the domain → **Git**: add the repository, branch `main`, deployed to the domain folder (here `/projects.encalmhospitality.com`, the folder that will contain `package.json`).
+
+### 15.2 Data folder
+
+Create `C:\encalm-projects-data` (outside the web root). Right-click → **Properties → Security → Edit → Add** the domain's system user (Plesk → the domain → **Hosting Settings**, e.g. `encalm` or `IWPD_…`) and give it **Modify**. SQLite writes the database, its `-wal`/`-shm` files and the `uploads` folder there.
+
+### 15.3 Node.js settings
+
+Plesk → the domain → **Node.js**:
+
+| Field | Value |
+|---|---|
+| Node.js Version | 22.x (e.g. 22.23.2) |
+| Package Manager | npm |
+| Document Root | `/projects.encalmhospitality.com/dist` |
+| Application Mode | production |
+| Application Root | `/projects.encalmhospitality.com` (the folder containing `package.json`) |
+| Application Startup File | `server.cjs` |
+
+### 15.4 Custom environment variables
+
+| Variable | Value |
+|---|---|
+| `NODE_ENV` | `production` |
+| `JWT_SECRET` | a long random string (48 bytes; see the commands below the table) |
+| `SETTINGS_ENCRYPTION_KEY` | **required**: 32 random bytes (commands below). Without it the server refuses to start (500). |
+| `APP_BASE_URL` | `https://projects.encalmhospitality.com` (links in emails; iisnode does not tell the app it is on HTTPS) |
+| `DATA_DIR` | `C:\encalm-projects-data` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` | your mail server (or configure it later under **Settings → Email** in the app) |
+
+Generating the two secrets, either with `openssl` (Git Bash, WSL, Linux, macOS):
+
+```bash
+openssl rand -base64 48    # JWT_SECRET
+openssl rand -base64 32    # SETTINGS_ENCRYPTION_KEY
+```
+
+or in PowerShell on the server (cryptographically secure; change 48 to 32 for the key):
+
+```powershell
+$b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)
+```
+
+- Do **not** set `PORT`, `API_PORT` or `HOST`: iisnode supplies the pipe.
+- `CORS_ORIGIN` is not needed: the site and its API are on the same host. Setting it to the site's own URL is harmless.
+- Keep a copy of `JWT_SECRET` and `SETTINGS_ENCRYPTION_KEY` in your password manager. If `SETTINGS_ENCRYPTION_KEY` is lost or changed, the saved email password must be re-entered in Settings.
+
+### 15.5 Install, build, start
+
+1. Click **NPM install**.
+2. **Run script** → `build:plesk`. This installs the dev dependencies the build needs (Plesk's install skips them in production mode) and builds `dist/` and `server/dist/`.
+3. Click **Enable Node.js**, then **Restart App**.
+4. Open `https://projects.encalmhospitality.com/api/system/ready`: it must show `{"status":"ready"}`.
+5. **HTTPS:** Plesk → **SSL/TLS Certificates** → Let's Encrypt, and turn on *Redirect from HTTP to HTTPS*. Sign-in only works over HTTPS (secure cookies).
+6. **First user:** in a shell in the application folder (Plesk → **Web Hosting Access** / RDP), with the same environment variables set, run `npm run create-user -- "Full Name" you@encalmhospitality.com "Temp-pass-123" coordinator` ([section 12](#12-users-and-passwords)). Alternatively, the first start creates the standard accounts and writes their temporary passwords once to the log in the `iisnode` folder.
+
+### 15.6 If you get a 500 error
+
+Open the domain's **Files** in Plesk → the `iisnode` folder inside the Application Root; the newest log file shows the real error. Common causes:
+
+| Log says | Fix |
+|---|---|
+| `[Config] FATAL: JWT_SECRET …` or `SETTINGS_ENCRYPTION_KEY …` | Add or correct that variable (15.4), Restart App. |
+| `SQLITE_CANTOPEN`, `EPERM` or `EACCES` on `C:\encalm-projects-data` | Folder missing or the domain user lacks Modify (15.2). |
+| `Cannot find module …server\dist\index.js` / `Failed to start server (did you run "npm run build"?)` | Run script `build:plesk` (15.5). |
+| `better_sqlite3.node` or `sharp` "could not load" / "was compiled against a different Node.js version" | Native modules do not match the Node version: delete `node_modules`, click **NPM install** again, then `build:plesk`. |
+| `ERR_ERL_UNDEFINED_IP_ADDRESS` (warning, not a 500) | iisnode is not forwarding client IPs, so all users share one rate limit. Check that `iisnode.yml` is next to `server.cjs`; if Plesk's `web.config` sets its own `<iisnode>` element, add `enableXFF="true"` to it. |
+
+### 15.7 Updates, rollback, backups
+
+- **Update:** **Git → Pull/Deploy**, **NPM install**, **Run script → `build:plesk`**, **Restart App**. Migrations run automatically when the app starts.
+- **Rollback:** there is no automatic rollback on Plesk. Before each update, back up `C:\encalm-projects-data`; to roll back, deploy the previous commit or tag, rebuild, and restore that backup if the update changed the database.
+- **Backups:** include `C:\encalm-projects-data` in Plesk's **Backup Manager** (scheduled, with remote storage). For a guaranteed-consistent copy, stop the app first, or copy `encalm.db` together with its `-wal` and `-shm` files.
+- **One process only:** `iisnode.yml` sets `nodeProcessCountPerApplication: 1`; do not raise it.
 
 ## 16. Reference
 
