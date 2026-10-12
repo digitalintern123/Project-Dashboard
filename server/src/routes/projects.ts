@@ -9,6 +9,7 @@ import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { largeJson } from '../validation/large-json.js';
 import { audited } from '../utils/audit.js';
+import { afterCommit, transactional } from '../utils/tx.js';
 
 const router = Router();
 
@@ -162,7 +163,7 @@ router.get('/:id', requireAuth, validate({ params: S.projectParams }), (req, res
 });
 
 // POST bulk sync projects from client cache or external source
-router.post('/sync', requireAuth, requireRole(['coordinator']), largeJson, validate({ body: S.syncProjectsBody }), audited({ action: 'sync', entityType: 'portfolio', details: (req) => ({ projects: (req.body.projects as { id: string }[]).map((p) => p.id) }) }), (req: AuthenticatedRequest, res) => {
+router.post('/sync', requireAuth, requireRole(['coordinator']), largeJson, validate({ body: S.syncProjectsBody }), audited({ action: 'sync', entityType: 'portfolio', details: (req) => ({ projects: (req.body.projects as { id: string }[]).map((p) => p.id) }) }), transactional((req: AuthenticatedRequest, res) => {
   const { projects, explicit } = req.body;
 
   // Protect clean database state from being contaminated by stale browser local caches
@@ -178,10 +179,10 @@ router.post('/sync', requireAuth, requireRole(['coordinator']), largeJson, valid
 
   const result = restoreDatabaseFromJSON({ projects });
   return res.json({ success: true, count: result.count, message: `Synced ${result.count} projects successfully` });
-});
+}));
 
 // POST create project
-router.post('/', requireAuth, requireRole(['coordinator', 'lead']), validate({ body: S.createProjectBody }), audited({ action: 'create', entityType: 'project', table: 'projects' }), (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireRole(['coordinator', 'lead']), validate({ body: S.createProjectBody }), audited({ action: 'create', entityType: 'project', table: 'projects' }), transactional((req: AuthenticatedRequest, res) => {
   const body = req.body;
   if (!body.name || !body.location || !body.category) {
     return res.status(400).json({ error: 'Name, location, and category are required' });
@@ -344,14 +345,14 @@ router.post('/', requireAuth, requireRole(['coordinator', 'lead']), validate({ b
   });
 
   transaction();
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
 
   const created = fetchFullProject(id);
   return res.status(201).json({ project: created });
-});
+}));
 
 // PATCH allot project (Coordinator only)
-router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams, body: S.allotProjectBody }), audited({ action: 'allot', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), (req: AuthenticatedRequest, res) => {
+router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams, body: S.allotProjectBody }), audited({ action: 'allot', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), transactional((req: AuthenticatedRequest, res) => {
   const id = req.params.id as string;
   const { leadId } = req.body;
   if (!leadId) {
@@ -387,14 +388,14 @@ router.patch('/:id/allot', requireAuth, requireRole(['coordinator']), validate({
     `/project/${id}`
   );
 
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
 
   const updated = fetchFullProject(id);
   return res.json({ project: updated });
-});
+}));
 
 // PATCH update project
-router.patch('/:id', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.updateProjectBody }), audited({ action: 'update', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), (req: AuthenticatedRequest, res) => {
+router.patch('/:id', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.updateProjectBody }), audited({ action: 'update', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), transactional((req: AuthenticatedRequest, res) => {
   const id = req.params.id as string;
   const project = fetchFullProject(id);
   if (!project) {
@@ -463,14 +464,14 @@ router.patch('/:id', requireAuth, requireProjectAccess(), validate({ params: S.p
     }
   }
 
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
 
   const updated = fetchFullProject(id);
   return res.json({ project: updated });
-});
+}));
 
 // DELETE project
-router.delete('/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams }), audited({ action: 'delete', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), (req, res) => {
+router.delete('/:id', requireAuth, requireRole(['coordinator']), validate({ params: S.projectParams }), audited({ action: 'delete', entityType: 'project', table: 'projects', id: (req) => req.params.id as string }), transactional((req, res) => {
   const id = req.params.id as string;
 
   const projectPhotos = db.prepare('SELECT url, thumbnail_url FROM photos WHERE project_id = ?').all(id) as { url: string; thumbnail_url: string | null }[];
@@ -481,9 +482,10 @@ router.delete('/:id', requireAuth, requireRole(['coordinator']), validate({ para
   if (result.changes === 0) {
     return res.status(404).json({ error: 'Project not found' });
   }
-  projectPhotos.forEach(removePhotoFiles);
-  saveDatabaseSnapshot();
+  // Files go only once the rows are gone for good.
+  afterCommit(() => projectPhotos.forEach(removePhotoFiles));
+  afterCommit(saveDatabaseSnapshot);
   return res.json({ message: 'Project deleted successfully' });
-});
+}));
 
 export default router;

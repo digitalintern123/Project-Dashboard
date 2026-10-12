@@ -9,11 +9,12 @@ import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
 import { audited } from '../utils/audit.js';
+import { afterCommit, transactional } from '../utils/tx.js';
 
 const router = Router({ mergeParams: true });
 
 // POST add issue
-router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createIssueBody }), audited({ action: 'create', entityType: 'issue', table: 'issues' }), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createIssueBody }), audited({ action: 'create', entityType: 'issue', table: 'issues' }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -64,7 +65,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
 
   // 1. Notify tagged users if any
   if (taggedUsers.length > 0) {
-    await dispatchTagNotifications({
+    dispatchTagNotifications({
       taggedUserIds: taggedUsers,
       taggedBy: authorName,
       entityType: 'Issue',
@@ -88,7 +89,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
       `/project/${projectId}`
     );
 
-    await dispatchCriticalIssueAlert({
+    dispatchCriticalIssueAlert({
       issueTitle: body.title,
       severity: body.severity,
       category: body.category,
@@ -100,14 +101,14 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
     });
   }
 
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
 
   const updatedProject = fetchFullProject(projectId);
   return res.status(201).json({ project: updatedProject });
-});
+}));
 
 // PATCH update issue
-router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams, body: S.updateIssueBody }), audited({ action: 'update', entityType: 'issue', table: 'issues', id: (req) => req.params.issueId as string }), async (req: AuthenticatedRequest, res) => {
+router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams, body: S.updateIssueBody }), audited({ action: 'update', entityType: 'issue', table: 'issues', id: (req) => req.params.issueId as string }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
   const issue = db.prepare('SELECT * FROM issues WHERE id = ? AND project_id = ?').get(issueId, projectId) as any;
@@ -156,7 +157,7 @@ router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params
 
   // Notify newly tagged users only when explicitly requested
   if (patch.notify && newlyTaggedUsers.length > 0 && project) {
-    await dispatchTagNotifications({
+    dispatchTagNotifications({
       taggedUserIds: newlyTaggedUsers,
       taggedBy: authorName,
       entityType: 'Issue',
@@ -170,7 +171,7 @@ router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params
 
   // Trigger alert if newly elevated to High severity
   if (patch.severity === 'High' && issue.severity !== 'High' && project) {
-    await dispatchCriticalIssueAlert({
+    dispatchCriticalIssueAlert({
       issueTitle: patch.title || issue.title,
       severity: 'High',
       category: patch.category || issue.category,
@@ -182,21 +183,21 @@ router.patch('/:issueId', requireAuth, requireProjectAccess(), validate({ params
     });
   }
 
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
 
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });
-});
+}));
 
 // DELETE issue
-router.delete('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams }), audited({ action: 'delete', entityType: 'issue', table: 'issues', id: (req) => req.params.issueId as string }), (req: AuthenticatedRequest, res) => {
+router.delete('/:issueId', requireAuth, requireProjectAccess(), validate({ params: S.issueParams }), audited({ action: 'delete', entityType: 'issue', table: 'issues', id: (req) => req.params.issueId as string }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const issueId = req.params.issueId as string;
   const result = db.prepare('DELETE FROM issues WHERE id = ? AND project_id = ?').run(issueId, projectId);
   if (result.changes === 0) return res.status(404).json({ error: 'Issue not found' });
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });
-});
+}));
 
 export default router;

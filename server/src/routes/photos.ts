@@ -9,6 +9,7 @@ import { db, uploadsDir } from '../db/database.js';
 import { requireAuth, requireProjectAccess, AuthenticatedRequest } from '../middleware/auth.js';
 import { broadcastNotification } from '../utils/notify.js';
 import { saveDatabaseSnapshot } from '../utils/backup.js';
+import { afterCommit, transactional } from '../utils/tx.js';
 import { fetchFullProject } from './projects.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
@@ -172,8 +173,18 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
 
   let createdPhotos: any[];
   try {
-    createdPhotos = db.transaction(() =>
-      prepared.map((p) => {
+    createdPhotos = db.transaction(() => {
+      broadcastNotification(
+        'system',
+        `notif-photo-${crypto.randomUUID()}`,
+        'Site Photograph Updated',
+        prepared.length === 1
+          ? `${uploaderName} uploaded a new site photograph for ${project.name}`
+          : `${uploaderName} uploaded ${prepared.length} site photographs for ${project.name}`,
+        projectId,
+        `/project/${projectId}`,
+      );
+      return prepared.map((p) => {
         const caption = p.meta.caption || 'Site progress photograph';
         const category = p.meta.category || 'Progress';
         const takenDate = p.meta.takenDate || today;
@@ -192,23 +203,13 @@ async function handlePhotoUpload(req: AuthenticatedRequest, res: Response) {
           fileSize: p.size,
           createdAt: nowIso,
         };
-      }),
-    )();
+      });
+    })();
   } catch (err) {
     for (const f of written) removeUploadFile(`/uploads/${f}`);
     throw err;
   }
 
-  broadcastNotification(
-    'system',
-    `notif-photo-${crypto.randomUUID()}`,
-    'Site Photograph Updated',
-    createdPhotos.length === 1
-      ? `${uploaderName} uploaded a new site photograph for ${project.name}`
-      : `${uploaderName} uploaded ${createdPhotos.length} site photographs for ${project.name}`,
-    projectId,
-    `/project/${projectId}`,
-  );
 
   res.locals.auditEntityId = createdPhotos.map((p) => p.id).join(',');
   res.locals.auditAfter = createdPhotos;
@@ -230,7 +231,7 @@ projectPhotosRouter.post('/batch', requireAuth, requireProjectAccess(), validate
 /**
  * Delete a specific site photograph
  */
-projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), validate({ params: S.photoParams }), audited({ action: 'delete', entityType: 'photo', table: 'photos', id: (req) => req.params.photoId as string }), (req: AuthenticatedRequest, res) => {
+projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), validate({ params: S.photoParams }), audited({ action: 'delete', entityType: 'photo', table: 'photos', id: (req) => req.params.photoId as string }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const photoId = req.params.photoId as string;
 
@@ -240,11 +241,13 @@ projectPhotosRouter.delete('/:photoId', requireAuth, requireProjectAccess(), val
   }
 
   db.prepare('DELETE FROM photos WHERE id = ?').run(photoId);
-  removePhotoFiles(photo);
-  saveDatabaseSnapshot();
+  afterCommit(() => {
+    removePhotoFiles(photo);
+    saveDatabaseSnapshot();
+  });
 
   return res.json({ message: 'Photograph deleted successfully', project: fetchFullProject(projectId) });
-});
+}));
 
 /**
  * Get all photos for a project

@@ -9,11 +9,12 @@ import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
 import { audited } from '../utils/audit.js';
+import { afterCommit, transactional } from '../utils/tx.js';
 
 const router = Router({ mergeParams: true });
 
 // POST add milestone
-router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createMilestoneBody }), audited({ action: 'create', entityType: 'milestone', table: 'milestones' }), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createMilestoneBody }), audited({ action: 'create', entityType: 'milestone', table: 'milestones' }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -56,7 +57,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
 
   // 1. Notify tagged users
   if (taggedUsers.length > 0) {
-    await dispatchTagNotifications({
+    dispatchTagNotifications({
       taggedUserIds: taggedUsers,
       taggedBy: authorName,
       entityType: 'Milestone',
@@ -80,7 +81,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
       `/project/${projectId}`
     );
 
-    await dispatchMilestoneApprovalAlert({
+    dispatchMilestoneApprovalAlert({
       milestoneTitle: body.title,
       targetDate: body.date,
       stage: body.stage,
@@ -91,14 +92,14 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
     });
   }
 
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
 
   const updatedProject = fetchFullProject(projectId);
   return res.status(201).json({ project: updatedProject });
-});
+}));
 
 // PATCH update milestone
-router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams, body: S.updateMilestoneBody }), audited({ action: 'update', entityType: 'milestone', table: 'milestones', id: (req) => req.params.milestoneId as string }), async (req: AuthenticatedRequest, res) => {
+router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams, body: S.updateMilestoneBody }), audited({ action: 'update', entityType: 'milestone', table: 'milestones', id: (req) => req.params.milestoneId as string }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
   const milestone = db.prepare('SELECT * FROM milestones WHERE id = ? AND project_id = ?').get(milestoneId, projectId) as any;
@@ -145,7 +146,7 @@ router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ pa
 
   // Notify newly tagged users only when explicitly requested
   if (patch.notify && newlyTaggedUsers.length > 0 && project) {
-    await dispatchTagNotifications({
+    dispatchTagNotifications({
       taggedUserIds: newlyTaggedUsers,
       taggedBy: authorName,
       entityType: 'Milestone',
@@ -157,21 +158,21 @@ router.patch('/:milestoneId', requireAuth, requireProjectAccess(), validate({ pa
     });
   }
 
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
 
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });
-});
+}));
 
 // DELETE milestone
-router.delete('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams }), audited({ action: 'delete', entityType: 'milestone', table: 'milestones', id: (req) => req.params.milestoneId as string }), (req: AuthenticatedRequest, res) => {
+router.delete('/:milestoneId', requireAuth, requireProjectAccess(), validate({ params: S.milestoneParams }), audited({ action: 'delete', entityType: 'milestone', table: 'milestones', id: (req) => req.params.milestoneId as string }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const milestoneId = req.params.milestoneId as string;
   const result = db.prepare('DELETE FROM milestones WHERE id = ? AND project_id = ?').run(milestoneId, projectId);
   if (result.changes === 0) return res.status(404).json({ error: 'Milestone not found' });
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });
-});
+}));
 
 export default router;

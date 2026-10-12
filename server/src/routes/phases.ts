@@ -9,6 +9,7 @@ import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { publicBaseUrl } from '../config.js';
 import { audited } from '../utils/audit.js';
+import { afterCommit, transactional } from '../utils/tx.js';
 
 const router = Router({ mergeParams: true });
 
@@ -50,12 +51,12 @@ export function recomputeProjectProgress(projectId: string): number {
     new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     projectId,
   );
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
   return computed;
 }
 
 // POST add phase
-router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createPhaseBody }), audited({ action: 'create', entityType: 'stage', table: 'phases' }), async (req: AuthenticatedRequest, res) => {
+router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createPhaseBody }), audited({ action: 'create', entityType: 'stage', table: 'phases' }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -104,7 +105,7 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
   const authorName = req.user?.name || body.owner || 'Project Lead';
 
   if (taggedUsers.length > 0) {
-    await dispatchTagNotifications({
+    dispatchTagNotifications({
       taggedUserIds: taggedUsers,
       taggedBy: authorName,
       entityType: 'Stage',
@@ -120,10 +121,10 @@ router.post('/', requireAuth, requireProjectAccess(), validate({ params: S.proje
 
   const updatedProject = fetchFullProject(projectId);
   return res.status(201).json({ project: updatedProject });
-});
+}));
 
 // PATCH update phase
-router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams, body: S.updatePhaseBody }), audited({ action: 'update', entityType: 'stage', table: 'phases', id: (req) => req.params.phaseId as string }), async (req: AuthenticatedRequest, res) => {
+router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams, body: S.updatePhaseBody }), audited({ action: 'update', entityType: 'stage', table: 'phases', id: (req) => req.params.phaseId as string }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const phaseId = req.params.phaseId as string;
   const phase = db.prepare('SELECT * FROM phases WHERE id = ? AND project_id = ?').get(phaseId, projectId) as any;
@@ -188,7 +189,7 @@ router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params
 
   // Notify newly tagged users only when explicitly requested
   if (patch.notify && newlyTaggedUsers.length > 0 && project) {
-    await dispatchTagNotifications({
+    dispatchTagNotifications({
       taggedUserIds: newlyTaggedUsers,
       taggedBy: authorName,
       entityType: 'Stage',
@@ -204,10 +205,10 @@ router.patch('/:phaseId', requireAuth, requireProjectAccess(), validate({ params
 
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });
-});
+}));
 
 // DELETE remove phase
-router.delete('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams }), audited({ action: 'delete', entityType: 'stage', table: 'phases', id: (req) => req.params.phaseId as string }), (req: AuthenticatedRequest, res) => {
+router.delete('/:phaseId', requireAuth, requireProjectAccess(), validate({ params: S.phaseParams }), audited({ action: 'delete', entityType: 'stage', table: 'phases', id: (req) => req.params.phaseId as string }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const phaseId = req.params.phaseId as string;
   if (!db.prepare('SELECT 1 FROM phases WHERE id = ? AND project_id = ?').get(phaseId, projectId)) {
@@ -233,10 +234,10 @@ router.delete('/:phaseId', requireAuth, requireProjectAccess(), validate({ param
 
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });
-});
+}));
 
 // POST move phase order
-router.post('/move', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.movePhaseBody }), audited({ action: 'move', entityType: 'stage', details: (req) => req.body }), (req: AuthenticatedRequest, res) => {
+router.post('/move', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.movePhaseBody }), audited({ action: 'move', entityType: 'stage', details: (req) => req.body }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const { phaseIndex, direction } = req.body;
 
@@ -259,6 +260,6 @@ router.post('/move', requireAuth, requireProjectAccess(), validate({ params: S.p
 
   const updatedProject = fetchFullProject(projectId);
   return res.json({ project: updatedProject });
-});
+}));
 
 export default router;

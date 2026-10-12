@@ -18,6 +18,7 @@ import {
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { audited, writeAudit } from '../utils/audit.js';
+import { transactional } from '../utils/tx.js';
 
 const router = Router();
 
@@ -128,7 +129,7 @@ router.post('/logout-all', requireAuth, (req: AuthenticatedRequest, res) => {
 });
 
 // POST /api/auth/change-password - the signed-in user changes their own password
-router.post('/change-password', requireAuth, validate({ body: S.changePasswordBody }), (req: AuthenticatedRequest, res) => {
+router.post('/change-password', requireAuth, validate({ body: S.changePasswordBody }), transactional((req: AuthenticatedRequest, res) => {
   const { currentPassword, newPassword } = req.body ?? {};
   const user = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user!.id) as
     | { id: string; password_hash: string }
@@ -155,7 +156,7 @@ router.post('/change-password', requireAuth, validate({ body: S.changePasswordBo
   writeAudit({ userId: user.id, action: 'password_changed', entityType: 'user', entityId: user.id, ip: req.ip });
   const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
   return res.json({ message: 'Password changed successfully', user: toPublicUser(updated) });
-});
+}));
 
 // POST /api/auth/users/:id/reset-password - coordinator sets a temporary password
 router.post('/users/:id/reset-password', requireAuth, requireRole(['coordinator']), validate({ params: S.idParams }), (req: AuthenticatedRequest, res) => {

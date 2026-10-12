@@ -6,6 +6,7 @@ import { saveDatabaseSnapshot } from '../utils/backup.js';
 import { validate } from '../validation/validate.js';
 import * as S from '../validation/schemas.js';
 import { audited } from '../utils/audit.js';
+import { afterCommit, transactional } from '../utils/tx.js';
 
 export const projectUpdatesRouter = Router({ mergeParams: true });
 export const globalUpdatesRouter = Router();
@@ -51,7 +52,7 @@ projectUpdatesRouter.get('/', requireAuth, validate({ params: S.projectParams })
 });
 
 // POST add update to project
-projectUpdatesRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createUpdateBody }), audited({ action: 'create', entityType: 'update', table: 'updates' }), (req: AuthenticatedRequest, res) => {
+projectUpdatesRouter.post('/', requireAuth, requireProjectAccess(), validate({ params: S.projectParams, body: S.createUpdateBody }), audited({ action: 'create', entityType: 'update', table: 'updates' }), transactional((req: AuthenticatedRequest, res) => {
   const projectId = req.params.id as string;
   const project = fetchFullProject(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -78,8 +79,8 @@ projectUpdatesRouter.post('/', requireAuth, requireProjectAccess(), validate({ p
   // Update project last_updated
   db.prepare('UPDATE projects SET last_updated = ? WHERE id = ?').run(todayFormatted, projectId);
 
-  saveDatabaseSnapshot();
+  afterCommit(saveDatabaseSnapshot);
 
   const updatedProject = fetchFullProject(projectId);
   return res.status(201).json({ project: updatedProject });
-});
+}));

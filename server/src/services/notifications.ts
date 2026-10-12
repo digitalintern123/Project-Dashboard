@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { db } from '../db/database.js';
 import {
   queueEmail,
@@ -50,26 +51,23 @@ export function dispatchTagNotifications(params: TagNotificationParams): void {
     const recipientEmail = user?.email;
 
     // 1. Insert in-app notification with recipient_id
-    try {
-      const messageBody = comment 
-        ? `${taggedBy} tagged you on ${entityType.toLowerCase()} "${entityTitle}" in ${projectName}: "${comment}"`
-        : `${taggedBy} tagged you on ${entityType.toLowerCase()} "${entityTitle}" in ${projectName}`;
+    const messageBody = comment 
+      ? `${taggedBy} tagged you on ${entityType.toLowerCase()} "${entityTitle}" in ${projectName}: "${comment}"`
+      : `${taggedBy} tagged you on ${entityType.toLowerCase()} "${entityTitle}" in ${projectName}`;
 
-      db.prepare(`
-        INSERT INTO notifications (id, type, title, message, project_id, link, recipient_id, read, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
-      `).run(
-        `notif-tag-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        notifType,
-        `Tagged on ${entityType}: ${entityTitle}`,
-        messageBody,
-        projectId,
-        `/project/${projectId}`,
-        userId
-      );
-    } catch (err) {
-      console.warn('[Notification Insert Error]', err);
-    }
+    db.prepare(`
+      INSERT INTO notifications (id, type, title, message, project_id, link, recipient_id, read, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
+    `).run(
+      `notif-tag-${randomUUID()}`,
+      notifType,
+      `Tagged on ${entityType}: ${entityTitle}`,
+      messageBody,
+      projectId,
+      `/project/${projectId}`,
+      userId
+    );
+  
 
     // 2. Dispatch email (falls back to outbox if SMTP not configured)
     if (recipientEmail) {

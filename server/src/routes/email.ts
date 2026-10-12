@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { db } from '../db/database.js';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/auth.js';
@@ -305,6 +306,7 @@ router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectU
   const dashboardUrl = `${origin}/project/${projectId}`;
 
   const dispatchResults: any[] = [];
+  db.transaction(() => {
   for (const rc of targetRecipients) {
     const html = buildProjectSummaryHtml({
       recipientName: rc.name,
@@ -329,6 +331,7 @@ router.post('/send-project-update', requireAuth, validate({ body: S.sendProjectU
 
     dispatchResults.push({ recipient: rc.email, ...result });
   }
+  })();
 
   return res.json({
     success: true,
@@ -478,6 +481,8 @@ router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBod
     error?: string;
   }> = [];
 
+  // Resolve recipients first (directory lookups are async), then write everything in one transaction.
+  const targets: { userId: string; userRow?: { id: string; name: string; email: string } }[] = [];
   for (const userId of finalUserIds) {
     if (!userId) continue;
 
@@ -512,6 +517,11 @@ router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBod
       }
     }
 
+    targets.push({ userId, userRow });
+  }
+
+  db.transaction(() => {
+  for (const { userId, userRow } of targets) {
     const recipientName = userRow?.name || userId;
     const recipientEmail = userRow?.email;
 
@@ -522,21 +532,18 @@ router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBod
       ? `${sender} tagged you on ${entityType.toLowerCase()} "${entityTitle || 'item'}" in ${projectName}: "${comment}"`
       : `${sender} tagged you on ${entityType.toLowerCase()} "${entityTitle || 'item'}" in ${projectName}`;
 
-    try {
-      db.prepare(`
-        INSERT INTO notifications (id, type, title, message, project_id, link, recipient_id, read, created_at)
-        VALUES (?, 'tagged_task', ?, ?, ?, ?, ?, 0, datetime('now'))
-      `).run(
-        `notif-tag-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        notifTitle,
-        notifMessage,
-        projectId,
-        `/project/${projectId}`,
-        userId
-      );
-    } catch (err) {
-      console.warn('[Tag Notification Insert Error]', err);
-    }
+    db.prepare(`
+      INSERT INTO notifications (id, type, title, message, project_id, link, recipient_id, read, created_at)
+      VALUES (?, 'tagged_task', ?, ?, ?, ?, ?, 0, datetime('now'))
+    `).run(
+      `notif-tag-${randomUUID()}`,
+      notifTitle,
+      notifMessage,
+      projectId,
+      `/project/${projectId}`,
+      userId
+    );
+  
 
     // 2. Dispatch email notification
     if (recipientEmail) {
@@ -587,24 +594,22 @@ router.post('/tag-and-comment', requireAuth, validate({ body: S.tagAndCommentBod
 
   // 3. If there is a comment, also append it to project updates feed so activity is preserved
   if (comment && comment.trim() && project) {
-    try {
-      const updateId = `upd-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      const taggedNames = dispatchResults.map((d) => d.userName).join(', ');
-      db.prepare(`
-        INSERT INTO updates (id, project_id, author, role, date, stage, kind, text, created_at)
-        VALUES (?, ?, ?, ?, date('now'), ?, 'Progress', ?, datetime('now'))
-      `).run(
-        updateId,
-        projectId,
-        sender,
-        req.user?.title || 'Team Member',
-        entityTitle || entityType,
-        `[Tagged ${taggedNames}]: ${comment.trim()}`
-      );
-    } catch (err) {
-      console.warn('[Activity Log Append Error]', err);
-    }
+    const updateId = `upd-${randomUUID()}`;
+    const taggedNames = dispatchResults.map((d) => d.userName).join(', ');
+    db.prepare(`
+      INSERT INTO updates (id, project_id, author, role, date, stage, kind, text, created_at)
+      VALUES (?, ?, ?, ?, date('now'), ?, 'Progress', ?, datetime('now'))
+    `).run(
+      updateId,
+      projectId,
+      sender,
+      req.user?.title || 'Team Member',
+      entityTitle || entityType,
+      `[Tagged ${taggedNames}]: ${comment.trim()}`
+    );
+  
   }
+  })();
 
   return res.json({
     success: true,
