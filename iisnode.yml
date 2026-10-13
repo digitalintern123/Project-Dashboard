@@ -15,3 +15,6 @@ devErrorsEnabled: false
 # Startup errors and console output land in <application root>/iisnode/.
 loggingEnabled: true
 logDirectory: iisnode
+
+# No remote node-inspector endpoint (server.cjs/debug) in production.
+debuggingEnabled: false
