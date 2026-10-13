@@ -573,7 +573,7 @@ $b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create
 1. Install the runtime packages on the Node.js page with **NPM install** (leave the Git *additional deployment actions* empty: on Windows Plesk runs them through `nodenv`, which does not exist there) (production mode installs runtime packages only). No build step, no Python or Visual Studio tools: the `.npmrc` that comes with the release stops npm from compiling `better-sqlite3`, which ships a Windows binary.
    If npm reports `EPERM` on files in `node_modules`, the running app has them open: **Disable Node.js**, install again, then enable it.
 2. Click **Enable Node.js**, then **Restart App**.
-3. Open `https://projects.encalmhospitality.com/api/system/ready`: it must show `{"status":"ready"}`.
+3. Open `https://projects.encalmhospitality.com/api/system/ready`: it must show `{"status":"ready"}`. To check from the server's PowerShell, set `$ProgressPreference = 'SilentlyContinue'` first: Plesk's web console cannot draw `Invoke-WebRequest`'s progress bar and fails with "Access is denied … console output buffer".
 4. **HTTPS:** Plesk → **SSL/TLS Certificates** → Let's Encrypt, and turn on *Redirect from HTTP to HTTPS*. Sign-in only works over HTTPS (secure cookies).
 5. **First user:** the first start creates the standard accounts and writes their temporary passwords once to the newest log in the `iisnode` folder; sign in with one and change the password. To add someone later: in a shell in the application folder (RDP), with the same environment variables set, `node server/dist/create-user.js "Full Name" you@encalmhospitality.com "Temp-pass-123" coordinator` ([section 12](#12-users-and-passwords)).
 
@@ -585,6 +585,9 @@ Open the domain's **Files** in Plesk → the `iisnode` folder inside the Applica
 |---|---|
 | `[Config] FATAL: JWT_SECRET …` or `SETTINGS_ENCRYPTION_KEY …` | Add or correct that variable (15.4), Restart App. |
 | `SQLITE_CANTOPEN`, `EPERM` or `EACCES` on `C:\encalm-projects-data` | Folder missing or the domain user lacks Modify (15.2). |
+| `EPERM: operation not permitted, mkdir '…\encalm-data\uploads'` | The site's application pool user (`IWPG_<system user>`) cannot write the data folder. In PowerShell in the Application Root, grant Modify to the accounts that can already write it: `$ids = (Get-Acl .).Access \| ? { $_.IdentityReference -match 'IWPG\|IWPD\|<system user>' -and $_.FileSystemRights -match 'Modify\|FullControl' } \| % { $_.IdentityReference.Value } \| select -Unique; foreach ($i in $ids) { icacls ..\encalm-data /grant "${i}:(OI)(CI)M" }`, then Restart App. |
+| Empty 500 page, no `iisnode` log | iisnode cannot start Node or write its log: check the Application Root and startup file (15.3) and that the folder is writable by the application pool user. |
+| IIS **500.19** "Cannot add duplicate collection entry" | A setting in `web.config` is also set at server level. The shipped `web.config` removes each entry before adding it; make sure the deployed one is current (Pull Updates). |
 | `Cannot find module …server\dist\index.js` / `Failed to start server (did you run "npm run build"?)` | Plesk is deploying `main` (source only) instead of `plesk-release`, or the release branch was not pulled (15.1). |
 | `better_sqlite3.node` or `sharp` "could not load" / "was compiled against a different Node.js version" | Native modules do not match the Node version: Disable Node.js, delete `node_modules`, install again (15.5), enable. |
 | npm: `gyp ERR! find Python` / `node-gyp rebuild` failed for `better-sqlite3` | The install ran without the release's `.npmrc` (an old checkout, or a command run outside the application folder). Pull `plesk-release` and install from the application folder. |
