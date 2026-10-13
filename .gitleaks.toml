@@ -20,3 +20,13 @@ paths = [
 # with this value must have its JWT_SECRET rotated.
 description = "Known, rejected development JWT secret"
 regexes = ['''encalm-secret-jwt-key-2026''']
+
+[[allowlists]]
+# Build output on the plesk-release branch. It is generated from the source
+# scanned above; minified/renamed code there (e.g. `secret = env2.JWT_SECRET`)
+# trips the generic rules.
+description = "Generated build output (plesk-release branch)"
+paths = [
+  '''^server/dist/''',
+  '''^dist/''',
+]
