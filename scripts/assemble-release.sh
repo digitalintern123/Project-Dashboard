@@ -17,7 +17,7 @@ mkdir -p "$OUT"
 # Replace everything except the output's own .git (the branch history).
 find "$OUT" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 
-cp package.json package-lock.json .npmrc server.cjs iisnode.yml "$OUT/"
+cp package.json package-lock.json .npmrc server.cjs iisnode.yml web.config "$OUT/"
 mkdir -p "$OUT/server"
 cp -R dist "$OUT/dist"
 cp -R server/dist "$OUT/server/dist"

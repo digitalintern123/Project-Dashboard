@@ -519,7 +519,7 @@ How it runs: iisnode starts `server.cjs` and passes a named pipe (such as `\\.\p
 2. Plesk → the domain → **Git**: repository `https://github.com/digitalintern123/Project-Dashboard`, branch **`plesk-release`** (not `main`), deployed to the folder that will contain `package.json` (for example `httpdocs`).
 3. When switching an existing site from `main` to `plesk-release`, first empty that folder (it holds source files and a half-installed `node_modules` from earlier attempts); the data folder (15.2) is elsewhere and is not touched.
 
-If the folder is `httpdocs`, the Document Root **must** be `httpdocs\dist` (15.3): otherwise IIS would serve the server code and the `iisnode` logs to anyone.
+The release includes a `web.config` that sends every request to `server.cjs` (the app serves the web pages from `dist` itself) and blocks `server`, `node_modules`, `iisnode` (the logs) and `.env` from being downloaded. It only works when the Document Root is the same folder as the Application Root (15.3).
 
 Plesk does not pull new commits by itself: after a release, click **Pull Updates** (and **Deploy Now** if the deployment mode is *Manual*), or add Plesk's **Webhook URL** to GitHub → repository → **Settings → Webhooks** so new releases are pulled automatically.
 
@@ -535,7 +535,7 @@ Plesk → the domain → **Node.js**:
 |---|---|
 | Node.js Version | 22.x (e.g. 22.23.2) |
 | Package Manager | npm |
-| Document Root | the Application Root + `/dist`, e.g. `/httpdocs/dist` |
+| Document Root | the **same** folder as the Application Root, e.g. `/httpdocs` (not `/httpdocs/dist`: then IIS only serves static files and `/api/...` returns an IIS 404) |
 | Application Mode | production |
 | Application Root | the folder containing `package.json`, e.g. `/httpdocs` |
 | Application Startup File | `server.cjs` |
@@ -590,6 +590,8 @@ Open the domain's **Files** in Plesk → the `iisnode` folder inside the Applica
 | npm: `gyp ERR! find Python` / `node-gyp rebuild` failed for `better-sqlite3` | The install ran without the release's `.npmrc` (an old checkout, or a command run outside the application folder). Pull `plesk-release` and install from the application folder. |
 | npm: `EPERM: operation not permitted, rmdir …node_modules…` | Files are locked by the running app: Disable Node.js (or stop the application pool), run the install again, then enable and Restart App. |
 | Build: `Cannot read directory "../../../..": Access is denied` | Something tried to build on the server. Do not run `npm run build` there; deploy `plesk-release` (15.1). |
+| (no log at all) IIS **404.0**, *Handler StaticFile*, on `/api/system/ready` | Requests never reach Node: the Document Root is not the Application Root, or `web.config` is missing from it. Fix the Document Root (15.3), check `web.config` is in the Application Root, Restart App. |
+| IIS **500.19** naming `<rewrite>` | The IIS URL Rewrite module is missing: install it with Plesk **Tools & Settings → Updates → Add/Remove Components** (or from Microsoft), then reload. |
 | `ERR_ERL_UNDEFINED_IP_ADDRESS` (warning, not a 500) | iisnode is not forwarding client IPs, so all users share one rate limit. Check that `iisnode.yml` is next to `server.cjs`; if Plesk's `web.config` sets its own `<iisnode>` element, add `enableXFF="true"` to it. |
 
 ### 15.7 Updates, rollback, backups
