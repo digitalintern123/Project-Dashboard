@@ -4806,6 +4806,9 @@ function createApp() {
     res.status(404).json({ error: `Upload asset not found: ${req.originalUrl}` });
   });
   const distPath = clientDistDir;
+  if (isInside(path6.resolve(dataDir), path6.resolve(distPath))) {
+    throw new Error(`DATA_DIR (${dataDir}) is inside the public web folder ${distPath}; move it outside`);
+  }
   if (fs6.existsSync(distPath)) {
     const assetsPath = path6.join(distPath, "assets");
     if (fs6.existsSync(assetsPath)) {
@@ -4847,6 +4850,12 @@ function createApp() {
     });
   });
   return app2;
+}
+function isInside(child, parent, platform = process.platform) {
+  const pathApi = platform === "win32" ? path6.win32 : path6.posix;
+  const fold = (p) => platform === "win32" ? p.toLowerCase() : p;
+  const rel = pathApi.relative(fold(parent), fold(child));
+  return rel === "" || !rel.startsWith("..") && !pathApi.isAbsolute(rel);
 }
 
 // server/src/listen.ts
