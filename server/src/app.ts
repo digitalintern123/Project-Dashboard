@@ -8,7 +8,7 @@ import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import { pinoHttp } from 'pino-http';
 
-import { uploadsDir } from './db/database.js';
+import { dataDir, uploadsDir } from './db/database.js';
 import { clientDistDir } from './paths.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './utils/session.js';
 import { envInt } from './config.js';
@@ -218,6 +218,10 @@ export function createApp() {
 
   // 10. Serve Frontend Static Build
   const distPath = clientDistDir;
+  // dist/ is served to anyone; a database or upload folder inside it would be too.
+  if (isInside(path.resolve(dataDir), path.resolve(distPath))) {
+    throw new Error(`DATA_DIR (${dataDir}) is inside the public web folder ${distPath}; move it outside`);
+  }
 
   if (fs.existsSync(distPath)) {
     // Serve hashed assets with immutable 1-year caching
@@ -270,4 +274,12 @@ export function createApp() {
   });
 
   return app;
+}
+
+/** True when `child` is `parent` or a folder below it (case-insensitive on Windows). */
+export function isInside(child: string, parent: string, platform: NodeJS.Platform = process.platform): boolean {
+  const pathApi = platform === 'win32' ? path.win32 : path.posix;
+  const fold = (p: string) => (platform === 'win32' ? p.toLowerCase() : p);
+  const rel = pathApi.relative(fold(parent), fold(child));
+  return rel === '' || (!rel.startsWith('..') && !pathApi.isAbsolute(rel));
 }

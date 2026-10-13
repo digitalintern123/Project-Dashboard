@@ -570,7 +570,7 @@ $b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create
 
 ### 15.5 Install and start
 
-1. Install the runtime packages, either as the Git **additional deployment action** `npm install --omit=dev --no-audit --no-fund`, or on the Node.js page with **NPM install** (production mode installs runtime packages only). No build step, no Python or Visual Studio tools: the `.npmrc` that comes with the release stops npm from compiling `better-sqlite3`, which ships a Windows binary.
+1. Install the runtime packages on the Node.js page with **NPM install** (leave the Git *additional deployment actions* empty: on Windows Plesk runs them through `nodenv`, which does not exist there) (production mode installs runtime packages only). No build step, no Python or Visual Studio tools: the `.npmrc` that comes with the release stops npm from compiling `better-sqlite3`, which ships a Windows binary.
    If npm reports `EPERM` on files in `node_modules`, the running app has them open: **Disable Node.js**, install again, then enable it.
 2. Click **Enable Node.js**, then **Restart App**.
 3. Open `https://projects.encalmhospitality.com/api/system/ready`: it must show `{"status":"ready"}`.
