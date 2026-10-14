@@ -928,8 +928,8 @@ function autoRestoreSnapshotIfEmpty() {
 // server/src/app.ts
 import express2 from "express";
 import cors from "cors";
-import fs7 from "node:fs";
-import path7 from "node:path";
+import fs8 from "node:fs";
+import path8 from "node:path";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
@@ -1169,10 +1169,25 @@ var LARGE_JSON_PATHS = /* @__PURE__ */ new Set(["/api/system/import", "/api/proj
 var largeJson = express.json({ limit: "10mb" });
 
 // server/src/sentry.ts
+import fs5 from "node:fs";
+import path5 from "node:path";
 var serverDsn = () => process.env.SENTRY_DSN?.trim() || "";
 var clientDsn = () => process.env.SENTRY_CLIENT_DSN?.trim() || serverDsn();
 var sentryEnvironment = () => process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
-var appRelease = () => process.env.APP_RELEASE || void 0;
+var commitFiles = /* @__PURE__ */ new Map();
+function appRelease(root = projectRoot) {
+  if (process.env.APP_RELEASE) return process.env.APP_RELEASE;
+  if (!commitFiles.has(root)) {
+    let commit;
+    try {
+      commit = fs5.readFileSync(path5.join(root, "SOURCE_COMMIT"), "utf8").trim().slice(0, 8) || void 0;
+    } catch {
+      commit = void 0;
+    }
+    commitFiles.set(root, commit);
+  }
+  return commitFiles.get(root);
+}
 function dsnOrigin(dsn) {
   if (!dsn) return null;
   try {
@@ -1833,8 +1848,8 @@ import { Router as Router2 } from "express";
 
 // server/src/services/photos.service.ts
 import crypto6 from "node:crypto";
-import fs5 from "node:fs";
-import path5 from "node:path";
+import fs6 from "node:fs";
+import path6 from "node:path";
 import sharp from "sharp";
 import { fileTypeFromBuffer } from "file-type";
 
@@ -1988,9 +2003,9 @@ function parsePhotoMeta(raw, count) {
 }
 function removeUploadFile(url) {
   if (!url || typeof url !== "string" || !url.startsWith("/uploads/")) return;
-  const filePath = path5.join(uploadsDir, path5.basename(url));
+  const filePath = path6.join(uploadsDir, path6.basename(url));
   try {
-    if (fs5.existsSync(filePath)) fs5.unlinkSync(filePath);
+    if (fs6.existsSync(filePath)) fs6.unlinkSync(filePath);
   } catch (e) {
     logger.warn({ err: e }, `[Photos] Could not remove ${filePath}`);
   }
@@ -2037,9 +2052,9 @@ async function uploadPhotos(projectId5, files, rawMeta, user) {
       const image = sharp(files[i].buffer, { failOn: "error" }).rotate();
       const full = await image.clone().resize({ width: FULL_SIZE_PX, height: FULL_SIZE_PX, fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
       const thumb = await image.clone().resize({ width: THUMBNAIL_PX, height: THUMBNAIL_PX, fit: "inside", withoutEnlargement: true }).webp({ quality: 75 }).toBuffer();
-      fs5.writeFileSync(path5.join(uploadsDir, fullName), full);
+      fs6.writeFileSync(path6.join(uploadsDir, fullName), full);
       written.push(fullName);
-      fs5.writeFileSync(path5.join(uploadsDir, thumbName), thumb);
+      fs6.writeFileSync(path6.join(uploadsDir, thumbName), thumb);
       written.push(thumbName);
       prepared.push({
         id: `photo-${crypto6.randomUUID()}`,
@@ -4205,8 +4220,8 @@ var systemRepo = {
 };
 
 // server/src/utils/scheduled-backup.ts
-import fs6 from "node:fs";
-import path6 from "node:path";
+import fs7 from "node:fs";
+import path7 from "node:path";
 import zlib from "node:zlib";
 import { pipeline } from "node:stream/promises";
 import Database2 from "better-sqlite3";
@@ -4214,7 +4229,7 @@ function backupConfig(env2 = process.env) {
   const time = /^([01]?\d|2[0-3]):[0-5]\d$/.test(env2.BACKUP_TIME ?? "") ? env2.BACKUP_TIME : "02:15";
   return {
     enabled: env2.BACKUP_ENABLED ? env2.BACKUP_ENABLED !== "false" : env2.NODE_ENV === "production",
-    dir: env2.BACKUP_DIR || path6.join(dataDir, "backups"),
+    dir: env2.BACKUP_DIR || path7.join(dataDir, "backups"),
     retentionDays: Math.max(1, Number(env2.BACKUP_RETENTION_DAYS) || 30),
     time
   };
@@ -4230,25 +4245,25 @@ var fromStamp = (s) => /* @__PURE__ */ new Date(
   `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`
 );
 function listBackups(dir) {
-  if (!fs6.existsSync(dir)) return [];
-  return fs6.readdirSync(dir).map((name) => ({ name, match: NAME.exec(name) })).filter((f) => Boolean(f.match)).map(({ name, match }) => ({
+  if (!fs7.existsSync(dir)) return [];
+  return fs7.readdirSync(dir).map((name) => ({ name, match: NAME.exec(name) })).filter((f) => Boolean(f.match)).map(({ name, match }) => ({
     name,
-    size: fs6.statSync(path6.join(dir, name)).size,
+    size: fs7.statSync(path7.join(dir, name)).size,
     createdAt: fromStamp(match[1]).toISOString()
   })).sort((a, b) => b.name.localeCompare(a.name));
 }
 function mirrorUploads(from, to) {
-  if (!fs6.existsSync(from)) return 0;
+  if (!fs7.existsSync(from)) return 0;
   let copied = 0;
-  for (const entry of fs6.readdirSync(from, { withFileTypes: true })) {
-    const src = path6.join(from, entry.name);
-    const dest = path6.join(to, entry.name);
+  for (const entry of fs7.readdirSync(from, { withFileTypes: true })) {
+    const src = path7.join(from, entry.name);
+    const dest = path7.join(to, entry.name);
     if (entry.isDirectory()) {
       copied += mirrorUploads(src, dest);
-    } else if (entry.isFile() && !fs6.existsSync(dest)) {
-      fs6.mkdirSync(to, { recursive: true });
-      fs6.copyFileSync(src, `${dest}.part`);
-      fs6.renameSync(`${dest}.part`, dest);
+    } else if (entry.isFile() && !fs7.existsSync(dest)) {
+      fs7.mkdirSync(to, { recursive: true });
+      fs7.copyFileSync(src, `${dest}.part`);
+      fs7.renameSync(`${dest}.part`, dest);
       copied++;
     }
   }
@@ -4258,7 +4273,7 @@ function pruneBackups(dir, retentionDays, now = Date.now()) {
   const removed = [];
   for (const file of listBackups(dir).slice(KEEP_AT_LEAST)) {
     if (now - new Date(file.createdAt).getTime() > retentionDays * DAY_MS2) {
-      fs6.rmSync(path6.join(dir, file.name), { force: true });
+      fs7.rmSync(path7.join(dir, file.name), { force: true });
       removed.push(file.name);
     }
   }
@@ -4276,36 +4291,36 @@ function verifyCopy(file) {
   }
 }
 async function makeBackup(cfg, now) {
-  fs6.mkdirSync(cfg.dir, { recursive: true });
+  fs7.mkdirSync(cfg.dir, { recursive: true });
   const name = `encalm-${stampOf(now)}.db.gz`;
-  const final = path6.join(cfg.dir, name);
-  const tmp = path6.join(cfg.dir, `.tmp-${stampOf(now)}.db`);
-  const lock = path6.join(cfg.dir, ".backup.lock");
+  const final = path7.join(cfg.dir, name);
+  const tmp = path7.join(cfg.dir, `.tmp-${stampOf(now)}.db`);
+  const lock = path7.join(cfg.dir, ".backup.lock");
   try {
-    if (Date.now() - fs6.statSync(lock).mtimeMs > 60 * 60 * 1e3) fs6.rmSync(lock, { force: true });
+    if (Date.now() - fs7.statSync(lock).mtimeMs > 60 * 60 * 1e3) fs7.rmSync(lock, { force: true });
   } catch {
   }
   let fd;
   try {
-    fd = fs6.openSync(lock, "wx");
+    fd = fs7.openSync(lock, "wx");
   } catch {
     throw new Error("Another backup is already running");
   }
   try {
-    if (fs6.existsSync(final)) throw new Error(`A backup named ${name} already exists; try again in a second`);
+    if (fs7.existsSync(final)) throw new Error(`A backup named ${name} already exists; try again in a second`);
     await db.backup(tmp);
     const projects = verifyCopy(tmp);
-    await pipeline(fs6.createReadStream(tmp), zlib.createGzip({ level: 9 }), fs6.createWriteStream(`${final}.part`));
-    fs6.renameSync(`${final}.part`, final);
-    const photosCopied = mirrorUploads(uploadsDir, path6.join(cfg.dir, "uploads"));
+    await pipeline(fs7.createReadStream(tmp), zlib.createGzip({ level: 9 }), fs7.createWriteStream(`${final}.part`));
+    fs7.renameSync(`${final}.part`, final);
+    const photosCopied = mirrorUploads(uploadsDir, path7.join(cfg.dir, "uploads"));
     pruneBackups(cfg.dir, cfg.retentionDays, now.getTime());
-    return { ok: true, file: name, size: fs6.statSync(final).size, projects, photosCopied, at: now.toISOString() };
+    return { ok: true, file: name, size: fs7.statSync(final).size, projects, photosCopied, at: now.toISOString() };
   } finally {
     for (const leftover of [tmp, `${tmp}-wal`, `${tmp}-shm`, `${tmp}-journal`, `${final}.part`]) {
-      fs6.rmSync(leftover, { force: true });
+      fs7.rmSync(leftover, { force: true });
     }
-    fs6.closeSync(fd);
-    fs6.rmSync(lock, { force: true });
+    fs7.closeSync(fd);
+    fs7.rmSync(lock, { force: true });
   }
 }
 function runBackup(cfg = backupConfig(), now = /* @__PURE__ */ new Date()) {
@@ -4410,9 +4425,9 @@ function resetAllowed(_req, res, next) {
   }
   next();
 }
-function wipeRoute(path9, action, message) {
+function wipeRoute(path10, action, message) {
   router7.post(
-    path9,
+    path10,
     requireAuth,
     requireRole(["coordinator"]),
     resetAllowed,
@@ -4797,9 +4812,9 @@ async function handlePhotoUpload(req, res) {
   });
 }
 var photoUploadAudit = audited({ action: "create", entityType: "photo" });
-for (const path9 of ["/", "/batch"]) {
+for (const path10 of ["/", "/batch"]) {
   projectPhotosRouter.post(
-    path9,
+    path10,
     requireAuth,
     requireProjectAccess(),
     validate({ params: projectParams }),
@@ -4972,12 +4987,12 @@ function createApp() {
     res.status(404).json({ error: `Upload asset not found: ${req.originalUrl}` });
   });
   const distPath = clientDistDir;
-  if (isInside(path7.resolve(dataDir), path7.resolve(distPath))) {
+  if (isInside(path8.resolve(dataDir), path8.resolve(distPath))) {
     throw new Error(`DATA_DIR (${dataDir}) is inside the public web folder ${distPath}; move it outside`);
   }
-  if (fs7.existsSync(distPath)) {
-    const assetsPath = path7.join(distPath, "assets");
-    if (fs7.existsSync(assetsPath)) {
+  if (fs8.existsSync(distPath)) {
+    const assetsPath = path8.join(distPath, "assets");
+    if (fs8.existsSync(assetsPath)) {
       app2.use("/assets", express2.static(assetsPath, { maxAge: "1y", immutable: true }));
     }
     app2.use(
@@ -4993,7 +5008,7 @@ function createApp() {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
-      res.sendFile(path7.join(distPath, "index.html"));
+      res.sendFile(path8.join(distPath, "index.html"));
     });
   } else {
     app2.get("/", (_req, res) => {
@@ -5018,7 +5033,7 @@ function createApp() {
   return app2;
 }
 function isInside(child, parent, platform = process.platform) {
-  const pathApi = platform === "win32" ? path7.win32 : path7.posix;
+  const pathApi = platform === "win32" ? path8.win32 : path8.posix;
   const fold = (p) => platform === "win32" ? p.toLowerCase() : p;
   const rel = pathApi.relative(fold(parent), fold(child));
   return rel === "" || !rel.startsWith("..") && !pathApi.isAbsolute(rel);
@@ -5036,15 +5051,15 @@ function listenTarget(env2 = process.env) {
 }
 
 // server/src/utils/app-lock.ts
-import fs8 from "node:fs";
-import path8 from "node:path";
-var lockPath = (dataDir2) => path8.join(dataDir2, ".app.lock");
+import fs9 from "node:fs";
+import path9 from "node:path";
+var lockPath = (dataDir2) => path9.join(dataDir2, ".app.lock");
 function writeAppLock(dataDir2) {
-  fs8.writeFileSync(lockPath(dataDir2), String(process.pid));
+  fs9.writeFileSync(lockPath(dataDir2), String(process.pid));
 }
 function releaseAppLock(dataDir2) {
   try {
-    if (fs8.readFileSync(lockPath(dataDir2), "utf8").trim() === String(process.pid)) fs8.rmSync(lockPath(dataDir2));
+    if (fs9.readFileSync(lockPath(dataDir2), "utf8").trim() === String(process.pid)) fs9.rmSync(lockPath(dataDir2));
   } catch {
   }
 }
