@@ -92,15 +92,22 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
     setLoadingSettings(true);
     try {
       const { settings } = await api.email.getSettings();
-      setProvider(settings.provider);
-      setGraphStatus(settings.graph);
+      // Read defensively: during an update the server may briefly still send the older shape.
+      setProvider(
+        settings?.provider === 'microsoft_graph' || settings?.provider === 'smtp' ? settings.provider : 'outbox',
+      );
+      setGraphStatus({
+        isConfigured: settings?.graph?.isConfigured === true,
+        sendAsDomains: Array.isArray(settings?.graph?.sendAsDomains) ? settings.graph.sendAsDomains : [],
+      });
+      const smtp = settings?.smtp;
       setSmtpForm({
-        host: settings.smtp.host || 'smtp-mail.outlook.com',
-        port: settings.smtp.port || 587,
-        secure: Boolean(settings.smtp.secure),
-        user: settings.smtp.user || '',
-        pass: settings.smtp.pass || '',
-        fromName: settings.smtp.fromName || 'Encalm Project Dashboard',
+        host: smtp?.host || 'smtp-mail.outlook.com',
+        port: smtp?.port || 587,
+        secure: Boolean(smtp?.secure),
+        user: smtp?.user || '',
+        pass: smtp?.pass || '',
+        fromName: smtp?.fromName || 'Encalm Project Dashboard',
       });
     } catch (err) {
       console.warn('Failed to load email settings:', err);
