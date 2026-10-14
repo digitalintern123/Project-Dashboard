@@ -332,7 +332,6 @@ function initDatabase() {
 // src/data/users.ts
 var DEFAULT_HOD_ID = "user-ruchika-chauhan";
 var DEFAULT_COORDINATOR_ID = "user-praveen-pal";
-var DEFAULT_LEAD_ID = "user-chinmay-saxena";
 var users = [
   {
     id: DEFAULT_HOD_ID,
@@ -349,22 +348,6 @@ var users = [
     role: "coordinator",
     title: "Project Coordinator",
     initials: "PP"
-  },
-  {
-    id: DEFAULT_LEAD_ID,
-    name: "Chinmay Saxena",
-    email: "chinmay.saxena@encalm.com",
-    role: "lead",
-    title: "Project Lead",
-    initials: "CS"
-  },
-  {
-    id: "user-saharsh-tandon",
-    name: "Saharsh Tandon",
-    email: "saharsh.tandon@encalm.com",
-    role: "lead",
-    title: "Project Lead",
-    initials: "ST"
   }
 ];
 
