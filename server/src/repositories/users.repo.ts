@@ -13,12 +13,13 @@ export const usersRepo = {
   /** A user who can sign in (not a directory-only stakeholder), by email. */
   findLoginByEmail(email: string): UserRow | undefined {
     return db
-      .prepare("SELECT * FROM users WHERE LOWER(email) = ? AND role IN ('hod', 'lead', 'coordinator')")
+      .prepare("SELECT * FROM users WHERE LOWER(email) = ? AND role IN ('hod', 'lead', 'coordinator', 'viewer')")
       .get(email.toLowerCase()) as UserRow | undefined;
   },
   findLoginById(id: string): UserRow | undefined {
-    return db.prepare("SELECT * FROM users WHERE id = ? AND role IN ('hod', 'lead', 'coordinator')").get(id) as
-      UserRow | undefined;
+    return db
+      .prepare("SELECT * FROM users WHERE id = ? AND role IN ('hod', 'lead', 'coordinator', 'viewer')")
+      .get(id) as UserRow | undefined;
   },
   emailTaken(email: string): boolean {
     return Boolean(db.prepare('SELECT 1 FROM users WHERE LOWER(email) = ?').get(email.toLowerCase()));
@@ -30,7 +31,7 @@ export const usersRepo = {
   listPublic(): PublicUserRow[] {
     return db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users ORDER BY name`).all() as PublicUserRow[];
   },
-  /** Users who can sign in and therefore have a notification inbox. */
+  /** Users who get project notifications (viewers can sign in but only look, so they get none). */
   inboxUserIds(): string[] {
     const rows = db.prepare("SELECT id FROM users WHERE role IN ('coordinator', 'lead', 'hod')").all() as {
       id: string;

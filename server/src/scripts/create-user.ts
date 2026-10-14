@@ -24,8 +24,9 @@ Arguments:
   Email     : Corporate email (e.g. "amit@encalm.com")
   Password  : Temporary password (min 10 chars, letters and numbers);
               the user must change it at first sign-in
-  Role      : One of 'lead', 'coordinator', 'hod' (Default: 'lead')
-  Title     : Job title (Default: 'Project Lead', 'Project Coordinator', or 'Project HOD')
+  Role      : One of 'lead', 'coordinator', 'hod', 'viewer' (Default: 'lead')
+              viewer = strictly view-only (no edits, tagging or emails)
+  Title     : Job title (Default: 'Project Lead', 'Project Coordinator', 'Project HOD' or 'Viewer')
 
 Examples:
   npm run create-user -- "Amit Sharma" "amit@encalm.com" "<temporary-password>" "lead" "Project Lead"
@@ -40,12 +41,19 @@ const name = args[0].trim();
 const email = args[1].trim().toLowerCase();
 const password = args[2].trim();
 const roleInput = (args[3] || 'lead').trim().toLowerCase();
-const role = roleInput === 'coordinator' ? 'coordinator' : roleInput === 'hod' ? 'hod' : 'lead';
+const ROLES = ['coordinator', 'lead', 'hod', 'viewer'] as const;
+// Never guess a role: a typo must not quietly create an account that can edit.
+if (!(ROLES as readonly string[]).includes(roleInput)) {
+  console.error(`❌ Unknown role "${roleInput}". Use one of: ${ROLES.join(', ')}.`);
+  process.exit(1);
+}
+const role = roleInput as (typeof ROLES)[number];
 
 const defaultTitles: Record<string, string> = {
   hod: 'Project HOD',
   coordinator: 'Project Coordinator',
   lead: 'Project Lead',
+  viewer: 'Viewer',
 };
 const title = (args[4] && args[4].trim()) || defaultTitles[role] || 'Project Lead';
 

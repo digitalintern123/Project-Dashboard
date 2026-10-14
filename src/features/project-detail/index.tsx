@@ -70,8 +70,8 @@ export default function ProjectDetail() {
         variant: 'destructive',
         title: 'Permission denied',
         description:
-          role === 'hod'
-            ? 'HOD accounts have strict view-only oversight.'
+          role === 'hod' || role === 'viewer'
+            ? 'This account is view-only.'
             : `You can only update projects allotted to you. This project is assigned to ${leadName(project.leadId)}.`,
       });
       return;

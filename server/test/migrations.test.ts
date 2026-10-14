@@ -181,6 +181,54 @@ describe('versioned migration runner', () => {
     });
   });
 
+  it('adds the viewer role keeping every user and their sessions', async () => {
+    const { runMigrations, MIGRATIONS_DIR } = await import('../src/db/migrate.js');
+    const os = await import('node:os');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'migr-'));
+    for (const f of fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql') && f < '006')) {
+      fs.copyFileSync(path.join(MIGRATIONS_DIR, f), path.join(dir, f));
+    }
+    const mem = new Database(':memory:');
+    mem.pragma('foreign_keys = ON');
+    runMigrations(mem, dir);
+    mem
+      .prepare(
+        "INSERT INTO users (id, name, email, password_hash, role, title, initials, must_change_password, token_version) VALUES ('u1', 'Old Lead', 'old@test.local', 'hash', 'lead', 'Lead', 'OL', 1, 3)",
+      )
+      .run();
+    mem
+      .prepare(
+        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ('rt1', 'u1', 'h', '2099-01-01')",
+      )
+      .run();
+    expect(() =>
+      mem.prepare("INSERT INTO users (id, name, role, title, initials) VALUES ('v0', 'V', 'viewer', 'V', 'V')").run(),
+    ).toThrow(/CHECK/);
+
+    fs.copyFileSync(path.join(MIGRATIONS_DIR, '006_viewer_role.sql'), path.join(dir, '006_viewer_role.sql'));
+    expect(runMigrations(mem, dir)).toEqual([6]);
+    expect(
+      mem
+        .prepare(
+          "SELECT name, email, password_hash, role, must_change_password, token_version FROM users WHERE id = 'u1'",
+        )
+        .get(),
+    ).toEqual({
+      name: 'Old Lead',
+      email: 'old@test.local',
+      password_hash: 'hash',
+      role: 'lead',
+      must_change_password: 1,
+      token_version: 3,
+    });
+    expect(mem.prepare('SELECT COUNT(*) c FROM refresh_tokens').get()).toEqual({ c: 1 });
+    expect(mem.pragma('foreign_key_check')).toEqual([]);
+    mem.prepare("INSERT INTO users (id, name, role, title, initials) VALUES ('v1', 'V', 'viewer', 'V', 'V')").run();
+    // Sessions still follow their user.
+    mem.prepare("DELETE FROM users WHERE id = 'u1'").run();
+    expect(mem.prepare('SELECT COUNT(*) c FROM refresh_tokens').get()).toEqual({ c: 0 });
+  });
+
   it('rolls back a failing migration and does not record it', async () => {
     const { runMigrations } = await import('../src/db/migrate.js');
     const os = await import('node:os');

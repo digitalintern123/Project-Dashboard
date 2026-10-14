@@ -115,7 +115,7 @@ export type UserRow = {
   name: string;
   email: string | null;
   password_hash: string | null;
-  role: 'hod' | 'lead' | 'coordinator' | 'stakeholder';
+  role: 'hod' | 'lead' | 'coordinator' | 'stakeholder' | 'viewer';
   title: string;
   initials: string;
   created_at: string;

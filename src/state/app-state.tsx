@@ -16,7 +16,7 @@ import { api, onUnauthorized, type NotificationItem, type PhotoUploadInput } fro
 import { calculateWeightedProgress } from '@/lib/calculations';
 import { errorMessage } from '@/lib/utils';
 
-export type AppRole = 'hod' | 'lead' | 'coordinator';
+export type AppRole = 'hod' | 'lead' | 'coordinator' | 'viewer';
 export type AuthUser = User;
 
 const EDITOR_ROLES: readonly AppRole[] = ['lead', 'coordinator'];

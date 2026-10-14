@@ -30,10 +30,16 @@ const providerLabel = (provider: string) =>
   provider === 'microsoft_graph' ? 'Microsoft 365' : provider === 'smtp' ? 'SMTP' : 'Outbox';
 
 // Live search of the Encalm directory through Microsoft Graph
-router.get('/directory', requireAuth, validate({ query: S.directoryQuery }), async (req, res) => {
-  const query = ((req.query.q as string) || '').trim();
-  res.json({ users: await searchEncalmDirectory(query) });
-});
+router.get(
+  '/directory',
+  requireAuth,
+  requireRole(['coordinator', 'hod', 'lead']),
+  validate({ query: S.directoryQuery }),
+  async (req, res) => {
+    const query = ((req.query.q as string) || '').trim();
+    res.json({ users: await searchEncalmDirectory(query) });
+  },
+);
 
 // Email outbox, newest first
 router.get('/logs', requireAuth, requireRole(['coordinator']), validate({ query: S.emailLogsQuery }), (req, res) => {

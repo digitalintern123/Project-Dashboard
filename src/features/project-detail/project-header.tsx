@@ -120,7 +120,11 @@ export function ProjectHeader({
         ) : (
           <span className="flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-3 font-mono text-[9px] uppercase tracking-[.1em] text-muted-foreground">
             <ShieldAlert size={13} className="text-[#9a711f]" />
-            {role === 'hod' ? 'View only · HOD Oversight' : `View only · Allotted to ${leadName(project.leadId)}`}
+            {role === 'hod'
+              ? 'View only · HOD Oversight'
+              : role === 'viewer'
+                ? 'View only'
+                : `View only · Allotted to ${leadName(project.leadId)}`}
           </span>
         )}
       </div>

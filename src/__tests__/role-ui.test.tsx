@@ -44,6 +44,17 @@ describe('role-based UI', () => {
     expect(await photosTabUploadButton()).toHaveLength(0);
   });
 
+  it('a viewer sees the project strictly read-only: no edit, tag, upload or new-project controls', async () => {
+    await openProject({ ...users.hod, id: 'u-viewer', name: 'Vera Viewer', role: 'viewer' });
+    expect(editButton()).not.toBeInTheDocument();
+    expect(deleteButton()).not.toBeInTheDocument();
+    expect(newProjectLink()).not.toBeInTheDocument();
+    expect(screen.getByText('View only')).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: /^Timeline/ }));
+    expect(screen.queryAllByTitle(/Tag individuals/)).toHaveLength(0);
+    expect(await photosTabUploadButton()).toHaveLength(0);
+  });
+
   it('the coordinator can edit and delete', async () => {
     await openProject(users.coordinator);
     expect(editButton()).toBeInTheDocument();

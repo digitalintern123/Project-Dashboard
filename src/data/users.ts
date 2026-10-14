@@ -2,7 +2,7 @@
  * User identity and authentic default system accounts for Encalm Projects.
  */
 
-export type UserRole = 'hod' | 'lead' | 'coordinator';
+export type UserRole = 'hod' | 'lead' | 'coordinator' | 'viewer';
 
 export type User = {
   id: string;

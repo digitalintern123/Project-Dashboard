@@ -404,7 +404,13 @@ export function AppShell({ children }: AppShellProps) {
                     : 'bg-[#dbeef7] text-[#1a5068]'
               }`}
             >
-              {role === 'coordinator' ? 'Project coordinator' : isLead ? 'Project lead' : 'Project HOD · Read-only'}
+              {role === 'coordinator'
+                ? 'Project coordinator'
+                : isLead
+                  ? 'Project lead'
+                  : role === 'viewer'
+                    ? 'Viewer · Read-only'
+                    : 'Project HOD · Read-only'}
             </span>
 
             {/* Live Server Sync Indicator */}
@@ -661,7 +667,7 @@ export function AppShell({ children }: AppShellProps) {
                   isLead ? 'bg-[#e4f1ec] text-[#2e7c67]' : 'bg-[#f8edcf] text-[#9a711f]'
                 }`}
               >
-                {isLead ? 'Lead' : 'HOD'}
+                {role === 'coordinator' ? 'Coordinator' : isLead ? 'Lead' : role === 'viewer' ? 'Viewer' : 'HOD'}
               </span>
             </div>
 
@@ -756,7 +762,9 @@ export function AppShell({ children }: AppShellProps) {
                 <p className="text-[11px] leading-5 text-[#517167]">
                   {isLead
                     ? 'You can create projects and update delivery, commercial, milestone, issue, risk, and update records.'
-                    : 'You have read-only access to the portfolio. Project changes are restricted to Project Leads.'}
+                    : role === 'viewer'
+                      ? 'You have view-only access: you can see every project, but not change, tag or email anything.'
+                      : 'You have read-only access to the portfolio. Project changes are restricted to Project Leads.'}
                 </p>
               </div>
             </div>

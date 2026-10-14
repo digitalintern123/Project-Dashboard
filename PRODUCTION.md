@@ -480,7 +480,23 @@ A user's password: a coordinator resets it (section 12) and the user chooses a n
   ```bash
    sudo -u encalm bash -c 'cd /opt/encalm/production/current && DOTENV_CONFIG_PATH=/etc/encalm/production.env npm run create-user -- "Amit Sharma" amit@encalm.com "Temp-pass-2026" lead "Senior Project Lead"'
   ```
-  Roles: `coordinator` (full edit), `lead` (edits own and unassigned projects), `hod` (read-only, approvals). Running it again for an existing email updates name, role and password.
+  Roles (any other value is refused):
+
+  | Role | Can |
+  |---|---|
+  | `coordinator` | Edit every project, approve milestones, email settings, backups |
+  | `lead` | Edit own and unassigned projects; tag and email on them |
+  | `hod` | View everything (read-only); tag people and send tag emails; receives critical-issue alerts |
+  | `viewer` | View everything, nothing else: no edits, tagging, emails, directory search or alerts |
+
+  Running it again for an existing email updates name, role and password.
+
+  On Plesk (PowerShell in `httpdocs`; find Node with `$node = Get-ChildItem 'C:\Program Files\nodejs','C:\Program Files*\Plesk\Additional\NodeJs' -Recurse -Filter node.exe | Select-Object -First 1 -ExpandProperty FullName`):
+  ```powershell
+  $pw = 'Encalm-' + -join ((48..57 + 65..90 + 97..122) | Get-Random -Count 10 | ForEach-Object {[char]$_})
+  & $node server\dist\create-user.js "Full Name" "name@encalm.com" $pw viewer "Viewer"
+  Write-Host "Temporary password: $pw"
+  ```
 - Coordinators can also add leads in the app (**Team**) and reset a lead's password there; the app shows the temporary password once. For other roles, use `create-user` as above.
 - Every new or reset password must be changed at first sign-in, and changing it signs out the user's other sessions. Passwords: at least 10 characters with letters and numbers. (There is no self-service "change my password" screen outside that first sign-in yet; a coordinator reset forces one.)
 - Five wrong passwords lock an account for 15 minutes.

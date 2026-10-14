@@ -12,7 +12,7 @@ export type UserPayload = {
   id: string;
   name: string;
   email: string;
-  role: 'hod' | 'lead' | 'coordinator';
+  role: 'hod' | 'lead' | 'coordinator' | 'viewer';
   title: string;
   initials: string;
   mustChangePassword?: boolean;
@@ -78,7 +78,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   }
 }
 
-export function requireRole(allowedRoles: ('hod' | 'lead' | 'coordinator')[]) {
+export function requireRole(allowedRoles: UserPayload['role'][]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthorized: Authentication required' });
@@ -99,10 +99,11 @@ export function requireRole(allowedRoles: ('hod' | 'lead' | 'coordinator')[]) {
  * - 'coordinator': Full supervisory permissions across all projects.
  * - 'lead': Can only edit projects allotted to them or unassigned.
  * - 'hod': Strictly read-only across all projects.
+ * - 'viewer': Strictly read-only across all projects.
  */
 export function canUserEditProject(projectId: string, user: UserPayload): boolean {
   if (user.role === 'coordinator') return true;
-  if (user.role === 'hod') return false;
+  if (user.role === 'hod' || user.role === 'viewer') return false;
   if (user.role === 'lead') {
     const project = db.prepare('SELECT lead_id FROM projects WHERE id = ?').get(projectId) as
       { lead_id: string | null } | undefined;
@@ -131,8 +132,8 @@ export function requireProjectAccess(projectIdParam: string = 'id') {
     if (!canUserEditProject(projectId, req.user)) {
       return res.status(403).json({
         error:
-          req.user.role === 'hod'
-            ? 'Forbidden: HOD role has strict view-only oversight'
+          req.user.role === 'hod' || req.user.role === 'viewer'
+            ? 'Forbidden: this account is view-only'
             : 'Forbidden: You can only edit projects allotted to you',
       });
     }
@@ -148,6 +149,7 @@ export function requireProjectAccess(projectIdParam: string = 'id') {
  */
 export function canUserTagOnProject(projectId: string, user: UserPayload): boolean {
   if (user.role === 'coordinator' || user.role === 'hod') return true;
+  if (user.role === 'viewer') return false;
   return canUserEditProject(projectId, user);
 }
 
