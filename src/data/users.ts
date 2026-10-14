@@ -17,7 +17,6 @@ export type User = {
 
 export const DEFAULT_HOD_ID = 'user-ruchika-chauhan';
 export const DEFAULT_COORDINATOR_ID = 'user-praveen-pal';
-export const DEFAULT_LEAD_ID = 'user-chinmay-saxena';
 
 export const users: User[] = [
   {
@@ -35,22 +34,6 @@ export const users: User[] = [
     role: 'coordinator',
     title: 'Project Coordinator',
     initials: 'PP',
-  },
-  {
-    id: DEFAULT_LEAD_ID,
-    name: 'Chinmay Saxena',
-    email: 'chinmay.saxena@encalm.com',
-    role: 'lead',
-    title: 'Project Lead',
-    initials: 'CS',
-  },
-  {
-    id: 'user-saharsh-tandon',
-    name: 'Saharsh Tandon',
-    email: 'saharsh.tandon@encalm.com',
-    role: 'lead',
-    title: 'Project Lead',
-    initials: 'ST',
   },
 ];
 
