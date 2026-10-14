@@ -414,17 +414,13 @@ function ensureUsersSeeded() {
     INSERT INTO users (id, name, email, password_hash, role, title, initials, must_change_password)
     VALUES (@id, @name, @email, @password_hash, @role, @title, @initials, 1)
   `);
-  const updateProfile = db.prepare("UPDATE users SET email = ?, name = ?, title = ?, initials = ? WHERE id = ?");
   const flagMustChange = db.prepare("UPDATE users SET must_change_password = 1 WHERE id = ?");
   const created = [];
   const tx = db.transaction(() => {
     for (const u of users) {
       const email = u.email || `${u.id.replace("user-", "")}@encalm.com`;
       const existing = findUser.get(u.id);
-      if (existing) {
-        updateProfile.run(email, u.name, u.title, u.initials, u.id);
-        continue;
-      }
+      if (existing) continue;
       const password = generateTemporaryPassword();
       insertUser.run({
         id: u.id,
@@ -1031,6 +1027,24 @@ function requireProjectAccess(projectIdParam = "id") {
     next();
   };
 }
+function canUserTagOnProject(projectId5, user) {
+  if (user.role === "coordinator" || user.role === "hod") return true;
+  return canUserEditProject(projectId5, user);
+}
+function requireTagAccess() {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized: Authentication required" });
+    const projectId5 = req.body?.projectId;
+    if (!projectId5) return res.status(400).json({ error: "Project ID is required" });
+    if (!db.prepare("SELECT 1 FROM projects WHERE id = ?").get(projectId5)) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    if (!canUserTagOnProject(projectId5, req.user)) {
+      return res.status(403).json({ error: "Forbidden: You can only tag people on projects allotted to you" });
+    }
+    next();
+  };
+}
 
 // server/src/utils/session.ts
 var ACCESS_COOKIE = ACCESS_COOKIE_NAME;
@@ -1360,7 +1374,9 @@ var createUpdateBody = z.object({
   author: optText(120),
   role: optText(120),
   stage: optText(200),
-  kind: updateKind.optional()
+  kind: updateKind.optional(),
+  /** People picked with @ in the update: each gets a notification and an email. */
+  taggedUsers
 });
 var projectScalarFields = {
   name: text(200).min(1),
@@ -1420,35 +1436,10 @@ var smtpSettings = z.object({
   secure: z.boolean().optional(),
   user: optText(254),
   pass: z.string().max(500).optional(),
-  fromName: optText(120),
-  fromEmail: optText(254)
-});
-var graphSettings = z.object({
-  tenantId: optText(100),
-  clientId: optText(100),
-  clientSecret: z.string().max(500).optional(),
-  senderEmail: optText(254),
-  saveToSentItems: z.boolean().optional()
-});
-var provider = z.enum(["smtp", "microsoft_graph"]);
-var emailSettingsBody = z.object({
-  provider: provider.optional(),
-  smtp: smtpSettings.optional(),
-  graph: graphSettings.optional(),
-  // Legacy flat Graph fields
-  tenantId: optText(100),
-  clientId: optText(100),
-  clientSecret: z.string().max(500).optional(),
-  senderEmail: optText(254),
-  saveToSentItems: z.boolean().optional()
-});
-var emailTestBody = z.object({
-  to: z.string().trim().email().max(254).optional(),
-  recipientName: optText(120),
-  provider: provider.optional(),
-  smtp: smtpSettings.optional(),
-  graph: graphSettings.optional()
-});
+  fromName: optText(120)
+}).strict();
+var emailSettingsBody = z.object({ smtp: smtpSettings.optional() }).strict();
+var emailTestBody = z.object({}).strict();
 var recipient = z.union([
   z.string().trim().email().max(254),
   z.object({ email: z.string().trim().email().max(254), name: optText(120) })
@@ -2651,137 +2642,9 @@ var settingsRepo = {
   }
 };
 
-// server/src/services/email/transport.ts
-import dns from "node:dns";
-import nodemailer from "nodemailer";
-async function createSmtpTransporter(smtpCfg) {
-  const originalHost = smtpCfg.host;
-  let resolvedHost = originalHost;
-  try {
-    const isIpv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(originalHost);
-    if (!isIpv4) {
-      const addresses = await dns.promises.resolve4(originalHost);
-      if (addresses && addresses.length > 0) {
-        resolvedHost = addresses[0];
-      }
-    }
-  } catch (err) {
-    logger.warn({ err }, `[SMTP DNS] Failed to resolve IPv4 for ${originalHost}, falling back to hostname`);
-    resolvedHost = originalHost;
-  }
-  const isImplicitTls = smtpCfg.secure || smtpCfg.port === 465;
-  const allowSelfSigned = process.env.SMTP_ALLOW_SELF_SIGNED === "true";
-  return nodemailer.createTransport({
-    host: resolvedHost,
-    port: smtpCfg.port,
-    secure: isImplicitTls,
-    requireTLS: !isImplicitTls,
-    auth: {
-      user: smtpCfg.user,
-      pass: smtpCfg.pass
-    },
-    tls: {
-      servername: originalHost,
-      rejectUnauthorized: !allowSelfSigned,
-      minVersion: "TLSv1.2"
-    },
-    connectionTimeout: 15e3,
-    greetingTimeout: 15e3,
-    socketTimeout: 2e4
-  });
-}
-var cachedToken = null;
-function clearGraphTokenCache() {
-  cachedToken = null;
-}
-async function acquireGraphAccessToken(cfg) {
-  if (!cfg.tenantId || !cfg.clientId || !cfg.clientSecret) {
-    throw new Error("Microsoft Graph API is not fully configured (missing Tenant ID, Client ID, or Client Secret)");
-  }
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 6e4) {
-    return cachedToken.accessToken;
-  }
-  const tokenEndpoint = `https://login.microsoftonline.com/${encodeURIComponent(cfg.tenantId)}/oauth2/v2.0/token`;
-  const bodyParams = new URLSearchParams({
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-    scope: "https://graph.microsoft.com/.default",
-    grant_type: "client_credentials"
-  });
-  const res = await fetch(tokenEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: bodyParams.toString()
-  });
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => "");
-    throw new Error(`Azure AD OAuth error (${res.status}): ${errorBody}`);
-  }
-  const data = await res.json();
-  cachedToken = {
-    accessToken: data.access_token,
-    expiresAt: now + (data.expires_in || 3600) * 1e3
-  };
-  return cachedToken.accessToken;
-}
-var EmailNotConfiguredError = class extends Error {
-};
-async function deliver(message) {
-  if (getActiveEmailProvider() === "smtp") {
-    const smtpCfg = getSmtpConfig();
-    if (!smtpCfg.host || !smtpCfg.user || !smtpCfg.pass) {
-      throw new EmailNotConfiguredError("SMTP not configured - kept in the in-app outbox");
-    }
-    const transporter = await createSmtpTransporter(smtpCfg);
-    await transporter.sendMail({
-      from: { name: smtpCfg.fromName || "", address: smtpCfg.fromEmail || smtpCfg.user },
-      to: { name: message.recipientName || "", address: message.to },
-      replyTo: message.replyTo || void 0,
-      subject: message.subject,
-      html: message.html
-    });
-    return;
-  }
-  const cfg = getGraphConfig();
-  if (!cfg.tenantId || !cfg.clientId || !cfg.clientSecret || !cfg.senderEmail) {
-    throw new EmailNotConfiguredError("Microsoft Graph API not configured - kept in the in-app outbox");
-  }
-  const accessToken = await acquireGraphAccessToken(cfg);
-  const graphRes = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.senderEmail)}/sendMail`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: {
-          subject: message.subject,
-          body: { contentType: "HTML", content: message.html },
-          toRecipients: [{ emailAddress: { address: message.to, name: message.recipientName || message.to } }],
-          ...message.replyTo ? { replyTo: [{ emailAddress: { address: message.replyTo } }] } : {}
-        },
-        saveToSentItems: cfg.saveToSentItems !== false
-      })
-    }
-  );
-  if (!graphRes.ok && graphRes.status !== 202) {
-    const errText = await graphRes.text().catch(() => "");
-    throw new Error(`Microsoft Graph API failed (${graphRes.status}): ${errText}`);
-  }
-}
-
 // server/src/services/email/settings.ts
 var MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
 var DEFAULT_SENDER = "notifications@encalm.com";
-function getActiveEmailProvider() {
-  const value = settingsRepo.get("email_provider");
-  return value === "microsoft_graph" ? "microsoft_graph" : "smtp";
-}
-function saveActiveEmailProvider(provider2) {
-  settingsRepo.set("email_provider", provider2);
-}
 function getSmtpConfig() {
   const get = settingsRepo.get;
   const host = get("smtp_host") || process.env.SMTP_HOST || "smtp-mail.outlook.com";
@@ -2790,17 +2653,16 @@ function getSmtpConfig() {
   const user = get("smtp_user") || process.env.SMTP_USER || "";
   const pass = decryptSecret(get("smtp_pass")) || process.env.SMTP_PASS || "";
   const fromName = get("smtp_from_name") || process.env.SMTP_FROM_NAME || "Encalm Project Dashboard";
-  const fromEmail = get("smtp_from_email") || process.env.SMTP_FROM_EMAIL || user || DEFAULT_SENDER;
   return {
     host: host.trim(),
     port: parseInt(portStr, 10) || 587,
     secure: secureStr === "true" || secureStr === "1",
     user: user.trim(),
     pass: pass.trim(),
-    fromName: fromName.trim(),
-    fromEmail: fromEmail.trim()
+    fromName: fromName.trim()
   };
 }
+var isSmtpConfigured = (smtp = getSmtpConfig()) => Boolean(smtp.host && smtp.user && smtp.pass);
 function saveSmtpConfig(config) {
   const entries = [];
   if (config.host !== void 0) entries.push(["smtp_host", config.host]);
@@ -2811,36 +2673,28 @@ function saveSmtpConfig(config) {
     entries.push(["smtp_pass", config.pass ? encryptSecret(config.pass) : ""]);
   }
   if (config.fromName !== void 0) entries.push(["smtp_from_name", config.fromName]);
-  if (config.fromEmail !== void 0) entries.push(["smtp_from_email", config.fromEmail]);
   settingsRepo.setMany(entries);
 }
-function getGraphConfig() {
-  const get = settingsRepo.get;
-  const env2 = process.env;
-  const tenantId = get("graph_tenant_id") || env2.AZURE_TENANT_ID || env2.MS_GRAPH_TENANT_ID || "";
-  const clientId = get("graph_client_id") || env2.AZURE_CLIENT_ID || env2.MS_GRAPH_CLIENT_ID || "";
-  const clientSecret = decryptSecret(get("graph_client_secret")) || env2.AZURE_CLIENT_SECRET || env2.MS_GRAPH_CLIENT_SECRET || "";
-  const senderEmail = get("graph_sender_email") || env2.MS_GRAPH_SENDER_EMAIL || DEFAULT_SENDER;
-  const saveToSentItems = get("graph_save_to_sent_items") || "true";
+var domainOf = (email) => email.split("@")[1]?.trim().toLowerCase() || "";
+function getGraphConfig(env2 = process.env) {
+  const tenantId = (env2.MS_GRAPH_TENANT_ID || env2.AZURE_TENANT_ID || "").trim();
+  const clientId = (env2.MS_GRAPH_CLIENT_ID || env2.AZURE_CLIENT_ID || "").trim();
+  const clientSecret = (env2.MS_GRAPH_CLIENT_SECRET || env2.AZURE_CLIENT_SECRET || "").trim();
+  const senderEmail = (env2.MS_GRAPH_SENDER_EMAIL || DEFAULT_SENDER).trim();
+  const listed = (env2.MS_GRAPH_SEND_AS_DOMAINS || "").split(",").map((d) => d.trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
   return {
-    tenantId: tenantId.trim(),
-    clientId: clientId.trim(),
-    clientSecret: clientSecret.trim(),
-    senderEmail: senderEmail.trim(),
-    saveToSentItems: saveToSentItems === "true" || saveToSentItems === "1"
+    tenantId,
+    clientId,
+    clientSecret,
+    senderEmail,
+    sendAsDomains: listed.length ? listed : [domainOf(senderEmail)].filter(Boolean)
   };
 }
-function saveGraphConfig(config) {
-  const entries = [];
-  if (config.tenantId !== void 0) entries.push(["graph_tenant_id", config.tenantId]);
-  if (config.clientId !== void 0) entries.push(["graph_client_id", config.clientId]);
-  if (config.clientSecret !== void 0 && config.clientSecret !== MASK) {
-    entries.push(["graph_client_secret", config.clientSecret ? encryptSecret(config.clientSecret) : ""]);
-  }
-  if (config.senderEmail !== void 0) entries.push(["graph_sender_email", config.senderEmail]);
-  if (config.saveToSentItems !== void 0) entries.push(["graph_save_to_sent_items", String(config.saveToSentItems)]);
-  settingsRepo.setMany(entries);
-  clearGraphTokenCache();
+var isGraphConfigured = (cfg = getGraphConfig()) => Boolean(cfg.tenantId && cfg.clientId && cfg.clientSecret && cfg.senderEmail);
+function getActiveEmailProvider() {
+  if (isGraphConfigured()) return "microsoft_graph";
+  if (isSmtpConfigured()) return "smtp";
+  return "outbox";
 }
 function encryptPlaintextSettings() {
   let migrated = 0;
@@ -2853,37 +2707,15 @@ function encryptPlaintextSettings() {
   }
   if (migrated > 0) logger.info(`\u2713 Encrypted ${migrated} stored email secret(s) at rest.`);
 }
-function applyEmailSettings(input, { legacyGraphFields = true } = {}) {
-  if (input.provider) saveActiveEmailProvider(input.provider);
+function applyEmailSettings(input) {
   if (input.smtp) saveSmtpConfig(input.smtp);
-  const graph = legacyGraphFields ? {
-    tenantId: input.graph?.tenantId ?? input.tenantId,
-    clientId: input.graph?.clientId ?? input.clientId,
-    clientSecret: input.graph?.clientSecret ?? input.clientSecret,
-    senderEmail: input.graph?.senderEmail ?? input.senderEmail,
-    saveToSentItems: input.graph?.saveToSentItems ?? input.saveToSentItems
-  } : input.graph;
-  if (!graph) return;
-  if (legacyGraphFields && graph.tenantId === void 0 && graph.clientId === void 0 && graph.clientSecret === void 0 && graph.senderEmail === void 0) {
-    return;
-  }
-  saveGraphConfig({ ...graph, saveToSentItems: graph.saveToSentItems ?? true });
 }
 function describeEmailSettings() {
-  const provider2 = getActiveEmailProvider();
   const smtp = getSmtpConfig();
   const graph = getGraphConfig();
-  const isSmtpConfigured = Boolean(smtp.host && smtp.user && smtp.pass);
-  const isGraphConfigured = Boolean(graph.tenantId && graph.clientId && graph.clientSecret && graph.senderEmail);
-  const graphView = {
-    tenantId: graph.tenantId || "",
-    clientId: graph.clientId || "",
-    clientSecret: graph.clientSecret ? MASK : "",
-    senderEmail: graph.senderEmail || DEFAULT_SENDER,
-    saveToSentItems: graph.saveToSentItems !== false
-  };
   return {
-    provider: provider2,
+    provider: getActiveEmailProvider(),
+    graph: { isConfigured: isGraphConfigured(graph), sendAsDomains: graph.sendAsDomains },
     smtp: {
       host: smtp.host || "smtp-mail.outlook.com",
       port: smtp.port || 587,
@@ -2891,13 +2723,8 @@ function describeEmailSettings() {
       user: smtp.user || "",
       pass: smtp.pass ? MASK : "",
       fromName: smtp.fromName || "Encalm Project Dashboard",
-      fromEmail: smtp.fromEmail || smtp.user || DEFAULT_SENDER,
-      isConfigured: isSmtpConfigured
-    },
-    graph: { ...graphView, isConfigured: isGraphConfigured },
-    // Backwards-compatible convenience fields:
-    ...graphView,
-    isConfigured: provider2 === "smtp" ? isSmtpConfigured : isGraphConfigured
+      isConfigured: isSmtpConfigured(smtp)
+    }
   };
 }
 
@@ -2922,11 +2749,11 @@ var emailRepo = {
     db.transaction(() => {
       db.prepare(
         `INSERT INTO email_logs (
-           id, recipient_email, recipient_name, reply_to, subject, template_type, project_id, status, html_content,
-           created_at
+           id, recipient_email, recipient_name, reply_to, from_email, from_name, subject, template_type, project_id,
+           status, html_content, created_at
          ) VALUES (
-           @id, @recipient_email, @recipient_name, @reply_to, @subject, @template_type, @project_id, 'queued',
-           @html_content, datetime('now')
+           @id, @recipient_email, @recipient_name, @reply_to, @from_email, @from_name, @subject, @template_type,
+           @project_id, 'queued', @html_content, datetime('now')
          )`
       ).run(log);
       db.prepare("INSERT INTO email_queue (log_id, max_attempts, next_attempt_at) VALUES (?, ?, ?)").run(
@@ -2949,7 +2776,8 @@ var emailRepo = {
   },
   findJob(logId) {
     return db.prepare(
-      `SELECT q.attempts, q.max_attempts, l.recipient_email, l.recipient_name, l.reply_to, l.subject, l.html_content
+      `SELECT q.attempts, q.max_attempts, l.recipient_email, l.recipient_name, l.reply_to, l.from_email, l.from_name, l.subject,
+                l.html_content
          FROM email_queue q JOIN email_logs l ON l.id = q.log_id
          WHERE q.log_id = ?`
     ).get(logId);
@@ -2990,6 +2818,141 @@ var emailRepo = {
   }
 };
 
+// server/src/services/email/transport.ts
+import dns from "node:dns";
+import nodemailer from "nodemailer";
+async function createSmtpTransporter(smtpCfg) {
+  const originalHost = smtpCfg.host;
+  let resolvedHost = originalHost;
+  try {
+    const isIpv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(originalHost);
+    if (!isIpv4) {
+      const addresses = await dns.promises.resolve4(originalHost);
+      if (addresses && addresses.length > 0) {
+        resolvedHost = addresses[0];
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, `[SMTP DNS] Failed to resolve IPv4 for ${originalHost}, falling back to hostname`);
+    resolvedHost = originalHost;
+  }
+  const isImplicitTls = smtpCfg.secure || smtpCfg.port === 465;
+  const allowSelfSigned = process.env.SMTP_ALLOW_SELF_SIGNED === "true";
+  return nodemailer.createTransport({
+    host: resolvedHost,
+    port: smtpCfg.port,
+    secure: isImplicitTls,
+    requireTLS: !isImplicitTls,
+    auth: {
+      user: smtpCfg.user,
+      pass: smtpCfg.pass
+    },
+    tls: {
+      servername: originalHost,
+      rejectUnauthorized: !allowSelfSigned,
+      minVersion: "TLSv1.2"
+    },
+    connectionTimeout: 15e3,
+    greetingTimeout: 15e3,
+    socketTimeout: 2e4
+  });
+}
+var cachedToken = null;
+async function acquireGraphAccessToken(cfg) {
+  if (!cfg.tenantId || !cfg.clientId || !cfg.clientSecret) {
+    throw new Error("Microsoft Graph API is not fully configured (missing Tenant ID, Client ID, or Client Secret)");
+  }
+  const now = Date.now();
+  if (cachedToken && cachedToken.expiresAt > now + 6e4) {
+    return cachedToken.accessToken;
+  }
+  const tokenEndpoint = `https://login.microsoftonline.com/${encodeURIComponent(cfg.tenantId)}/oauth2/v2.0/token`;
+  const bodyParams = new URLSearchParams({
+    client_id: cfg.clientId,
+    client_secret: cfg.clientSecret,
+    scope: "https://graph.microsoft.com/.default",
+    grant_type: "client_credentials"
+  });
+  const res = await fetch(tokenEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: bodyParams.toString()
+  });
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => "");
+    throw new Error(`Azure AD OAuth error (${res.status}): ${errorBody}`);
+  }
+  const data = await res.json();
+  cachedToken = {
+    accessToken: data.access_token,
+    expiresAt: now + (data.expires_in || 3600) * 1e3
+  };
+  return cachedToken.accessToken;
+}
+var EmailNotConfiguredError = class extends Error {
+};
+var onBehalfName = (sender2) => `${sender2.name} via Encalm Projects`;
+function resolveGraphSender(sender2, cfg) {
+  const own = sender2?.email.trim().toLowerCase();
+  const domain = own?.split("@")[1];
+  if (own && domain && (cfg.sendAsDomains ?? []).includes(domain)) return own;
+  return cfg.senderEmail;
+}
+var NO_MAILBOX = /ErrorInvalidUser|MailboxNotEnabledForRESTAPI|ResourceNotFound|ErrorItemNotFound/;
+async function graphSend(cfg, mailbox, message) {
+  const accessToken = await acquireGraphAccessToken(cfg);
+  const system = mailbox.toLowerCase() === cfg.senderEmail.toLowerCase();
+  const replyTo = message.replyTo || (system ? message.sender?.email : void 0);
+  const res = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/sendMail`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: {
+        subject: message.subject,
+        body: { contentType: "HTML", content: message.html },
+        toRecipients: [{ emailAddress: { address: message.to, name: message.recipientName || message.to } }],
+        ...system && message.sender ? { from: { emailAddress: { address: mailbox, name: onBehalfName(message.sender) } } } : {},
+        ...replyTo ? { replyTo: [{ emailAddress: { address: replyTo } }] } : {}
+      },
+      // The email appears in the sender's own Outlook "Sent Items".
+      saveToSentItems: true
+    })
+  });
+  if (res.ok || res.status === 202) return { ok: true };
+  const errText = await res.text().catch(() => "");
+  return { ok: false, status: res.status, errText };
+}
+async function deliver(message) {
+  const cfg = getGraphConfig();
+  if (isGraphConfigured(cfg)) {
+    const mailbox = resolveGraphSender(message.sender, cfg);
+    let result = await graphSend(cfg, mailbox, message);
+    if (!result.ok && mailbox !== cfg.senderEmail && (result.status === 404 || NO_MAILBOX.test(result.errText))) {
+      logger.warn(`[Email] ${mailbox} has no usable mailbox; sending through ${cfg.senderEmail} instead`);
+      result = await graphSend(cfg, cfg.senderEmail, message);
+    }
+    if (!result.ok) throw new Error(`Microsoft Graph API failed (${result.status}): ${result.errText}`);
+    return;
+  }
+  const smtpCfg = getSmtpConfig();
+  if (!isSmtpConfigured(smtpCfg)) {
+    throw new EmailNotConfiguredError("No email provider configured - kept in the in-app outbox");
+  }
+  const transporter = await createSmtpTransporter(smtpCfg);
+  await transporter.sendMail({
+    from: {
+      name: message.sender ? onBehalfName(message.sender) : smtpCfg.fromName || "",
+      address: smtpCfg.user
+    },
+    to: { name: message.recipientName || "", address: message.to },
+    replyTo: message.replyTo || message.sender?.email || void 0,
+    subject: message.subject,
+    html: message.html
+  });
+}
+
 // server/src/services/email/queue.ts
 var EMAIL_MAX_ATTEMPTS = 5;
 var EMAIL_RETRY_BASE_MS = 3e4;
@@ -3008,6 +2971,8 @@ function queueEmail(options, maxAttempts = EMAIL_MAX_ATTEMPTS) {
       recipient_email: options.to,
       recipient_name: options.recipientName || null,
       reply_to: options.replyTo || null,
+      from_email: options.sender?.email || null,
+      from_name: options.sender?.name || null,
       subject: options.subject,
       template_type: options.templateType,
       project_id: options.projectId || null,
@@ -3028,6 +2993,7 @@ async function deliverQueuedEmail(logId, now = Date.now()) {
       to: job.recipient_email,
       recipientName: job.recipient_name,
       replyTo: job.reply_to,
+      sender: job.from_email ? { email: job.from_email, name: job.from_name || job.from_email } : null,
       subject: job.subject,
       html: job.html_content
     });
@@ -3262,7 +3228,7 @@ function buildTagNotificationHtml(data) {
         \u2709\uFE0F Zero-Login Required \u2014 Simply Hit "Reply" in Outlook
       </div>
       <div style="font-size: 12.5px; color: #235445; line-height: 1.5;">
-        You do not need to create an account or log into the dashboard. When you reply directly to this email in Outlook, your response will be delivered straight to <strong>${esc(data.taggedByName)}</strong> at <a href="mailto:${esc(data.senderEmail || "chinmay.saxena@encalm.com")}" style="color: #173e49; font-weight: 700;">${esc(data.senderEmail || "chinmay.saxena@encalm.com")}</a>.
+        You do not need to create an account or log into the dashboard. When you reply directly to this email in Outlook, your response will be delivered straight to <strong>${esc(data.taggedByName)}</strong>${data.senderEmail ? ` at <a href="mailto:${esc(data.senderEmail)}" style="color: #173e49; font-weight: 700;">${esc(data.senderEmail)}</a>` : ""}.
       </div>
     </div>
 
@@ -3477,15 +3443,17 @@ function dispatchTagNotifications(params) {
     comment,
     projectId: projectId5,
     projectName: projectName2,
-    origin = "http://localhost:5173"
+    origin = "http://localhost:5173",
+    sender: sender2
   } = params;
   const dashboardUrl = `${origin}/project/${projectId5}`;
   const notifType = entityType === "Issue" ? "tagged_issue" : "tagged_task";
   for (const userId of taggedUserIds) {
     if (!userId) continue;
     const user = db.prepare("SELECT id, name, email FROM users WHERE id = ?").get(userId);
-    const recipientName = user?.name || userId;
-    const recipientEmail = user?.email;
+    if (!user) continue;
+    const recipientName = user.name || userId;
+    const recipientEmail = user.email;
     const messageBody = comment ? `${taggedBy} tagged you on ${entityType.toLowerCase()} "${entityTitle}" in ${projectName2}: "${comment}"` : `${taggedBy} tagged you on ${entityType.toLowerCase()} "${entityTitle}" in ${projectName2}`;
     db.prepare(
       `
@@ -3505,6 +3473,7 @@ function dispatchTagNotifications(params) {
       const html = buildTagNotificationHtml({
         recipientName,
         taggedByName: taggedBy,
+        senderEmail: sender2?.email,
         entityType,
         entityTitle,
         entityContext,
@@ -3515,6 +3484,8 @@ function dispatchTagNotifications(params) {
       queueEmail({
         to: recipientEmail,
         recipientName,
+        sender: sender2,
+        replyTo: sender2?.email,
         subject: `Tagged on ${entityType}: ${entityTitle} (${projectName2})`,
         html,
         templateType: "tag_notification",
@@ -3532,7 +3503,8 @@ function dispatchCriticalIssueAlert(params) {
     raisedBy,
     projectId: projectId5,
     projectName: projectName2,
-    origin = "http://localhost:5173"
+    origin = "http://localhost:5173",
+    sender: sender2
   } = params;
   const dashboardUrl = `${origin}/project/${projectId5}`;
   const leaders = db.prepare("SELECT id, name, email, role FROM users WHERE role IN ('hod', 'coordinator')").all();
@@ -3551,6 +3523,8 @@ function dispatchCriticalIssueAlert(params) {
     queueEmail({
       to: leader.email,
       recipientName: leader.name,
+      sender: sender2,
+      replyTo: sender2?.email,
       subject: `\u{1F6A8} CRITICAL ISSUE: ${issueTitle} (${projectName2})`,
       html,
       templateType: "critical_issue",
@@ -3559,7 +3533,15 @@ function dispatchCriticalIssueAlert(params) {
   }
 }
 function dispatchMilestoneApprovalAlert(params) {
-  const { milestoneTitle, targetDate, stage, projectId: projectId5, projectName: projectName2, origin = "http://localhost:5173" } = params;
+  const {
+    milestoneTitle,
+    targetDate,
+    stage,
+    projectId: projectId5,
+    projectName: projectName2,
+    origin = "http://localhost:5173",
+    sender: sender2
+  } = params;
   const dashboardUrl = `${origin}/project/${projectId5}`;
   const coordinators = db.prepare("SELECT id, name, email FROM users WHERE role = 'coordinator'").all();
   for (const coord of coordinators) {
@@ -3575,6 +3557,8 @@ function dispatchMilestoneApprovalAlert(params) {
     queueEmail({
       to: coord.email,
       recipientName: coord.name,
+      sender: sender2,
+      replyTo: sender2?.email,
       subject: `Milestone Approval Required: ${milestoneTitle} (${projectName2})`,
       html,
       templateType: "milestone_approval",
@@ -3657,7 +3641,8 @@ function addStage(projectId5, input, actor4) {
       entityContext: input.nextAction || input.workCompleted || void 0,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
   recomputeProjectProgress(projectId5);
@@ -3703,7 +3688,8 @@ function updateStage(projectId5, stageId2, patch, actor4) {
       entityContext: patch.nextAction || patch.workCompleted || stage.work_completed || void 0,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
   recomputeProjectProgress(projectId5);
@@ -3753,7 +3739,8 @@ function addMilestone(projectId5, input, actor4) {
       entityContext: `Target date: ${input.date}${input.stage ? ` \u2022 Stage: ${input.stage}` : ""}`,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
   if (input.approvalRequired) {
@@ -3772,7 +3759,8 @@ function addMilestone(projectId5, input, actor4) {
       requestedBy: actor4.user.name,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
   return id2;
@@ -3805,7 +3793,8 @@ function updateMilestone(projectId5, milestoneId, patch, actor4) {
       entityContext: `Target date: ${patch.date || milestone.date}`,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
 }
@@ -3846,7 +3835,8 @@ function addIssue(projectId5, input, actor4) {
       entityContext: input.detail,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
   if (input.severity === "High") {
@@ -3866,7 +3856,8 @@ function addIssue(projectId5, input, actor4) {
       raisedBy: actor4.user.name,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
   return id2;
@@ -3902,7 +3893,8 @@ function updateIssue(projectId5, issueId, patch, actor4) {
       entityContext: patch.detail || issue.detail,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
   if (patch.severity === "High" && issue.severity !== "High") {
@@ -3914,7 +3906,8 @@ function updateIssue(projectId5, issueId, patch, actor4) {
       raisedBy: actor4.user.name,
       projectId: projectId5,
       projectName: name,
-      origin: actor4.origin
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
     });
   }
 }
@@ -3922,7 +3915,7 @@ function removeIssue(projectId5, issueId) {
   if (!issuesRepo.delete(issueId, projectId5)) throw notFound("Issue");
 }
 function addUpdate(projectId5, input, actor4) {
-  projectName(projectId5);
+  const name = projectName(projectId5);
   const id2 = `${projectId5}-update-${Date.now()}`;
   const today = todayLabel();
   updatesRepo.insert({
@@ -3937,6 +3930,20 @@ function addUpdate(projectId5, input, actor4) {
     kind: input.kind || "General"
   });
   projectsRepo.update(projectId5, { last_updated: today });
+  const tagged = [...new Set(input.taggedUsers ?? [])];
+  if (tagged.length > 0) {
+    dispatchTagNotifications({
+      taggedUserIds: tagged,
+      taggedBy: actor4.user.name,
+      entityType: "Update",
+      entityTitle: `${input.kind || "General"} update${input.stage ? `: ${input.stage}` : ""}`,
+      comment: input.text,
+      projectId: projectId5,
+      projectName: name,
+      origin: actor4.origin,
+      sender: { email: actor4.user.email, name: actor4.user.name }
+    });
+  }
   return id2;
 }
 
@@ -4316,47 +4323,6 @@ import { Router as Router9 } from "express";
 
 // server/src/services/email-dispatch.service.ts
 import { randomUUID as randomUUID4 } from "node:crypto";
-
-// server/src/services/mentions.ts
-var escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-function resolveMentions(comment, users2) {
-  const found = /* @__PURE__ */ new Set();
-  const sorted = [...users2].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
-  let remaining = comment;
-  const take = (userId, token) => {
-    if (!new RegExp(`@${escapeRegex(token)}(?:\\b|\\s|[,:;!?]|$)`, "i").test(remaining)) return false;
-    found.add(userId);
-    remaining = remaining.replace(new RegExp(`@${escapeRegex(token)}`, "gi"), " ");
-    return true;
-  };
-  for (const u of sorted) {
-    if (u.name) take(u.id, u.name.trim());
-  }
-  for (const u of sorted) {
-    if (!u.email) continue;
-    const email = u.email.trim();
-    if (take(u.id, email)) continue;
-    const prefix = email.split("@")[0];
-    if (prefix.length >= 3) take(u.id, prefix);
-  }
-  for (const u of sorted) {
-    const slug2 = u.id.replace("user-", "").replace(/-/g, " ").trim();
-    if (slug2.length >= 3) take(u.id, slug2);
-  }
-  const firstNameCounts = /* @__PURE__ */ new Map();
-  for (const u of users2) {
-    const first = u.name?.toLowerCase().trim().split(" ")[0];
-    if (first) firstNameCounts.set(first, (firstNameCounts.get(first) || 0) + 1);
-  }
-  for (const u of sorted) {
-    if (!u.name) continue;
-    const first = u.name.trim().split(" ")[0];
-    if (first.length >= 3 && firstNameCounts.get(first.toLowerCase()) === 1) take(u.id, first);
-  }
-  return [...found];
-}
-
-// server/src/services/email-dispatch.service.ts
 function sendProjectUpdate(projectId5, recipients, customNote, { user, origin }) {
   const project = getProject(projectId5);
   if (!project) throw notFound("Project");
@@ -4371,6 +4337,7 @@ function sendProjectUpdate(projectId5, recipients, customNote, { user, origin })
       ...queueEmail({
         to: rc.email,
         recipientName: rc.name,
+        sender: { email: user.email, name: user.name },
         replyTo: user.email,
         subject: `Project Update: ${project.name} (${project.progress}% Complete)`,
         html: buildProjectSummaryHtml({
@@ -4399,7 +4366,6 @@ async function findPerson(userId) {
 async function tagAndComment(request, { user, origin }) {
   const { projectId: projectId5, entityType = "Stage", entityTitle, entityContext, comment } = request;
   const userIds = new Set((request.taggedUserIds ?? []).filter(Boolean));
-  if (comment) resolveMentions(comment, usersRepo.listDirectory()).forEach((id2) => userIds.add(id2));
   const project = getProject(projectId5);
   if (!project) throw notFound("Project");
   if (userIds.size === 0) throw badRequest("At least one user must be tagged or @mentioned");
@@ -4410,10 +4376,23 @@ async function tagAndComment(request, { user, origin }) {
   const notifTitle = `Tagged on ${entityType}: ${entityTitle || "Project Item"}`;
   const notifMessage = comment ? `${user.name} tagged you on ${entityType.toLowerCase()} "${itemTitle}" in ${project.name}: "${comment}"` : `${user.name} tagged you on ${entityType.toLowerCase()} "${itemTitle}" in ${project.name}`;
   const people = [];
-  for (const userId of userIds) people.push({ userId, person: await findPerson(userId) });
+  const unknown = [];
+  const seenEmails = /* @__PURE__ */ new Set();
+  for (const userId of userIds) {
+    const person = await findPerson(userId);
+    if (!person) {
+      unknown.push(userId);
+      continue;
+    }
+    const key = person.email?.trim().toLowerCase();
+    if (key && seenEmails.has(key)) continue;
+    if (key) seenEmails.add(key);
+    people.push({ userId: person.id, person });
+  }
+  if (unknown.length) throw badRequest(`Unknown people tagged: ${unknown.join(", ")}`);
   return db.transaction(() => {
     const results = people.map(({ userId, person }) => {
-      const recipientName = person?.name || userId;
+      const recipientName = person.name || userId;
       notificationsRepo.insert({
         id: `notif-tag-${randomUUID4()}`,
         type: "tagged_task",
@@ -4423,7 +4402,7 @@ async function tagAndComment(request, { user, origin }) {
         link: `/project/${projectId5}`,
         recipient_id: userId
       });
-      if (!person?.email) {
+      if (!person.email) {
         return {
           userId,
           userName: recipientName,
@@ -4435,6 +4414,7 @@ async function tagAndComment(request, { user, origin }) {
       const queued = queueEmail({
         to: person.email,
         recipientName,
+        sender: { email: user.email, name: user.name },
         replyTo: user.email,
         subject: `[Encalm - ${project.code || "ACTION"}] Action Required: ${entityTitle || project.name}`,
         html: buildTagNotificationHtml({
@@ -4476,14 +4456,11 @@ async function tagAndComment(request, { user, origin }) {
 // server/src/routes/email.ts
 var router8 = Router9();
 function redactEmailSettings(req) {
-  const { smtp, graph, clientSecret: _cs, ...rest } = req.body ?? {};
-  return {
-    ...rest,
-    smtp: smtp ? { ...smtp, pass: smtp.pass ? "[redacted]" : void 0 } : void 0,
-    graph: graph ? { ...graph, clientSecret: graph.clientSecret ? "[redacted]" : void 0 } : void 0
-  };
+  const { smtp } = req.body ?? {};
+  return { smtp: smtp ? { ...smtp, pass: smtp.pass ? "[redacted]" : void 0 } : void 0 };
 }
 var sender = (req) => ({ user: req.user, origin: publicBaseUrl(req) });
+var providerLabel = (provider) => provider === "microsoft_graph" ? "Microsoft 365" : provider === "smtp" ? "SMTP" : "Outbox";
 router8.get("/directory", requireAuth, validate({ query: directoryQuery }), async (req, res) => {
   const query = (req.query.q || "").trim();
   res.json({ users: await searchEncalmDirectory(query) });
@@ -4527,25 +4504,22 @@ router8.post(
   requireAuth,
   requireRole(["coordinator"]),
   validate({ body: emailTestBody }),
-  audited({ action: "send_test", entityType: "email", details: redactEmailSettings }),
+  audited({ action: "send_test", entityType: "email" }),
   async (req, res) => {
-    const { to, recipientName, provider: requestedProvider, smtp, graph } = req.body;
-    applyEmailSettings({ provider: requestedProvider, smtp, graph }, { legacyGraphFields: false });
-    const targetEmail = to || req.user.email;
-    const name = recipientName || req.user.name;
-    const provider2 = getActiveEmailProvider();
+    const me = req.user;
+    const provider = getActiveEmailProvider();
     const result = await sendEmailNow({
-      to: targetEmail,
-      recipientName: name,
-      subject: `Encalm Projects - ${provider2 === "smtp" ? "SMTP" : "Microsoft Graph"} Delivery Test`,
-      html: buildTestEmailHtml(name),
+      to: me.email,
+      recipientName: me.name,
+      sender: { email: me.email, name: me.name },
+      subject: `Encalm Projects - ${providerLabel(provider)} Delivery Test`,
+      html: buildTestEmailHtml(me.name),
       templateType: "test_email"
     });
-    const providerLabel = provider2 === "smtp" ? "SMTP (Outlook/Office 365)" : "Microsoft Graph API";
     res.json({
       success: result.status === "sent",
       result,
-      message: result.status === "sent" ? `Test email sent successfully via ${providerLabel} to ${targetEmail}` : result.status === "outbox" ? `${providerLabel} not configured: Email queued in dashboard Outbox` : `Failed to deliver email: ${result.error}`
+      message: result.status === "sent" ? `Test email sent via ${providerLabel(provider)} to ${me.email}` : result.status === "outbox" ? "No email provider configured: the test email is waiting in the Outbox" : `Failed to deliver email: ${result.error}`
     });
   }
 );
@@ -4562,6 +4536,7 @@ router8.post(
 router8.post(
   "/send-project-update",
   requireAuth,
+  requireTagAccess(),
   validate({ body: sendProjectUpdateBody }),
   audited({
     action: "send_project_update",
@@ -4582,6 +4557,7 @@ router8.post(
 router8.post(
   "/tag-and-comment",
   requireAuth,
+  requireTagAccess(),
   validate({ body: tagAndCommentBody }),
   audited({ action: "tag", entityType: "email", id: (req) => req.body.projectId, details: (req) => req.body }),
   async (req, res) => {
@@ -4589,6 +4565,7 @@ router8.post(
     res.json({
       success: true,
       message: `Queued notification email for ${recipients.filter((r) => r.status !== "skipped").length} recipient(s)`,
+      delivery: getActiveEmailProvider(),
       recipients
     });
   }
