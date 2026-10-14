@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { ErrorEvent } from '@sentry/node';
 import { makeApp } from './helpers.js';
 import { REDACT_PATHS } from '../src/logger.js';
-import { dsnOrigin, scrubEvent } from '../src/sentry.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { appRelease, dsnOrigin, scrubEvent } from '../src/sentry.js';
 
 function capture() {
   const lines: Record<string, unknown>[] = [];
@@ -67,6 +70,23 @@ describe('Sentry wiring', () => {
     const res = await request(makeApp()).get('/api/client-config');
     expect(res.body.sentryDsn).toBe('https://client@o2.ingest.de.sentry.io/2');
     expect(res.headers['content-security-policy']).toContain("connect-src 'self' https://o2.ingest.de.sentry.io");
+  });
+
+  it('reports the release from APP_RELEASE, else from the deployed SOURCE_COMMIT file', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'release-'));
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'release-'));
+    fs.writeFileSync(path.join(root, 'SOURCE_COMMIT'), '8af588d6b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6\n');
+    const saved = process.env.APP_RELEASE;
+    try {
+      delete process.env.APP_RELEASE;
+      expect(appRelease(root)).toBe('8af588d6');
+      expect(appRelease(empty)).toBeUndefined();
+      process.env.APP_RELEASE = '20261014-abc';
+      expect(appRelease(root)).toBe('20261014-abc');
+    } finally {
+      if (saved === undefined) delete process.env.APP_RELEASE;
+      else process.env.APP_RELEASE = saved;
+    }
   });
 
   it('parses DSN origins defensively', () => {

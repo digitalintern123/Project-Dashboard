@@ -639,7 +639,7 @@ Open the domain's **Files** in Plesk → the `iisnode` folder inside the Applica
 
 ### 15.7 Updates, rollback, backups
 
-- **Update:** merge to `main` → CI → the Plesk release workflow publishes `plesk-release` → Plesk **Pull Updates** (or the webhook) → install (15.5) → **Restart App**. Migrations run automatically when the app starts. Each release commit names the `main` commit it was built from (`SOURCE_COMMIT`).
+- **Update:** merge to `main` → CI → the Plesk release workflow publishes `plesk-release` → Plesk **Pull Updates** (or the webhook) → install (15.5) → **Restart App**. Migrations run automatically when the app starts. Each release commit names the `main` commit it was built from (`SOURCE_COMMIT`). To check the running version after **Restart App**, open `/api/client-config`: its `release` is the first 8 characters of that commit. If it still shows the previous one, the app was not restarted.
 - **Rollback:** there is no automatic rollback on Plesk. Click **Back up now** (Settings → Server backups) before each update. To roll back, deploy the previous commit of `plesk-release` (Plesk Git can deploy a specific commit), restart, and restore that backup (below) if the update changed the database.
 
 ### 15.8 Backups and restore on Plesk
