@@ -37,7 +37,7 @@ jobs:
       TARGET_ENV: ${{ github.event.inputs.environment || 'production' }}
       TARGET_REF: ${{ github.event.inputs.ref || github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.TARGET_REF }}
 
