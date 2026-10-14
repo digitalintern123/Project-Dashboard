@@ -18,3 +18,8 @@ logDirectory: iisnode
 
 # No remote node-inspector endpoint (server.cjs/debug) in production.
 debuggingEnabled: false
+
+# Restart Node when a new release is deployed. Every release rewrites
+# SOURCE_COMMIT; without this iisnode only watches *.js in this folder and keeps
+# running the old code after a Plesk deploy until the app pool recycles.
+watchedFiles: SOURCE_COMMIT;server.cjs;iisnode.yml;web.config
