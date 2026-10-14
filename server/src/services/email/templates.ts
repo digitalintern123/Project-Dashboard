@@ -200,7 +200,7 @@ export function buildTagNotificationHtml(data: {
         ✉️ Zero-Login Required — Simply Hit "Reply" in Outlook
       </div>
       <div style="font-size: 12.5px; color: #235445; line-height: 1.5;">
-        You do not need to create an account or log into the dashboard. When you reply directly to this email in Outlook, your response will be delivered straight to <strong>${esc(data.taggedByName)}</strong> at <a href="mailto:${esc(data.senderEmail || 'chinmay.saxena@encalm.com')}" style="color: #173e49; font-weight: 700;">${esc(data.senderEmail || 'chinmay.saxena@encalm.com')}</a>.
+        You do not need to create an account or log into the dashboard. When you reply directly to this email in Outlook, your response will be delivered straight to <strong>${esc(data.taggedByName)}</strong>${data.senderEmail ? ` at <a href="mailto:${esc(data.senderEmail)}" style="color: #173e49; font-weight: 700;">${esc(data.senderEmail)}</a>` : ''}.
       </div>
     </div>
 

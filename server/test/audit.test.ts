@@ -72,13 +72,10 @@ describe('audit log', () => {
   });
 
   it('redacts email secrets from settings changes', async () => {
-    await coord
-      .post('/api/email/settings')
-      .send({ smtp: { host: 'smtp.test.local', pass: 'Secret-Smtp-1' }, graph: { clientSecret: 'Graph-Secret-1' } });
+    await coord.post('/api/email/settings').send({ smtp: { host: 'smtp.test.local', pass: 'Secret-Smtp-1' } });
     const row = latest("entity_type = 'email_settings'");
     expect(row.after_json).toContain('smtp.test.local');
     expect(row.after_json).not.toContain('Secret-Smtp-1');
-    expect(row.after_json).not.toContain('Graph-Secret-1');
   });
 });
 

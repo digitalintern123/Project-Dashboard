@@ -257,3 +257,22 @@ describe('updates feed', () => {
     expect((await coord.post('/api/projects/nope/updates').send({ text: 'x' })).status).toBe(404);
   });
 });
+
+describe('automatic emails are sent as the person who made the change', () => {
+  it('tagging on a new stage records the actor as sender and reply-to', async () => {
+    const res = await lead.post(`${P}/phases`).send({ name: 'Sender check', taggedUsers: [testUsers.hod.id] });
+    expect(res.status).toBe(201);
+    const row = db
+      .prepare(
+        "SELECT from_email, from_name, reply_to, html_content FROM email_logs WHERE subject LIKE 'Tagged on Stage: Sender check%'",
+      )
+      .get() as any;
+    expect(row).toMatchObject({
+      from_email: testUsers.leadA.email,
+      from_name: testUsers.leadA.name,
+      reply_to: testUsers.leadA.email,
+    });
+    expect(row.html_content).toContain(testUsers.leadA.email);
+    expect(row.html_content).not.toContain('chinmay');
+  });
+});

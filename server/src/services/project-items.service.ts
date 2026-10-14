@@ -79,6 +79,7 @@ export function addStage(projectId: string, input: z.infer<typeof S.createPhaseB
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
   recomputeProjectProgress(projectId);
@@ -133,6 +134,7 @@ export function updateStage(
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
   recomputeProjectProgress(projectId);
@@ -192,6 +194,7 @@ export function addMilestone(projectId: string, input: z.infer<typeof S.createMi
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
   if (input.approvalRequired) {
@@ -211,6 +214,7 @@ export function addMilestone(projectId: string, input: z.infer<typeof S.createMi
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
   return id;
@@ -252,6 +256,7 @@ export function updateMilestone(
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
 }
@@ -301,6 +306,7 @@ export function addIssue(projectId: string, input: z.infer<typeof S.createIssueB
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
   if (input.severity === 'High') {
@@ -321,6 +327,7 @@ export function addIssue(projectId: string, input: z.infer<typeof S.createIssueB
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
   return id;
@@ -365,6 +372,7 @@ export function updateIssue(
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
   // Alert leadership when an issue is escalated to High.
@@ -378,6 +386,7 @@ export function updateIssue(
       projectId,
       projectName: name,
       origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
     });
   }
 }

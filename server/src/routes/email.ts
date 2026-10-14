@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireTagAccess, type AuthenticatedRequest } from '../middleware/auth.js';
 import {
   applyEmailSettings,
   buildTestEmailHtml,
@@ -19,19 +19,15 @@ import { audited } from '../utils/audit.js';
 
 const router = Router();
 
-type SecretBearing = { smtp?: { pass?: string }; graph?: { clientSecret?: string }; clientSecret?: string };
-
-/** Request body for the audit log with every secret removed. */
-function redactEmailSettings(req: { body: SecretBearing }) {
-  const { smtp, graph, clientSecret: _cs, ...rest } = req.body ?? {};
-  return {
-    ...rest,
-    smtp: smtp ? { ...smtp, pass: smtp.pass ? '[redacted]' : undefined } : undefined,
-    graph: graph ? { ...graph, clientSecret: graph.clientSecret ? '[redacted]' : undefined } : undefined,
-  };
+/** Request body for the audit log with the SMTP password removed. */
+function redactEmailSettings(req: { body: { smtp?: { pass?: string } } }) {
+  const { smtp } = req.body ?? {};
+  return { smtp: smtp ? { ...smtp, pass: smtp.pass ? '[redacted]' : undefined } : undefined };
 }
 
 const sender = (req: AuthenticatedRequest) => ({ user: req.user!, origin: publicBaseUrl(req) });
+const providerLabel = (provider: string) =>
+  provider === 'microsoft_graph' ? 'Microsoft 365' : provider === 'smtp' ? 'SMTP' : 'Outbox';
 
 // Live search of the Encalm directory through Microsoft Graph
 router.get('/directory', requireAuth, validate({ query: S.directoryQuery }), async (req, res) => {
@@ -61,7 +57,7 @@ router.get('/logs', requireAuth, requireRole(['coordinator']), validate({ query:
   });
 });
 
-// Email settings (SMTP and Microsoft Graph) with secrets masked
+// Email settings: SMTP (password masked) and whether Microsoft 365 is connected
 router.get('/settings', requireAuth, requireRole(['coordinator']), (_req, res) => {
   res.json({ settings: describeEmailSettings() });
 });
@@ -78,37 +74,33 @@ router.post(
   },
 );
 
-// Saves any settings sent with it, then sends a test email immediately so the coordinator sees the real outcome.
+// Sends a test email from and to the signed-in coordinator, immediately, so they see the real outcome.
 router.post(
   '/test',
   requireAuth,
   requireRole(['coordinator']),
   validate({ body: S.emailTestBody }),
-  audited({ action: 'send_test', entityType: 'email', details: redactEmailSettings }),
+  audited({ action: 'send_test', entityType: 'email' }),
   async (req: AuthenticatedRequest, res) => {
-    const { to, recipientName, provider: requestedProvider, smtp, graph } = req.body;
-    applyEmailSettings({ provider: requestedProvider, smtp, graph }, { legacyGraphFields: false });
-
-    const targetEmail = to || req.user!.email;
-    const name = recipientName || req.user!.name;
+    const me = req.user!;
     const provider = getActiveEmailProvider();
     const result = await sendEmailNow({
-      to: targetEmail,
-      recipientName: name,
-      subject: `Encalm Projects - ${provider === 'smtp' ? 'SMTP' : 'Microsoft Graph'} Delivery Test`,
-      html: buildTestEmailHtml(name),
+      to: me.email,
+      recipientName: me.name,
+      sender: { email: me.email, name: me.name },
+      subject: `Encalm Projects - ${providerLabel(provider)} Delivery Test`,
+      html: buildTestEmailHtml(me.name),
       templateType: 'test_email',
     });
 
-    const providerLabel = provider === 'smtp' ? 'SMTP (Outlook/Office 365)' : 'Microsoft Graph API';
     res.json({
       success: result.status === 'sent',
       result,
       message:
         result.status === 'sent'
-          ? `Test email sent successfully via ${providerLabel} to ${targetEmail}`
+          ? `Test email sent via ${providerLabel(provider)} to ${me.email}`
           : result.status === 'outbox'
-            ? `${providerLabel} not configured: Email queued in dashboard Outbox`
+            ? 'No email provider configured: the test email is waiting in the Outbox'
             : `Failed to deliver email: ${result.error}`,
     });
   },
@@ -130,6 +122,7 @@ router.post(
 router.post(
   '/send-project-update',
   requireAuth,
+  requireTagAccess(),
   validate({ body: S.sendProjectUpdateBody }),
   audited({
     action: 'send_project_update',
@@ -152,6 +145,7 @@ router.post(
 router.post(
   '/tag-and-comment',
   requireAuth,
+  requireTagAccess(),
   validate({ body: S.tagAndCommentBody }),
   audited({ action: 'tag', entityType: 'email', id: (req) => req.body.projectId, details: (req) => req.body }),
   async (req: AuthenticatedRequest, res) => {

@@ -150,6 +150,37 @@ describe('versioned migration runner', () => {
     warn.mockRestore();
   });
 
+  it('adds the email sender columns without touching existing email rows', async () => {
+    const { runMigrations, MIGRATIONS_DIR } = await import('../src/db/migrate.js');
+    const os = await import('node:os');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'migr-'));
+    const files = fs
+      .readdirSync(MIGRATIONS_DIR)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const before = files.filter((f) => f < '005');
+    for (const f of before) fs.copyFileSync(path.join(MIGRATIONS_DIR, f), path.join(dir, f));
+    const mem = new Database(':memory:');
+    mem.pragma('foreign_keys = ON');
+    runMigrations(mem, dir);
+    mem
+      .prepare(
+        "INSERT INTO email_logs (id, recipient_email, subject, template_type, status) VALUES ('e1', 'a@test.local', 'Hi', 'test_email', 'outbox')",
+      )
+      .run();
+
+    fs.copyFileSync(path.join(MIGRATIONS_DIR, '005_email_sender.sql'), path.join(dir, '005_email_sender.sql'));
+    expect(runMigrations(mem, dir)).toEqual([5]);
+    expect(
+      mem.prepare("SELECT recipient_email, status, from_email, from_name FROM email_logs WHERE id = 'e1'").get(),
+    ).toEqual({
+      recipient_email: 'a@test.local',
+      status: 'outbox',
+      from_email: null,
+      from_name: null,
+    });
+  });
+
   it('rolls back a failing migration and does not record it', async () => {
     const { runMigrations } = await import('../src/db/migrate.js');
     const os = await import('node:os');

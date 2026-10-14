@@ -12,7 +12,6 @@ import {
   searchEncalmDirectory,
   type QueueResult,
 } from './email.js';
-import { resolveMentions } from './mentions.js';
 import { getProject } from './projects.service.js';
 
 /** Who is sending, and the public URL that links in the email point at. */
@@ -47,6 +46,7 @@ export function sendProjectUpdate(
       ...queueEmail({
         to: rc.email,
         recipientName: rc.name,
+        sender: { email: user.email, name: user.name },
         replyTo: user.email,
         subject: `Project Update: ${project.name} (${project.progress}% Complete)`,
         html: buildProjectSummaryHtml({
@@ -100,14 +100,15 @@ async function findPerson(userId: string): Promise<Person | undefined> {
 
 /**
  * Tags people on a project item: each gets an in-app notification and an
- * email, and the comment (if any) is added to the project's update feed.
- * People are taken from `taggedUserIds` plus any @mentions in the comment.
+ * email sent as the signed-in user, and the comment (if any) is added to the
+ * project's update feed. Only the people picked in `taggedUserIds` are
+ * emailed: @names in the comment are never re-read, because two people can
+ * share a name.
  */
 export async function tagAndComment(request: TagRequest, { user, origin }: Sender): Promise<TagResult[]> {
   const { projectId, entityType = 'Stage', entityTitle, entityContext, comment } = request;
 
   const userIds = new Set((request.taggedUserIds ?? []).filter(Boolean));
-  if (comment) resolveMentions(comment, usersRepo.listDirectory()).forEach((id) => userIds.add(id));
 
   const project = getProject(projectId);
   if (!project) throw notFound('Project');
@@ -124,12 +125,26 @@ export async function tagAndComment(request: TagRequest, { user, origin }: Sende
     : `${user.name} tagged you on ${entityType.toLowerCase()} "${itemTitle}" in ${project.name}`;
 
   // Directory lookups are async, so resolve everyone before the transaction.
-  const people: Array<{ userId: string; person?: Person }> = [];
-  for (const userId of userIds) people.push({ userId, person: await findPerson(userId) });
+  const people: Array<{ userId: string; person: Person }> = [];
+  const unknown: string[] = [];
+  const seenEmails = new Set<string>();
+  for (const userId of userIds) {
+    const person = await findPerson(userId);
+    if (!person) {
+      unknown.push(userId);
+      continue;
+    }
+    // The same person can appear under two ids (local and directory): email them once.
+    const key = person.email?.trim().toLowerCase();
+    if (key && seenEmails.has(key)) continue;
+    if (key) seenEmails.add(key);
+    people.push({ userId: person.id, person });
+  }
+  if (unknown.length) throw badRequest(`Unknown people tagged: ${unknown.join(', ')}`);
 
   return db.transaction(() => {
     const results = people.map(({ userId, person }): TagResult => {
-      const recipientName = person?.name || userId;
+      const recipientName = person.name || userId;
       notificationsRepo.insert({
         id: `notif-tag-${randomUUID()}`,
         type: 'tagged_task',
@@ -140,7 +155,7 @@ export async function tagAndComment(request: TagRequest, { user, origin }: Sende
         recipient_id: userId,
       });
 
-      if (!person?.email) {
+      if (!person.email) {
         return {
           userId,
           userName: recipientName,
@@ -153,6 +168,7 @@ export async function tagAndComment(request: TagRequest, { user, origin }: Sende
       const queued = queueEmail({
         to: person.email,
         recipientName,
+        sender: { email: user.email, name: user.name },
         replyTo: user.email,
         subject: `[Encalm - ${project.code || 'ACTION'}] Action Required: ${entityTitle || project.name}`,
         html: buildTagNotificationHtml({

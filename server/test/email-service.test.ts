@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Fake SMTP transport and DNS so no network is touched.
 const sendMail = vi.fn();
@@ -18,14 +18,28 @@ import {
   processEmailQueue,
   queueEmail,
   resendEmailLog,
-  saveActiveEmailProvider,
-  saveGraphConfig,
   saveSmtpConfig,
   searchEncalmDirectory,
   sendEmailNow,
   startEmailWorker,
   stopEmailWorker,
 } from '../src/services/email.js';
+import { clearGraphTokenCache } from '../src/services/email/transport.js';
+
+const GRAPH_ENV = {
+  MS_GRAPH_TENANT_ID: 'tenant',
+  MS_GRAPH_CLIENT_ID: 'client',
+  MS_GRAPH_CLIENT_SECRET: 'secret',
+  MS_GRAPH_SENDER_EMAIL: 'notify@test.local',
+};
+const setGraphEnv = (extra: Record<string, string> = {}) => {
+  Object.assign(process.env, GRAPH_ENV, extra);
+  clearGraphTokenCache();
+};
+const clearGraphEnv = () => {
+  for (const key of [...Object.keys(GRAPH_ENV), 'MS_GRAPH_SEND_AS_DOMAINS']) delete process.env[key];
+  clearGraphTokenCache();
+};
 
 beforeAll(() => setupTestDb());
 beforeEach(() => {
@@ -58,7 +72,6 @@ describe('queueing', () => {
   });
 
   it('keeps emails in the outbox when no provider is configured', async () => {
-    saveActiveEmailProvider('smtp');
     saveSmtpConfig({ host: '', user: '', pass: '' });
     const { id } = queueEmail(mail);
     await processEmailQueue();
@@ -69,7 +82,6 @@ describe('queueing', () => {
 
 describe('SMTP delivery through the queue', () => {
   beforeAll(() => {
-    saveActiveEmailProvider('smtp');
     saveSmtpConfig({
       host: 'smtp.office365.com',
       port: 587,
@@ -77,7 +89,17 @@ describe('SMTP delivery through the queue', () => {
       user: 'notify@test.local',
       pass: 'pw',
       fromName: 'Encalm',
-      fromEmail: 'notify@test.local',
+    });
+  });
+
+  it('sends as the signed-in user: the SMTP account, named "<user> via Encalm Projects", replies to them', async () => {
+    sendMail.mockResolvedValueOnce({});
+    const { id } = queueEmail({ ...mail, replyTo: undefined, sender: { email: 'asha@test.local', name: 'Asha Rao' } });
+    await processEmailQueue();
+    expect(log(id).status).toBe('sent');
+    expect(sendMail.mock.calls[0][0]).toMatchObject({
+      from: { name: 'Asha Rao via Encalm Projects', address: 'notify@test.local' },
+      replyTo: 'asha@test.local',
     });
   });
 
@@ -182,17 +204,9 @@ describe('SMTP delivery through the queue', () => {
   });
 });
 
-describe('Microsoft Graph provider', () => {
-  beforeAll(() => {
-    saveActiveEmailProvider('microsoft_graph');
-    saveGraphConfig({
-      tenantId: 'tenant',
-      clientId: 'client',
-      clientSecret: 'secret',
-      senderEmail: 'notify@test.local',
-      saveToSentItems: true,
-    });
-  });
+describe('Microsoft Graph provider (configured from the server environment)', () => {
+  beforeAll(() => setGraphEnv());
+  afterAll(() => clearGraphEnv());
 
   function graphFetch(sendStatus = 202) {
     const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
@@ -219,6 +233,68 @@ describe('Microsoft Graph provider', () => {
     expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/token'))).toHaveLength(1);
   });
 
+  const sendCalls = (fetchMock: ReturnType<typeof graphFetch>) =>
+    fetchMock.mock.calls.filter(([u]) => String(u).includes('/sendMail'));
+
+  it("sends from the signed-in user's own mailbox, saved to their Sent Items", async () => {
+    const fetchMock = graphFetch();
+    const { id } = queueEmail({ ...mail, replyTo: undefined, sender: { email: 'Lead@Test.local', name: 'Lead' } });
+    await processEmailQueue();
+    expect(log(id).status).toBe('sent');
+    const [call] = sendCalls(fetchMock);
+    expect(String(call[0])).toContain('/users/lead%40test.local/sendMail');
+    const body = JSON.parse((call[1] as any).body);
+    expect(body.saveToSentItems).toBe(true);
+    expect(body.message.from).toBeUndefined();
+  });
+
+  it('sends people outside the allowed domains through the system mailbox, replying to them', async () => {
+    const fetchMock = graphFetch();
+    queueEmail({ ...mail, replyTo: undefined, sender: { email: 'guest@other.example', name: 'Guest' } });
+    await processEmailQueue();
+    const [call] = sendCalls(fetchMock);
+    expect(String(call[0])).toContain('/users/notify%40test.local/sendMail');
+    const body = JSON.parse((call[1] as any).body);
+    expect(body.message.from.emailAddress).toEqual({ address: 'notify@test.local', name: 'Guest via Encalm Projects' });
+    expect(body.message.replyTo[0].emailAddress.address).toBe('guest@other.example');
+  });
+
+  it('honours MS_GRAPH_SEND_AS_DOMAINS', async () => {
+    setGraphEnv({ MS_GRAPH_SEND_AS_DOMAINS: 'other.example, @second.example' });
+    try {
+      const fetchMock = graphFetch();
+      queueEmail({ ...mail, sender: { email: 'guest@other.example', name: 'Guest' } });
+      queueEmail({ ...mail, sender: { email: 'lead@test.local', name: 'Lead' } });
+      await processEmailQueue();
+      const urls = sendCalls(fetchMock).map(([u]) => String(u));
+      expect(urls[0]).toContain('/users/guest%40other.example/');
+      expect(urls[1]).toContain('/users/notify%40test.local/');
+    } finally {
+      setGraphEnv();
+      delete process.env.MS_GRAPH_SEND_AS_DOMAINS;
+    }
+  });
+
+  it("falls back to the system mailbox when the user's mailbox does not exist", async () => {
+    let sends = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/token')) return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }));
+      sends++;
+      return sends === 1
+        ? new Response('{"error":{"code":"ErrorInvalidUser"}}', { status: 404 })
+        : new Response('', { status: 202 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { id } = queueEmail({ ...mail, replyTo: undefined, sender: { email: 'gone@test.local', name: 'Gone' } });
+    await processEmailQueue();
+    expect(log(id).status).toBe('sent');
+    const urls = fetchMock.mock.calls.filter(([u]) => String(u).includes('/sendMail')).map(([u]) => String(u));
+    expect(urls).toEqual([
+      expect.stringContaining('/users/gone%40test.local/'),
+      expect.stringContaining('/users/notify%40test.local/'),
+    ]);
+  });
+
   it('retries Graph errors', async () => {
     graphFetch(500);
     const { id } = queueEmail(mail);
@@ -232,7 +308,7 @@ describe('Microsoft Graph provider', () => {
       'fetch',
       vi.fn(async () => new Response('bad secret', { status: 401 })),
     );
-    saveGraphConfig({ clientSecret: 'rotated' }); // clears the cached token
+    clearGraphTokenCache();
     await expect(acquireGraphAccessToken({ tenantId: 't', clientId: 'c', clientSecret: 's' })).rejects.toThrow(/401/);
     await expect(acquireGraphAccessToken({ tenantId: '', clientId: 'c', clientSecret: 's' })).rejects.toThrow(
       /not fully configured/,
@@ -262,7 +338,7 @@ describe('Microsoft Graph provider', () => {
         );
       }),
     );
-    saveGraphConfig({ clientSecret: 'secret' });
+    clearGraphTokenCache();
     const users = await searchEncalmDirectory('asha');
     expect(users).toHaveLength(1);
     expect(users[0]).toMatchObject({ name: 'Asha Rao', email: 'asha.rao@test.local', initials: 'AR' });

@@ -9,44 +9,56 @@ let lead: any;
 
 beforeAll(async () => {
   insertProject('proj-e', 'u-lead-a');
+  insertProject('proj-b', 'u-lead-b');
   coord = await loginAs(app, 'coordinator');
   lead = await loginAs(app, 'leadA');
 });
 
 describe('email settings and outbox (no provider configured)', () => {
-  it('returns default settings with secrets masked', async () => {
+  it('reports Microsoft 365 only as connected or not: no Azure IDs or secrets leave the server', async () => {
+    process.env.MS_GRAPH_TENANT_ID = 'tenant-should-not-leak';
+    process.env.MS_GRAPH_CLIENT_ID = 'client-should-not-leak';
+    process.env.MS_GRAPH_CLIENT_SECRET = 'secret-should-not-leak';
+    process.env.MS_GRAPH_SENDER_EMAIL = 'notify@test.local';
+    try {
+      const res = await coord.get('/api/email/settings');
+      expect(res.status).toBe(200);
+      expect(res.body.settings).toMatchObject({
+        provider: 'microsoft_graph',
+        graph: { isConfigured: true, sendAsDomains: ['test.local'] },
+      });
+      expect(JSON.stringify(res.body)).not.toMatch(/should-not-leak|notify@test\.local/);
+    } finally {
+      for (const k of ['MS_GRAPH_TENANT_ID', 'MS_GRAPH_CLIENT_ID', 'MS_GRAPH_CLIENT_SECRET', 'MS_GRAPH_SENDER_EMAIL'])
+        delete process.env[k];
+    }
     const res = await coord.get('/api/email/settings');
-    expect(res.status).toBe(200);
-    expect(res.body.settings).toMatchObject({ provider: 'smtp', isConfigured: false });
+    expect(res.body.settings).toMatchObject({ provider: 'outbox', graph: { isConfigured: false } });
     expect(res.body.settings.smtp.pass).toBe('');
   });
 
-  it('switches provider and saves legacy flat Graph fields', async () => {
-    const res = await coord.post('/api/email/settings').send({
-      provider: 'microsoft_graph',
-      tenantId: 'tenant',
-      clientId: 'client',
-      senderEmail: 'notify@test.local',
-      saveToSentItems: false,
-    });
-    expect(res.body.settings).toMatchObject({
-      provider: 'microsoft_graph',
-      tenantId: 'tenant',
-      saveToSentItems: false,
-      isConfigured: false,
-    });
-    await coord.post('/api/email/settings').send({ provider: 'smtp' });
+  it('refuses Azure credentials, a From address or a provider sent from the browser', async () => {
+    for (const body of [
+      { graph: { tenantId: 't', clientSecret: 's', senderEmail: 'boss@test.local' } },
+      { senderEmail: 'boss@test.local' },
+      { provider: 'microsoft_graph' },
+      { smtp: { fromEmail: 'boss@test.local' } },
+    ]) {
+      expect((await coord.post('/api/email/settings').send(body)).status).toBe(400);
+    }
   });
 
-  it('queues a test email in the outbox and lists it', async () => {
-    const res = await coord.post('/api/email/test').send({ to: 'someone@test.local', recipientName: 'Someone' });
+  it('sends the test email from and to the signed-in coordinator only, keeping it in the outbox', async () => {
+    expect((await coord.post('/api/email/test').send({ to: 'someone@test.local' })).status).toBe(400);
+    const res = await coord.post('/api/email/test').send({});
     expect(res.status).toBe(200);
     expect(res.body.result.status).toBe('outbox');
-    const logs = await coord.get('/api/email/logs?limit=5');
-    expect(logs.body.logs[0]).toMatchObject({
-      recipientEmail: 'someone@test.local',
+    const row = db.prepare('SELECT * FROM email_logs WHERE id = ?').get(res.body.result.id) as any;
+    expect(row).toMatchObject({
+      recipient_email: testUsers.coordinator.email,
+      from_email: testUsers.coordinator.email,
+      template_type: 'test_email',
       status: 'outbox',
-      templateType: 'test_email',
     });
   });
 
@@ -88,15 +100,29 @@ describe('email settings and outbox (no provider configured)', () => {
 });
 
 describe('POST /api/email/send-project-update', () => {
-  it('sends a summary with the signed-in user as reply-to', async () => {
-    const res = await lead
-      .post('/api/email/send-project-update')
-      .send({ projectId: 'proj-e', recipients: ['a@test.local'] });
+  it('sends as the signed-in user, ignoring any sender in the request', async () => {
+    const res = await lead.post('/api/email/send-project-update').send({
+      projectId: 'proj-e',
+      recipients: ['a@test.local'],
+      from: 'ceo@test.local',
+      sender: { email: 'ceo@test.local', name: 'CEO' },
+    });
     expect(res.status).toBe(200);
     expect(res.body.results).toHaveLength(1);
-    const html = (db.prepare("SELECT html_content FROM email_logs WHERE recipient_email = 'a@test.local'").get() as any)
-      .html_content;
-    expect(html).toContain(testUsers.leadA.name);
+    const row = db.prepare("SELECT * FROM email_logs WHERE recipient_email = 'a@test.local'").get() as any;
+    expect(row.html_content).toContain(testUsers.leadA.name);
+    expect(row).toMatchObject({
+      from_email: testUsers.leadA.email,
+      from_name: testUsers.leadA.name,
+      reply_to: testUsers.leadA.email,
+    });
+  });
+
+  it("refuses a lead on someone else's project", async () => {
+    const res = await lead
+      .post('/api/email/send-project-update')
+      .send({ projectId: 'proj-b', recipients: ['a@test.local'] });
+    expect(res.status).toBe(403);
   });
 
   it('404s for unknown projects', async () => {
@@ -108,24 +134,51 @@ describe('POST /api/email/send-project-update', () => {
 });
 
 describe('POST /api/email/tag-and-comment', () => {
-  it('resolves @mentions by full name, email and unique first name, notifies and logs the comment', async () => {
-    db.prepare("UPDATE users SET name = 'Hal Odonnell' WHERE id = 'u-hod'").run();
+  it('emails exactly the people picked, never others who share their name', async () => {
+    const add = db.prepare(
+      "INSERT OR IGNORE INTO users (id, name, email, role, title, initials) VALUES (?, 'Akash Kumar', ?, 'stakeholder', 'S', 'AK')",
+    );
+    add.run('u-akash-1', 'akash.kumar@test.local');
+    add.run('u-akash-2', 'akash.k2@test.local');
+    db.prepare(
+      "INSERT OR IGNORE INTO users (id, name, email, role, title, initials) VALUES ('u-akash-3', 'Akash', 'akash@test.local', 'stakeholder', 'S', 'A')",
+    ).run();
+
     const res = await lead.post('/api/email/tag-and-comment').send({
       projectId: 'proj-e',
       entityType: 'Issue',
       entityTitle: 'Leak',
-      comment: 'Please review @Hal Odonnell and @lead.b@test.local, also @Cora',
+      taggedUserIds: ['u-akash-2'],
+      comment: 'Please review @Akash Kumar and @Akash',
     });
     expect(res.status).toBe(200);
-    const tagged = res.body.recipients.map((r: any) => r.userId).sort();
-    expect(tagged).toEqual(['u-coord', 'u-hod', 'u-lead-b']);
-
-    const hod = await loginAs(app, 'hod');
-    const inbox = await hod.get('/api/notifications');
-    expect(inbox.body.notifications[0].title).toBe('Tagged on Issue: Leak');
+    expect(res.body.recipients.map((r: any) => r.userId)).toEqual(['u-akash-2']);
+    const rows = db
+      .prepare("SELECT recipient_email, from_email, reply_to FROM email_logs WHERE recipient_email LIKE 'akash%'")
+      .all();
+    expect(rows).toEqual([
+      { recipient_email: 'akash.k2@test.local', from_email: testUsers.leadA.email, reply_to: testUsers.leadA.email },
+    ]);
 
     const feed = await lead.get('/api/projects/proj-e/updates');
     expect(feed.body.updates[0].text).toContain('Please review');
+  });
+
+  it('rejects people who do not exist', async () => {
+    const res = await lead.post('/api/email/tag-and-comment').send({ projectId: 'proj-e', taggedUserIds: ['u-ghost'] });
+    expect(res.status).toBe(400);
+  });
+
+  it('lets coordinators and HODs tag on any project, and leads only on their own', async () => {
+    const hod = await loginAs(app, 'hod');
+    const body = { projectId: 'proj-b', taggedUserIds: ['u-coord'] };
+    expect((await coord.post('/api/email/tag-and-comment').send(body)).status).toBe(200);
+    expect((await hod.post('/api/email/tag-and-comment').send(body)).status).toBe(200);
+    expect((await lead.post('/api/email/tag-and-comment').send(body)).status).toBe(403);
+    expect((await lead.post('/api/email/tag-and-comment').send({ ...body, projectId: 'proj-e' })).status).toBe(200);
+
+    const inbox = await (await loginAs(app, 'coordinator')).get('/api/notifications');
+    expect(inbox.body.notifications[0].title).toMatch(/^Tagged on/);
   });
 
   it('accepts explicit user ids and skips users without email', async () => {

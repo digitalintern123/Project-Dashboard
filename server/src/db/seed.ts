@@ -23,7 +23,6 @@ export function ensureUsersSeeded() {
     INSERT INTO users (id, name, email, password_hash, role, title, initials, must_change_password)
     VALUES (@id, @name, @email, @password_hash, @role, @title, @initials, 1)
   `);
-  const updateProfile = db.prepare('UPDATE users SET email = ?, name = ?, title = ?, initials = ? WHERE id = ?');
   const flagMustChange = db.prepare('UPDATE users SET must_change_password = 1 WHERE id = ?');
 
   const created: { email: string; password: string }[] = [];
@@ -32,10 +31,9 @@ export function ensureUsersSeeded() {
     for (const u of seedUsers) {
       const email = u.email || `${u.id.replace('user-', '')}@encalm.com`;
       const existing = findUser.get(u.id);
-      if (existing) {
-        updateProfile.run(email, u.name, u.title, u.initials, u.id);
-        continue;
-      }
+      // An existing account keeps its profile: its email is the address its
+      // emails are sent from, and may have been corrected since the seed.
+      if (existing) continue;
       const password = generateTemporaryPassword();
       insertUser.run({
         id: u.id,

@@ -20,21 +20,26 @@ export interface SmtpConfig {
   user: string;
   pass?: string;
   fromName?: string;
-  fromEmail?: string;
 }
 
 export interface MicrosoftGraphConfig {
   tenantId?: string;
   clientId?: string;
   clientSecret?: string;
+  /** System mailbox: used for people outside `sendAsDomains` and as a fallback. */
   senderEmail?: string;
-  saveToSentItems?: boolean;
+  /** Email domains whose users send from their own mailbox. */
+  sendAsDomains?: string[];
 }
+
+/** The person an email is sent as: always the signed-in user, never request input. */
+export type EmailSender = { email: string; name: string };
 
 export interface SendEmailOptions {
   to: string;
   recipientName?: string;
   replyTo?: string;
+  sender?: EmailSender;
   subject: string;
   html: string;
   templateType: 'tag_notification' | 'critical_issue' | 'milestone_approval' | 'project_summary' | 'test_email';

@@ -140,3 +140,29 @@ export function requireProjectAccess(projectIdParam: string = 'id') {
     next();
   };
 }
+
+/**
+ * Who may tag people and send project emails: coordinators and HODs on any
+ * project, leads on their own or unassigned projects. Editing rules are
+ * separate (HODs stay read-only for project data).
+ */
+export function canUserTagOnProject(projectId: string, user: UserPayload): boolean {
+  if (user.role === 'coordinator' || user.role === 'hod') return true;
+  return canUserEditProject(projectId, user);
+}
+
+/** Route guard for tagging/emailing on the project named by `req.body.projectId`. */
+export function requireTagAccess() {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+    const projectId = req.body?.projectId as string | undefined;
+    if (!projectId) return res.status(400).json({ error: 'Project ID is required' });
+    if (!db.prepare('SELECT 1 FROM projects WHERE id = ?').get(projectId)) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    if (!canUserTagOnProject(projectId, req.user)) {
+      return res.status(403).json({ error: 'Forbidden: You can only tag people on projects allotted to you' });
+    }
+    next();
+  };
+}

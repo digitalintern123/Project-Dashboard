@@ -34,6 +34,8 @@ export function queueEmail(options: SendEmailOptions, maxAttempts = EMAIL_MAX_AT
       recipient_email: options.to,
       recipient_name: options.recipientName || null,
       reply_to: options.replyTo || null,
+      from_email: options.sender?.email || null,
+      from_name: options.sender?.name || null,
       subject: options.subject,
       template_type: options.templateType,
       project_id: options.projectId || null,
@@ -58,6 +60,7 @@ export async function deliverQueuedEmail(logId: string, now = Date.now()): Promi
       to: job.recipient_email,
       recipientName: job.recipient_name,
       replyTo: job.reply_to,
+      sender: job.from_email ? { email: job.from_email, name: job.from_name || job.from_email } : null,
       subject: job.subject,
       html: job.html_content,
     });

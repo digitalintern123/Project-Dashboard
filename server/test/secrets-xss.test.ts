@@ -30,18 +30,14 @@ describe('settings encryption (AES-256-GCM)', () => {
   it('stores secrets saved through the API encrypted, and never returns them', async () => {
     const coord = await loginAs(app, 'coordinator');
     const res = await coord.post('/api/email/settings').send({
-      provider: 'smtp',
       smtp: { host: 'smtp.office365.com', port: 587, user: 'notify@test.local', pass: 'Sup3r-secret' },
-      graph: { tenantId: 't', clientId: 'c', clientSecret: 'graph-secret-value', senderEmail: 'notify@test.local' },
     });
     expect(res.status).toBe(200);
     expect(JSON.stringify(res.body)).not.toContain('Sup3r-secret');
-    expect(JSON.stringify(res.body)).not.toContain('graph-secret-value');
 
     const raw = (key: string) =>
       (db.prepare('SELECT value FROM system_settings WHERE key = ?').get(key) as { value: string }).value;
     expect(isEncrypted(raw('smtp_pass'))).toBe(true);
-    expect(isEncrypted(raw('graph_client_secret'))).toBe(true);
     expect(getSmtpConfig().pass).toBe('Sup3r-secret');
 
     // Sending back the masked placeholder keeps the stored secret.

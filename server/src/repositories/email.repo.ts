@@ -8,6 +8,8 @@ export type EmailLogRow = {
   recipient_email: string;
   recipient_name: string | null;
   reply_to: string | null;
+  from_email: string | null;
+  from_name: string | null;
   subject: string;
   template_type: string;
   project_id: string | null;
@@ -23,6 +25,8 @@ export type EmailJob = {
   recipient_email: string;
   recipient_name: string | null;
   reply_to: string | null;
+  from_email: string | null;
+  from_name: string | null;
   subject: string;
   html_content: string;
 };
@@ -54,7 +58,15 @@ export const emailRepo = {
   enqueue(
     log: Pick<
       EmailLogRow,
-      'id' | 'recipient_email' | 'recipient_name' | 'reply_to' | 'subject' | 'template_type' | 'project_id'
+      | 'id'
+      | 'recipient_email'
+      | 'recipient_name'
+      | 'reply_to'
+      | 'from_email'
+      | 'from_name'
+      | 'subject'
+      | 'template_type'
+      | 'project_id'
     > & { html_content: string },
     maxAttempts: number,
     nextAttemptAt: string,
@@ -62,11 +74,11 @@ export const emailRepo = {
     db.transaction(() => {
       db.prepare(
         `INSERT INTO email_logs (
-           id, recipient_email, recipient_name, reply_to, subject, template_type, project_id, status, html_content,
-           created_at
+           id, recipient_email, recipient_name, reply_to, from_email, from_name, subject, template_type, project_id,
+           status, html_content, created_at
          ) VALUES (
-           @id, @recipient_email, @recipient_name, @reply_to, @subject, @template_type, @project_id, 'queued',
-           @html_content, datetime('now')
+           @id, @recipient_email, @recipient_name, @reply_to, @from_email, @from_name, @subject, @template_type,
+           @project_id, 'queued', @html_content, datetime('now')
          )`,
       ).run(log);
       db.prepare('INSERT INTO email_queue (log_id, max_attempts, next_attempt_at) VALUES (?, ?, ?)').run(
@@ -90,7 +102,8 @@ export const emailRepo = {
   findJob(logId: string): EmailJob | undefined {
     return db
       .prepare(
-        `SELECT q.attempts, q.max_attempts, l.recipient_email, l.recipient_name, l.reply_to, l.subject, l.html_content
+        `SELECT q.attempts, q.max_attempts, l.recipient_email, l.recipient_name, l.reply_to, l.from_email, l.from_name, l.subject,
+                l.html_content
          FROM email_queue q JOIN email_logs l ON l.id = q.log_id
          WHERE q.log_id = ?`,
       )

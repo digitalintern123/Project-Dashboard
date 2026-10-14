@@ -279,43 +279,24 @@ export const importBody = z.looseObject({
 // Email
 // ---------------------------------------------------------------------------
 
-const smtpSettings = z.object({
-  host: optText(253),
-  port: z.coerce.number().int().min(1).max(65535).optional(),
-  secure: z.boolean().optional(),
-  user: optText(254),
-  pass: z.string().max(500).optional(),
-  fromName: optText(120),
-  fromEmail: optText(254),
-});
-const graphSettings = z.object({
-  tenantId: optText(100),
-  clientId: optText(100),
-  clientSecret: z.string().max(500).optional(),
-  senderEmail: optText(254),
-  saveToSentItems: z.boolean().optional(),
-});
-const provider = z.enum(['smtp', 'microsoft_graph']);
+// Only SMTP can be set from the app. Microsoft 365 (Azure) credentials live in
+// the server's environment, and the sender is always the signed-in user, so
+// none of those fields are accepted here. Unknown keys are rejected.
+const smtpSettings = z
+  .object({
+    host: optText(253),
+    port: z.coerce.number().int().min(1).max(65535).optional(),
+    secure: z.boolean().optional(),
+    user: optText(254),
+    pass: z.string().max(500).optional(),
+    fromName: optText(120),
+  })
+  .strict();
 
-export const emailSettingsBody = z.object({
-  provider: provider.optional(),
-  smtp: smtpSettings.optional(),
-  graph: graphSettings.optional(),
-  // Legacy flat Graph fields
-  tenantId: optText(100),
-  clientId: optText(100),
-  clientSecret: z.string().max(500).optional(),
-  senderEmail: optText(254),
-  saveToSentItems: z.boolean().optional(),
-});
+export const emailSettingsBody = z.object({ smtp: smtpSettings.optional() }).strict();
 
-export const emailTestBody = z.object({
-  to: z.string().trim().email().max(254).optional(),
-  recipientName: optText(120),
-  provider: provider.optional(),
-  smtp: smtpSettings.optional(),
-  graph: graphSettings.optional(),
-});
+/** A test email always goes from and to the signed-in coordinator. */
+export const emailTestBody = z.object({}).strict();
 
 const recipient = z.union([
   z.string().trim().email().max(254),

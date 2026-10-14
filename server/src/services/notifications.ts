@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/database.js';
-import { queueEmail, buildTagNotificationHtml, buildCriticalIssueHtml, buildMilestoneApprovalHtml } from './email.js';
+import {
+  queueEmail,
+  buildTagNotificationHtml,
+  buildCriticalIssueHtml,
+  buildMilestoneApprovalHtml,
+  type EmailSender,
+} from './email.js';
 
 interface TagNotificationParams {
   taggedUserIds: string[];
@@ -12,6 +18,8 @@ interface TagNotificationParams {
   projectId: string;
   projectName: string;
   origin?: string;
+  /** The signed-in user who made the change; emails are sent as them. */
+  sender?: EmailSender;
 }
 
 /**
@@ -29,6 +37,7 @@ export function dispatchTagNotifications(params: TagNotificationParams): void {
     projectId,
     projectName,
     origin = 'http://localhost:5173',
+    sender,
   } = params;
 
   const dashboardUrl = `${origin}/project/${projectId}`;
@@ -69,6 +78,7 @@ export function dispatchTagNotifications(params: TagNotificationParams): void {
       const html = buildTagNotificationHtml({
         recipientName,
         taggedByName: taggedBy,
+        senderEmail: sender?.email,
         entityType,
         entityTitle,
         entityContext,
@@ -80,6 +90,8 @@ export function dispatchTagNotifications(params: TagNotificationParams): void {
       queueEmail({
         to: recipientEmail,
         recipientName,
+        sender,
+        replyTo: sender?.email,
         subject: `Tagged on ${entityType}: ${entityTitle} (${projectName})`,
         html,
         templateType: 'tag_notification',
@@ -98,6 +110,8 @@ interface CriticalIssueAlertParams {
   projectId: string;
   projectName: string;
   origin?: string;
+  /** The signed-in user who made the change; emails are sent as them. */
+  sender?: EmailSender;
 }
 
 /**
@@ -113,6 +127,7 @@ export function dispatchCriticalIssueAlert(params: CriticalIssueAlertParams): vo
     projectId,
     projectName,
     origin = 'http://localhost:5173',
+    sender,
   } = params;
   const dashboardUrl = `${origin}/project/${projectId}`;
 
@@ -139,6 +154,8 @@ export function dispatchCriticalIssueAlert(params: CriticalIssueAlertParams): vo
     queueEmail({
       to: leader.email,
       recipientName: leader.name,
+      sender,
+      replyTo: sender?.email,
       subject: `🚨 CRITICAL ISSUE: ${issueTitle} (${projectName})`,
       html,
       templateType: 'critical_issue',
@@ -155,13 +172,23 @@ interface MilestoneApprovalAlertParams {
   projectId: string;
   projectName: string;
   origin?: string;
+  /** The signed-in user who made the change; emails are sent as them. */
+  sender?: EmailSender;
 }
 
 /**
  * Dispatches milestone approval alert to Project Coordinator
  */
 export function dispatchMilestoneApprovalAlert(params: MilestoneApprovalAlertParams): void {
-  const { milestoneTitle, targetDate, stage, projectId, projectName, origin = 'http://localhost:5173' } = params;
+  const {
+    milestoneTitle,
+    targetDate,
+    stage,
+    projectId,
+    projectName,
+    origin = 'http://localhost:5173',
+    sender,
+  } = params;
   const dashboardUrl = `${origin}/project/${projectId}`;
 
   const coordinators = db.prepare("SELECT id, name, email FROM users WHERE role = 'coordinator'").all() as {
@@ -184,6 +211,8 @@ export function dispatchMilestoneApprovalAlert(params: MilestoneApprovalAlertPar
     queueEmail({
       to: coord.email,
       recipientName: coord.name,
+      sender,
+      replyTo: sender?.email,
       subject: `Milestone Approval Required: ${milestoneTitle} (${projectName})`,
       html,
       templateType: 'milestone_approval',
