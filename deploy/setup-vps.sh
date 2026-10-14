@@ -211,12 +211,17 @@ ALLOW_SYSTEM_RESET=false
 # Error tracking (optional)
 SENTRY_DSN=
 
-# Email: configure SMTP or Microsoft Graph here or in the app's Email settings.
+# Email: Microsoft 365 (preferred; set here only, see PRODUCTION.md "Email")
+MS_GRAPH_TENANT_ID=
+MS_GRAPH_CLIENT_ID=
+MS_GRAPH_CLIENT_SECRET=
+MS_GRAPH_SENDER_EMAIL=
+MS_GRAPH_SEND_AS_DOMAINS=
+# or SMTP (also editable in the app's Email settings)
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASS=
-SMTP_FROM_EMAIL=
 
 # Off-site backups (optional), e.g. b2:encalm-backups/$ENV_NAME after "rclone config"
 RCLONE_REMOTE=

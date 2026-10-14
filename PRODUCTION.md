@@ -197,7 +197,7 @@ Options: `--env staging` (see [Staging](#7-staging)), `--skip-certbot` (DNS not 
 
 1. **Back up `/etc/encalm/production.env`** to your password manager. Without `SETTINGS_ENCRYPTION_KEY` the stored email password cannot be decrypted; without the file you cannot rebuild the server as it was.
 2. **Create the first coordinator** (the command printed at the end). Use a temporary password; they must change it at first sign-in. Prefix the command with a space so it stays out of shell history.
-3. Open `https://projects.encalm.com`, sign in, change the password, then configure email under **Settings → Email** and send a test email.
+3. Open `https://projects.encalm.com`, sign in and change the password. Set up email ([section 12.1](#121-email-who-it-is-sent-as-and-microsoft-365)) and send yourself a test email from **Email Hub → Email Settings**.
 4. Set up [monitoring](#10-monitoring-and-logs) and, if wanted, off-site backups (`RCLONE_REMOTE`, [section 9](#9-backups-and-restore)).
 
 ---
@@ -486,6 +486,43 @@ A user's password: a coordinator resets it (section 12) and the user chooses a n
 
 ---
 
+### 12.1 Email: who it is sent as, and Microsoft 365
+
+**Rule:** every email is sent as the signed-in person who caused it (a tag, an update, an alert). The server takes the sender from the session; no request, setting or field in the app can choose another sender. The Microsoft 365 (Azure) credentials exist only in the server's environment: the app shows "connected" or "not configured" and nothing else.
+
+| Provider (chosen automatically) | From | Replies go to |
+|---|---|---|
+| Microsoft 365, user's address in `MS_GRAPH_SEND_AS_DOMAINS` | the user's own mailbox (copy in their Outlook **Sent Items**) | the user |
+| Microsoft 365, any other user, or one without a mailbox | `MS_GRAPH_SENDER_EMAIL`, shown as "*Name* via Encalm Projects" | the user |
+| SMTP (no Microsoft 365) | `SMTP_USER`, shown as "*Name* via Encalm Projects" | the user |
+| Neither | kept in the Email Hub **Outbox**; **Resend** after connecting one | |
+
+**Azure app (once, by a Microsoft 365 admin):**
+
+1. [portal.azure.com](https://portal.azure.com) → **Microsoft Entra ID → App registrations → New registration** ("Encalm Projects", single tenant, no redirect URI).
+2. From **Overview** copy the **Directory (tenant) ID** and **Application (client) ID**.
+3. **Certificates & secrets → New client secret** (24 months). Copy the **Value** now; it is shown once. Note the expiry date and rotate before it ([section 11](#11-rotating-secrets)).
+4. **API permissions → Add → Microsoft Graph → Application permissions:** `Mail.Send` and `User.Read.All` (directory search when tagging). Click **Grant admin consent**.
+5. **Recommended:** limit the app to dashboard users so Microsoft itself refuses anything else. Create a mail-enabled security group (e.g. "Encalm Projects Senders") with the dashboard users and the system mailbox, then in Exchange Online PowerShell:
+   ```powershell
+   New-ApplicationAccessPolicy -AppId <client id> -PolicyScopeGroupId "Encalm Projects Senders" -AccessRight RestrictAccess -Description "Encalm Projects sends only as dashboard users"
+   Test-ApplicationAccessPolicy -AppId <client id> -Identity someone@encalmhospitality.com
+   ```
+
+**Server settings** (Linux: `/etc/encalm/<env>.env`; Plesk: `httpdocs\.env`), never pasted into chat or email:
+
+```
+MS_GRAPH_TENANT_ID="<directory (tenant) id>"
+MS_GRAPH_CLIENT_ID="<application (client) id>"
+MS_GRAPH_CLIENT_SECRET="<secret value>"
+MS_GRAPH_SENDER_EMAIL="notifications@<your domain>"
+MS_GRAPH_SEND_AS_DOMAINS="<your domain>"
+```
+
+Restart the app (PM2 reload / Plesk **Restart App**). **Email Hub → Email Settings** then shows *Microsoft 365: connected*; **Send me a test email** must arrive from your own address and appear in your Sent Items. Old Outbox items can be sent with **Resend**.
+
+**Who may tag and email from a project:** coordinators and HODs on any project, leads on their own or unassigned projects. Only the people picked are emailed; a typed `@name` shared by several people must be picked from the list.
+
 ## 13. Incident checklist
 
 1. **Is it down?** `curl -s https://projects.encalm.com/api/system/ready` · `sudo -u encalm pm2 status` · `systemctl status nginx`.
@@ -549,7 +586,8 @@ Plesk → the domain → **Node.js**:
 | `SETTINGS_ENCRYPTION_KEY` | **required**: 32 random bytes (commands below). Without it the server refuses to start (500). |
 | `APP_BASE_URL` | `https://projects.encalmhospitality.com` (links in emails; iisnode does not tell the app it is on HTTPS) |
 | `DATA_DIR` | `C:\encalm-projects-data` |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` | your mail server (or configure it later under **Settings → Email** in the app) |
+| `MS_GRAPH_TENANT_ID`, `MS_GRAPH_CLIENT_ID`, `MS_GRAPH_CLIENT_SECRET`, `MS_GRAPH_SENDER_EMAIL`, `MS_GRAPH_SEND_AS_DOMAINS` | Microsoft 365 email ([section 12.1](#121-email-who-it-is-sent-as-and-microsoft-365)). Put them in `httpdocs\.env` (blocked from download by `web.config`); never type them into the app. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | only if not using Microsoft 365 (or set later under **Email Hub → Email Settings**) |
 
 Generating the two secrets, either with `openssl` (Git Bash, WSL, Linux, macOS):
 

@@ -24,11 +24,11 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Encalm Project Dashboard}
-      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL:-notifications@encalm.com}
       - MS_GRAPH_TENANT_ID=${MS_GRAPH_TENANT_ID:-}
       - MS_GRAPH_CLIENT_ID=${MS_GRAPH_CLIENT_ID:-}
       - MS_GRAPH_CLIENT_SECRET=${MS_GRAPH_CLIENT_SECRET:-}
       - MS_GRAPH_SENDER_EMAIL=${MS_GRAPH_SENDER_EMAIL:-}
+      - MS_GRAPH_SEND_AS_DOMAINS=${MS_GRAPH_SEND_AS_DOMAINS:-}
       - ALLOW_SYSTEM_RESET=${ALLOW_SYSTEM_RESET:-false}
     volumes:
       # Persistent SQLite database and uploaded site photos
