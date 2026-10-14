@@ -928,8 +928,8 @@ function autoRestoreSnapshotIfEmpty() {
 // server/src/app.ts
 import express2 from "express";
 import cors from "cors";
-import fs6 from "node:fs";
-import path6 from "node:path";
+import fs7 from "node:fs";
+import path7 from "node:path";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
@@ -4204,6 +4204,172 @@ var systemRepo = {
   }
 };
 
+// server/src/utils/scheduled-backup.ts
+import fs6 from "node:fs";
+import path6 from "node:path";
+import zlib from "node:zlib";
+import { pipeline } from "node:stream/promises";
+import Database2 from "better-sqlite3";
+function backupConfig(env2 = process.env) {
+  const time = /^([01]?\d|2[0-3]):[0-5]\d$/.test(env2.BACKUP_TIME ?? "") ? env2.BACKUP_TIME : "02:15";
+  return {
+    enabled: env2.BACKUP_ENABLED ? env2.BACKUP_ENABLED !== "false" : env2.NODE_ENV === "production",
+    dir: env2.BACKUP_DIR || path6.join(dataDir, "backups"),
+    retentionDays: Math.max(1, Number(env2.BACKUP_RETENTION_DAYS) || 30),
+    time
+  };
+}
+var KEEP_AT_LEAST = 7;
+var NAME = /^encalm-(\d{8}T\d{6}Z)\.db\.gz$/;
+var DAY_MS2 = 24 * 60 * 60 * 1e3;
+var last = null;
+var running = null;
+var timer = null;
+var stampOf = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+var fromStamp = (s) => /* @__PURE__ */ new Date(
+  `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`
+);
+function listBackups(dir) {
+  if (!fs6.existsSync(dir)) return [];
+  return fs6.readdirSync(dir).map((name) => ({ name, match: NAME.exec(name) })).filter((f) => Boolean(f.match)).map(({ name, match }) => ({
+    name,
+    size: fs6.statSync(path6.join(dir, name)).size,
+    createdAt: fromStamp(match[1]).toISOString()
+  })).sort((a, b) => b.name.localeCompare(a.name));
+}
+function mirrorUploads(from, to) {
+  if (!fs6.existsSync(from)) return 0;
+  let copied = 0;
+  for (const entry of fs6.readdirSync(from, { withFileTypes: true })) {
+    const src = path6.join(from, entry.name);
+    const dest = path6.join(to, entry.name);
+    if (entry.isDirectory()) {
+      copied += mirrorUploads(src, dest);
+    } else if (entry.isFile() && !fs6.existsSync(dest)) {
+      fs6.mkdirSync(to, { recursive: true });
+      fs6.copyFileSync(src, `${dest}.part`);
+      fs6.renameSync(`${dest}.part`, dest);
+      copied++;
+    }
+  }
+  return copied;
+}
+function pruneBackups(dir, retentionDays, now = Date.now()) {
+  const removed = [];
+  for (const file of listBackups(dir).slice(KEEP_AT_LEAST)) {
+    if (now - new Date(file.createdAt).getTime() > retentionDays * DAY_MS2) {
+      fs6.rmSync(path6.join(dir, file.name), { force: true });
+      removed.push(file.name);
+    }
+  }
+  return removed;
+}
+function verifyCopy(file) {
+  const copy = new Database2(file, { fileMustExist: true });
+  try {
+    copy.pragma("journal_mode = DELETE");
+    const integrity = copy.pragma("integrity_check", { simple: true });
+    if (integrity !== "ok") throw new Error(`Backup failed its integrity check: ${String(integrity)}`);
+    return copy.prepare("SELECT COUNT(*) AS n FROM projects").get().n;
+  } finally {
+    copy.close();
+  }
+}
+async function makeBackup(cfg, now) {
+  fs6.mkdirSync(cfg.dir, { recursive: true });
+  const name = `encalm-${stampOf(now)}.db.gz`;
+  const final = path6.join(cfg.dir, name);
+  const tmp = path6.join(cfg.dir, `.tmp-${stampOf(now)}.db`);
+  const lock = path6.join(cfg.dir, ".backup.lock");
+  try {
+    if (Date.now() - fs6.statSync(lock).mtimeMs > 60 * 60 * 1e3) fs6.rmSync(lock, { force: true });
+  } catch {
+  }
+  let fd;
+  try {
+    fd = fs6.openSync(lock, "wx");
+  } catch {
+    throw new Error("Another backup is already running");
+  }
+  try {
+    if (fs6.existsSync(final)) throw new Error(`A backup named ${name} already exists; try again in a second`);
+    await db.backup(tmp);
+    const projects = verifyCopy(tmp);
+    await pipeline(fs6.createReadStream(tmp), zlib.createGzip({ level: 9 }), fs6.createWriteStream(`${final}.part`));
+    fs6.renameSync(`${final}.part`, final);
+    const photosCopied = mirrorUploads(uploadsDir, path6.join(cfg.dir, "uploads"));
+    pruneBackups(cfg.dir, cfg.retentionDays, now.getTime());
+    return { ok: true, file: name, size: fs6.statSync(final).size, projects, photosCopied, at: now.toISOString() };
+  } finally {
+    for (const leftover of [tmp, `${tmp}-wal`, `${tmp}-shm`, `${tmp}-journal`, `${final}.part`]) {
+      fs6.rmSync(leftover, { force: true });
+    }
+    fs6.closeSync(fd);
+    fs6.rmSync(lock, { force: true });
+  }
+}
+function runBackup(cfg = backupConfig(), now = /* @__PURE__ */ new Date()) {
+  if (running) return running;
+  running = makeBackup(cfg, now).then((result) => {
+    logger.info(
+      { file: result.ok ? result.file : void 0, projects: result.ok ? result.projects : void 0 },
+      "[Backup] Database backed up"
+    );
+    return result;
+  }).catch((err) => {
+    const error = err instanceof Error && err.message || "Backup failed";
+    logger.error({ err }, "[Backup] Backup failed");
+    captureError(err, { area: "backup" });
+    return { ok: false, error, at: now.toISOString() };
+  }).then((result) => {
+    last = result;
+    return result;
+  }).finally(() => {
+    running = null;
+  });
+  return running;
+}
+function backupStatus(cfg = backupConfig()) {
+  const files = listBackups(cfg.dir);
+  return {
+    enabled: cfg.enabled,
+    time: cfg.time,
+    retentionDays: cfg.retentionDays,
+    lastRun: last,
+    newest: files[0] ?? null,
+    count: files.length,
+    backups: files.slice(0, 10)
+  };
+}
+function msUntil(time, now = /* @__PURE__ */ new Date()) {
+  const [h, m] = time.split(":").map(Number);
+  const next = new Date(now);
+  next.setHours(h, m, 0, 0);
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+  return next.getTime() - now.getTime();
+}
+function backupIsDue(cfg, now = Date.now()) {
+  const newest = listBackups(cfg.dir)[0];
+  return !newest || now - new Date(newest.createdAt).getTime() > DAY_MS2;
+}
+function startBackupScheduler(cfg = backupConfig(), catchUpDelayMs = 5 * 60 * 1e3) {
+  if (!cfg.enabled || timer) return;
+  const schedule = (delay) => {
+    timer = setTimeout(() => {
+      void runBackup(cfg).finally(() => {
+        if (timer) schedule(msUntil(cfg.time));
+      });
+    }, delay);
+    timer.unref();
+  };
+  schedule(backupIsDue(cfg) ? catchUpDelayMs : msUntil(cfg.time));
+  logger.info({ dir: cfg.dir, time: cfg.time }, "[Backup] Daily backups scheduled");
+}
+function stopBackupScheduler() {
+  if (timer) clearTimeout(timer);
+  timer = null;
+}
+
 // server/src/routes/system.ts
 var router7 = Router8();
 router7.get("/export", requireAuth, requireRole(["coordinator", "lead"]), (_req, res) => {
@@ -4244,9 +4410,9 @@ function resetAllowed(_req, res, next) {
   }
   next();
 }
-function wipeRoute(path7, action, message) {
+function wipeRoute(path9, action, message) {
   router7.post(
-    path7,
+    path9,
     requireAuth,
     requireRole(["coordinator"]),
     resetAllowed,
@@ -4291,6 +4457,29 @@ router7.get("/audit", requireAuth, requireRole(["coordinator"]), validate({ quer
     }))
   });
 });
+router7.get("/backups", requireAuth, requireRole(["coordinator"]), (_req, res) => {
+  res.json(backupStatus());
+});
+var lastManualBackup = 0;
+router7.post(
+  "/backups",
+  requireAuth,
+  requireRole(["coordinator"]),
+  (_req, res, next) => {
+    if (Date.now() - lastManualBackup < 6e4) {
+      res.status(429).json({ error: "A backup was just made. Try again in a minute." });
+      return;
+    }
+    lastManualBackup = Date.now();
+    next();
+  },
+  audited({ action: "backup", entityType: "database" }),
+  async (_req, res) => {
+    const result = await runBackup();
+    res.locals.auditAfter = result;
+    res.status(result.ok ? 200 : 500).json({ result, ...result.ok ? {} : { error: result.error }, ...backupStatus() });
+  }
+);
 router7.get("/ready", (_req, res) => {
   let ready = false;
   try {
@@ -4608,9 +4797,9 @@ async function handlePhotoUpload(req, res) {
   });
 }
 var photoUploadAudit = audited({ action: "create", entityType: "photo" });
-for (const path7 of ["/", "/batch"]) {
+for (const path9 of ["/", "/batch"]) {
   projectPhotosRouter.post(
-    path7,
+    path9,
     requireAuth,
     requireProjectAccess(),
     validate({ params: projectParams }),
@@ -4783,12 +4972,12 @@ function createApp() {
     res.status(404).json({ error: `Upload asset not found: ${req.originalUrl}` });
   });
   const distPath = clientDistDir;
-  if (isInside(path6.resolve(dataDir), path6.resolve(distPath))) {
+  if (isInside(path7.resolve(dataDir), path7.resolve(distPath))) {
     throw new Error(`DATA_DIR (${dataDir}) is inside the public web folder ${distPath}; move it outside`);
   }
-  if (fs6.existsSync(distPath)) {
-    const assetsPath = path6.join(distPath, "assets");
-    if (fs6.existsSync(assetsPath)) {
+  if (fs7.existsSync(distPath)) {
+    const assetsPath = path7.join(distPath, "assets");
+    if (fs7.existsSync(assetsPath)) {
       app2.use("/assets", express2.static(assetsPath, { maxAge: "1y", immutable: true }));
     }
     app2.use(
@@ -4804,7 +4993,7 @@ function createApp() {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
-      res.sendFile(path6.join(distPath, "index.html"));
+      res.sendFile(path7.join(distPath, "index.html"));
     });
   } else {
     app2.get("/", (_req, res) => {
@@ -4829,7 +5018,7 @@ function createApp() {
   return app2;
 }
 function isInside(child, parent, platform = process.platform) {
-  const pathApi = platform === "win32" ? path6.win32 : path6.posix;
+  const pathApi = platform === "win32" ? path7.win32 : path7.posix;
   const fold = (p) => platform === "win32" ? p.toLowerCase() : p;
   const rel = pathApi.relative(fold(parent), fold(child));
   return rel === "" || !rel.startsWith("..") && !pathApi.isAbsolute(rel);
@@ -4844,6 +5033,20 @@ function listenTarget(env2 = process.env) {
     env2.API_PORT || env2.BACKEND_PORT || (isProduction3 && rawPort && rawPort !== "5173" ? rawPort : 5e3)
   );
   return { port, host: env2.HOST || "0.0.0.0" };
+}
+
+// server/src/utils/app-lock.ts
+import fs8 from "node:fs";
+import path8 from "node:path";
+var lockPath = (dataDir2) => path8.join(dataDir2, ".app.lock");
+function writeAppLock(dataDir2) {
+  fs8.writeFileSync(lockPath(dataDir2), String(process.pid));
+}
+function releaseAppLock(dataDir2) {
+  try {
+    if (fs8.readFileSync(lockPath(dataDir2), "utf8").trim() === String(process.pid)) fs8.rmSync(lockPath(dataDir2));
+  } catch {
+  }
 }
 
 // server/src/index.ts
@@ -4861,6 +5064,8 @@ async function startServer() {
     pruneExpiredRefreshTokens();
     encryptPlaintextSettings();
     startEmailWorker();
+    writeAppLock(dataDir);
+    startBackupScheduler();
     const onListening = () => logger.info({ ...target, release: appRelease() }, "Encalm Project Dashboard listening");
     server = "pipe" in target ? app.listen(target.pipe, onListening) : app.listen(target.port, target.host, onListening);
   } catch (err) {
@@ -4876,6 +5081,7 @@ function gracefulShutdown(signal, exitCode = 0) {
   shuttingDown = true;
   logger.info({ signal }, "Shutting down");
   stopEmailWorker();
+  stopBackupScheduler();
   const exit = (code) => void flushSentry().finally(() => process.exit(code));
   if (server) {
     server.close(() => {
@@ -4883,6 +5089,7 @@ function gracefulShutdown(signal, exitCode = 0) {
         db.pragma("wal_checkpoint(TRUNCATE)");
         saveDatabaseSnapshot();
         db.close();
+        releaseAppLock(dataDir);
         logger.info("Database closed; shutdown complete");
       } catch (err) {
         logger.error({ err }, "Error closing the database during shutdown");
