@@ -225,6 +225,8 @@ SMTP_PASS=
 
 # Off-site backups (optional), e.g. b2:encalm-backups/$ENV_NAME after "rclone config"
 RCLONE_REMOTE=
+# Nightly backups come from cron (scripts/backup.sh); the app's own scheduler is off here.
+BACKUP_ENABLED=false
 EOF
   note "generated JWT_SECRET and SETTINGS_ENCRYPTION_KEY. Back this file up somewhere safe."
 fi

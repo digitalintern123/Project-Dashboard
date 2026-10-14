@@ -1,7 +1,7 @@
 import './env.js';
 import type { Server } from 'node:http';
 import { assertProductionConfig } from './config.js';
-import { db, initDatabase } from './db/database.js';
+import { db, dataDir, initDatabase } from './db/database.js';
 import { seedDatabase } from './db/seed.js';
 import { autoRestoreSnapshotIfEmpty, saveDatabaseSnapshot } from './utils/backup.js';
 import { createApp } from './app.js';
@@ -11,6 +11,8 @@ import { encryptPlaintextSettings, startEmailWorker, stopEmailWorker } from './s
 import { logger } from './logger.js';
 import { appRelease, captureError, flushSentry, initSentry } from './sentry.js';
 import { listenTarget } from './listen.js';
+import { releaseAppLock, writeAppLock } from './utils/app-lock.js';
+import { startBackupScheduler, stopBackupScheduler } from './utils/scheduled-backup.js';
 
 assertProductionConfig();
 
@@ -31,6 +33,8 @@ async function startServer() {
     pruneExpiredRefreshTokens();
     encryptPlaintextSettings();
     startEmailWorker();
+    writeAppLock(dataDir);
+    startBackupScheduler();
 
     const onListening = () => logger.info({ ...target, release: appRelease() }, 'Encalm Project Dashboard listening');
     server =
@@ -52,6 +56,7 @@ function gracefulShutdown(signal: string, exitCode = 0) {
 
   logger.info({ signal }, 'Shutting down');
   stopEmailWorker();
+  stopBackupScheduler();
 
   const exit = (code: number) => void flushSentry().finally(() => process.exit(code));
 
@@ -62,6 +67,7 @@ function gracefulShutdown(signal: string, exitCode = 0) {
         db.pragma('wal_checkpoint(TRUNCATE)');
         saveDatabaseSnapshot();
         db.close();
+        releaseAppLock(dataDir);
         logger.info('Database closed; shutdown complete');
       } catch (err) {
         logger.error({ err }, 'Error closing the database during shutdown');

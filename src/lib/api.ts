@@ -133,6 +133,19 @@ export type EmailSettings = {
 /** The editable part: SMTP only. */
 export type EmailSettingsInput = { smtp: Omit<EmailSettings['smtp'], 'isConfigured'> };
 
+/** Server-side database backups (coordinator only). */
+export type BackupResult =
+  | { ok: true; file: string; size: number; projects: number; photosCopied: number; at: string }
+  | { ok: false; error: string; at: string };
+export type BackupStatus = {
+  enabled: boolean;
+  time: string;
+  retentionDays: number;
+  lastRun: BackupResult | null;
+  newest: { name: string; size: number; createdAt: string } | null;
+  count: number;
+};
+
 export const api = {
   auth: {
     login: (email: string, password: string) =>
@@ -303,6 +316,9 @@ export const api = {
     health: () => request<{ status: string; database: string; counts: Record<string, number> }>('/api/system/health'),
     reset: () => request<{ message: string }>('/api/system/reset', { method: 'POST' }),
     exportBackup: () => request<PortfolioBackup>('/api/system/export'),
+    backups: () => request<BackupStatus>('/api/system/backups'),
+    backupNow: () =>
+      request<BackupStatus & { result: BackupResult }>('/api/system/backups', { method: 'POST', body: '{}' }),
     importBackup: (data: PortfolioBackup) =>
       request<{ message: string; count: number }>('/api/system/import', {
         method: 'POST',

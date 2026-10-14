@@ -9,6 +9,7 @@ import { largeJson } from '../validation/large-json.js';
 import { audited } from '../utils/audit.js';
 import { auditRepo, type AuditFilter } from '../repositories/audit.repo.js';
 import { systemRepo } from '../repositories/system.repo.js';
+import { backupStatus, runBackup } from '../utils/scheduled-backup.js';
 
 const router = Router();
 
@@ -108,6 +109,35 @@ router.get('/audit', requireAuth, requireRole(['coordinator']), validate({ query
     })),
   });
 });
+
+// Server-side backups: status, newest first (coordinator only)
+router.get('/backups', requireAuth, requireRole(['coordinator']), (_req, res) => {
+  res.json(backupStatus());
+});
+
+// "Back up now": at most one a minute
+let lastManualBackup = 0;
+router.post(
+  '/backups',
+  requireAuth,
+  requireRole(['coordinator']),
+  (_req, res, next) => {
+    if (Date.now() - lastManualBackup < 60_000) {
+      res.status(429).json({ error: 'A backup was just made. Try again in a minute.' });
+      return;
+    }
+    lastManualBackup = Date.now();
+    next();
+  },
+  audited({ action: 'backup', entityType: 'database' }),
+  async (_req, res) => {
+    const result = await runBackup();
+    res.locals.auditAfter = result;
+    res
+      .status(result.ok ? 200 : 500)
+      .json({ result, ...(result.ok ? {} : { error: result.error }), ...backupStatus() });
+  },
+);
 
 // Readiness probe: the database answers
 router.get('/ready', (_req, res) => {

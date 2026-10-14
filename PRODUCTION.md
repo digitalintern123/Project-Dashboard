@@ -385,6 +385,8 @@ Then edit `/etc/encalm/staging.env` (template: `deploy/env/staging.env.example`)
 
 Everything lives in `DATA_DIR` (`/var/lib/encalm/<env>`): `encalm.db` (SQLite, WAL mode) and `uploads/` (photos). Do **not** `cp` or `tar` a live `encalm.db`; with WAL that can capture a torn copy. Use the scripts.
 
+On the VPS, backups come from cron, and the app's own scheduler is off (`BACKUP_ENABLED=false`); on Plesk and other servers without cron the app makes them itself ([15.8](#158-backups-and-restore-on-plesk)).
+
 **Nightly** at 02:15 (installed by setup), `scripts/backup.sh`: online-safe SQLite backup with an integrity check, gzip, a tarball of `uploads/`, SHA-256 checksums, 30-day local retention, optional copy off the server. Every deploy also takes a backup first.
 
 | Variable | Default | Purpose |
@@ -638,8 +640,29 @@ Open the domain's **Files** in Plesk → the `iisnode` folder inside the Applica
 ### 15.7 Updates, rollback, backups
 
 - **Update:** merge to `main` → CI → the Plesk release workflow publishes `plesk-release` → Plesk **Pull Updates** (or the webhook) → install (15.5) → **Restart App**. Migrations run automatically when the app starts. Each release commit names the `main` commit it was built from (`SOURCE_COMMIT`).
-- **Rollback:** there is no automatic rollback on Plesk. Before each update, back up `C:\encalm-projects-data`. To roll back, deploy the previous commit of `plesk-release` (Plesk Git can deploy a specific commit), reinstall, restart, and restore that backup if the update changed the database.
-- **Backups:** include `C:\encalm-projects-data` in Plesk's **Backup Manager** (scheduled, with remote storage). For a guaranteed-consistent copy, stop the app first, or copy `encalm.db` together with its `-wal` and `-shm` files.
+- **Rollback:** there is no automatic rollback on Plesk. Click **Back up now** (Settings → Server backups) before each update. To roll back, deploy the previous commit of `plesk-release` (Plesk Git can deploy a specific commit), restart, and restore that backup (below) if the update changed the database.
+
+### 15.8 Backups and restore on Plesk
+
+**What is stored where:** everything is in the data folder (`DATA_DIR`, e.g. `C:\Inetpub\vhosts\projects.encalmhospitality.com\encalm-data`): `encalm.db` (all dashboard data; its `-wal`/`-shm` files belong with it) and `uploads\` (photos). Secrets are in `httpdocs\.env`; keep a copy in a password manager.
+
+**Automatic backups (built into the app):** every day at 02:15 server time, and a few minutes after a start if the last backup is more than a day old, the app writes `encalm-data\backups\encalm-<UTC time>.db.gz`. It uses SQLite's online backup, so the copy is consistent while people keep working. Each copy is integrity-checked before it is kept. New photos are copied to `encalm-data\backups\uploads\`. Copies older than 30 days are deleted, but the newest 7 are always kept. Coordinators see the last backup under **Settings → Server backups**, and can click **Back up now**. Change the schedule with `BACKUP_TIME`, `BACKUP_RETENTION_DAYS` and `BACKUP_DIR` in `.env`.
+
+Do not copy `encalm.db` by hand while the app runs; use these backups.
+
+**Off the server (required: a backup on the same disk does not survive a disk or server loss):** Plesk → **Websites & Domains → Backup Manager → Remote Storage Settings** → set up FTP/SFTP, Google Drive, OneDrive, Dropbox or S3 storage → **Schedule**: daily (after 02:30), *Store in remote storage*, keep at least 14 copies, back up the whole domain (it includes `encalm-data\backups`). Check once that a backup appears in the remote storage.
+
+**Restore** (only from a backup you trust; the current database is kept, not deleted):
+
+1. Plesk → Node.js → **Disable Node.js** (the restore refuses to run while the app is running).
+2. Plesk → **SSH/RDP PowerShell** in `httpdocs`:
+   ```powershell
+   node server\dist\restore-backup.js ..\encalm-data\backups\encalm-20261014T021500Z.db.gz
+   ```
+   If `node` is not found, use the full path of Plesk's Node.js (e.g. `& "C:\Program Files\nodejs\node.exe"` or the folder shown on the Node.js page). Run it with the same `.env` in `httpdocs`, so it finds the data folder. It checks the backup, renames the current `encalm.db` (and `-wal`/`-shm`) to `*.before-restore-<time>`, and puts the backup in place.
+3. **Enable Node.js**, then **Restart App**, and check the data. Photos are never deleted by the app; if photo files were lost, copy them back from `encalm-data\backups\uploads\` into `encalm-data\uploads\`.
+4. To undo, disable Node.js and rename the `*.before-restore-*` files back.
+
 - **One process only:** `iisnode.yml` sets `nodeProcessCountPerApplication: 1`; do not raise it.
 
 ## 16. Reference

@@ -41,6 +41,7 @@ import { BrandLogo } from './brand-logo';
 import { readItem, writeItem } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { EmailHubModal } from './email-hub-modal';
+import { ServerBackupsCard } from './server-backups-card';
 import { errorMessage } from '@/lib/utils';
 
 type AppShellProps = { children: ReactNode };
@@ -795,6 +796,8 @@ export function AppShell({ children }: AppShellProps) {
               <p className="font-mono text-[9px] uppercase tracking-[.14em] text-muted-foreground">
                 Database management & Backup
               </p>
+
+              {role === 'coordinator' && <ServerBackupsCard />}
 
               <input
                 type="file"

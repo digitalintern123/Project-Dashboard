@@ -12,6 +12,7 @@ await build({
     index: 'server/src/index.ts',
     'create-user': 'server/src/scripts/create-user.ts',
     migrate: 'server/src/scripts/migrate.ts',
+    'restore-backup': 'server/src/scripts/restore-backup.ts',
   },
   outdir,
   bundle: true,

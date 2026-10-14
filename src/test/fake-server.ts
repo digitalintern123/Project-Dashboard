@@ -135,6 +135,32 @@ export function installFakeServer(options: Options = {}) {
     if (route === 'GET /api/updates') return json(200, { updates: [] });
     if (route === 'GET /api/photos') return json(200, { photos: [] });
     if (route === 'GET /api/email/logs') return json(200, { logs: [] });
+    if (route === 'GET /api/system/backups' || route === 'POST /api/system/backups') {
+      const made = route.startsWith('POST');
+      const newest = made
+        ? { name: 'encalm-20261014T021500Z.db.gz', size: 2_400_000, createdAt: '2026-10-14T02:15:00Z' }
+        : null;
+      return json(200, {
+        enabled: true,
+        time: '02:15',
+        retentionDays: 30,
+        lastRun: null,
+        newest,
+        count: made ? 1 : 0,
+        ...(made
+          ? {
+              result: {
+                ok: true,
+                file: newest!.name,
+                size: newest!.size,
+                projects: 1,
+                photosCopied: 0,
+                at: newest!.createdAt,
+              },
+            }
+          : {}),
+      });
+    }
     if (route === 'GET /api/email/settings')
       return json(200, {
         settings: {
