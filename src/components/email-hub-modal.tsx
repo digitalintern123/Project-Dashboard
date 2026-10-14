@@ -14,7 +14,7 @@ import {
   Globe,
   Clock,
 } from 'lucide-react';
-import { api, type EmailLogItem } from '@/lib/api';
+import { api, type EmailLogItem, type EmailSettings } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { users as defaultUsers, type User } from '@/data/users';
 import { useAppState } from '@/state/app-state';
@@ -35,8 +35,10 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [selectedPreview, setSelectedPreview] = useState<EmailLogItem | null>(null);
 
-  // Email Settings State (Dual Provider: SMTP & Microsoft Graph)
-  const [provider, setProvider] = useState<'smtp' | 'microsoft_graph'>('smtp');
+  // Email settings. Microsoft 365 is configured on the server only; the app
+  // just shows whether it is connected. SMTP is the fallback and editable here.
+  const [provider, setProvider] = useState<EmailSettings['provider']>('outbox');
+  const [graphStatus, setGraphStatus] = useState<EmailSettings['graph']>({ isConfigured: false, sendAsDomains: [] });
   const [smtpForm, setSmtpForm] = useState({
     host: 'smtp-mail.outlook.com',
     port: 587,
@@ -44,28 +46,17 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
     user: '',
     pass: '',
     fromName: 'Encalm Project Dashboard',
-    fromEmail: '',
   });
-  const [graphForm, setGraphForm] = useState({
-    tenantId: '',
-    clientId: '',
-    clientSecret: '',
-    senderEmail: 'notifications@encalm.com',
-    saveToSentItems: true,
-  });
-  const [isConfigured, setIsConfigured] = useState(false);
   const [, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [testEmailAddress, setTestEmailAddress] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
-
   // Send Project Update State
   const [customNote, setCustomNote] = useState('');
   const [selectedRecipients, setSelectedRecipients] = useState<User[]>([]);
   const [recipientMentionText, setRecipientMentionText] = useState('');
   const [sendingUpdate, setSendingUpdate] = useState(false);
 
-  const { leads } = useAppState();
+  const { leads, user: currentUser } = useAppState();
   const { toast } = useToast();
 
   // Merge default users with leads
@@ -100,35 +91,17 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
   const loadSettings = useCallback(async () => {
     setLoadingSettings(true);
     try {
-      const res = await api.email.getSettings();
-      if (res.settings) {
-        setProvider(res.settings.provider || 'smtp');
-        if (res.settings.smtp) {
-          setSmtpForm({
-            host: res.settings.smtp.host || 'smtp-mail.outlook.com',
-            port: res.settings.smtp.port || 587,
-            secure: Boolean(res.settings.smtp.secure),
-            user: res.settings.smtp.user || '',
-            pass: res.settings.smtp.pass || '',
-            fromName: res.settings.smtp.fromName || 'Encalm Project Dashboard',
-            fromEmail: res.settings.smtp.fromEmail || '',
-          });
-          const smtpUser = res.settings.smtp.user;
-          if (smtpUser) setTestEmailAddress((current) => current || smtpUser);
-        }
-        if (res.settings.graph) {
-          setGraphForm({
-            tenantId: res.settings.graph.tenantId || '',
-            clientId: res.settings.graph.clientId || '',
-            clientSecret: res.settings.graph.clientSecret || '',
-            senderEmail: res.settings.graph.senderEmail || 'notifications@encalm.com',
-            saveToSentItems: res.settings.graph.saveToSentItems !== false,
-          });
-          const graphSender = res.settings.graph.senderEmail;
-          if (graphSender) setTestEmailAddress((current) => current || graphSender);
-        }
-        setIsConfigured(Boolean(res.settings.isConfigured));
-      }
+      const { settings } = await api.email.getSettings();
+      setProvider(settings.provider);
+      setGraphStatus(settings.graph);
+      setSmtpForm({
+        host: settings.smtp.host || 'smtp-mail.outlook.com',
+        port: settings.smtp.port || 587,
+        secure: Boolean(settings.smtp.secure),
+        user: settings.smtp.user || '',
+        pass: settings.smtp.pass || '',
+        fromName: settings.smtp.fromName || 'Encalm Project Dashboard',
+      });
     } catch (err) {
       console.warn('Failed to load email settings:', err);
     } finally {
@@ -147,17 +120,9 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
     e.preventDefault();
     setSavingSettings(true);
     try {
-      const payload = {
-        provider,
-        smtp: smtpForm,
-        graph: graphForm,
-      };
-      const res = await api.email.saveSettings(payload);
-      setIsConfigured(Boolean(res.settings.isConfigured));
-      toast({
-        title: 'Settings Saved',
-        description: `${provider === 'smtp' ? 'SMTP (Outlook/Office 365)' : 'Microsoft Graph API'} configuration saved successfully.`,
-      });
+      const res = await api.email.saveSettings({ smtp: smtpForm });
+      setProvider(res.settings.provider);
+      toast({ title: 'Settings Saved', description: 'SMTP settings saved.' });
     } catch (err) {
       toast({
         title: 'Save Failed',
@@ -172,34 +137,23 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
   const handleSendTest = async () => {
     setSendingTest(true);
     try {
-      const res = await api.email.sendTest(testEmailAddress || undefined, undefined, {
-        provider,
-        smtp: smtpForm,
-        graph: graphForm,
-      });
-      const isSuccess = Boolean(res.success || res.result?.status === 'sent');
-      const isFailed = res.result?.status === 'failed';
-
-      let desc = res.message || (isFailed ? res.result?.error : undefined);
+      const res = await api.email.sendTest();
+      const status = res.result?.status;
+      let desc = res.message || res.result?.error;
       if (
-        isFailed &&
+        status === 'failed' &&
         (res.result?.error?.includes('5.7.139') || res.result?.error?.includes('SmtpClientAuthentication is disabled'))
       ) {
         desc =
-          'Office 365 Tenant Alert: Microsoft has disabled basic SMTP authentication for your Encalm tenant. Please switch to "Microsoft Graph API (Azure AD)" tab or ask your M365 Admin to enable Authenticated SMTP.';
+          'Microsoft has disabled basic SMTP sign-in for this tenant. Ask the server administrator to connect Microsoft 365 instead, or ask your M365 admin to enable Authenticated SMTP.';
       }
-
       toast({
-        title: isSuccess
-          ? `✓ Test Email Sent (${provider === 'smtp' ? 'SMTP' : 'Graph'})`
-          : isFailed
-            ? 'Test Email Failed'
-            : 'Queued in Outbox',
+        title:
+          status === 'sent' ? '✓ Test Email Sent' : status === 'failed' ? 'Test Email Failed' : 'Waiting in Outbox',
         description: desc,
-        variant: isFailed ? 'destructive' : 'default',
+        variant: status === 'failed' ? 'destructive' : 'default',
       });
       loadLogs();
-      loadSettings();
     } catch (err) {
       toast({
         title: 'Test Failed',
@@ -368,10 +322,10 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
             }`}
           >
             <Settings size={14} />
-            <span>SMTP Server Settings</span>
+            <span>Email Settings</span>
             <span
-              className={`size-2 rounded-full ${isConfigured ? 'bg-[#3d9a7e]' : 'bg-[#d19b35]'}`}
-              title={isConfigured ? 'Email Dispatcher Configured' : 'Development Outbox Mode'}
+              className={`size-2 rounded-full ${provider !== 'outbox' ? 'bg-[#3d9a7e]' : 'bg-[#d19b35]'}`}
+              title={provider !== 'outbox' ? 'Email delivery connected' : 'Outbox mode: no email service connected'}
             />
           </button>
         </div>
@@ -581,369 +535,213 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
             </form>
           )}
 
-          {/* TAB 3: Email Dispatcher Configuration (SMTP & Microsoft Graph) */}
+          {/* TAB 3: Email settings */}
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-2xl">
               <div>
-                <h3 className="text-[13px] font-bold text-[#173e49]">Email Dispatcher Configuration</h3>
+                <h3 className="text-[13px] font-bold text-[#173e49]">Email Delivery</h3>
                 <p className="text-[11px] text-muted-foreground">
-                  Choose how the system delivers automated notifications, task/issue alerts, and executive summaries.
+                  Every email is sent as the person who caused it: tags, alerts and updates go out from the signed-in
+                  user, and replies go back to them.
                 </p>
               </div>
 
-              {/* Provider Selection Tabs */}
-              <div className="flex rounded-xl border border-border bg-[#f7f5ef] p-1 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setProvider('smtp')}
-                  className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-[11px] font-bold transition ${
-                    provider === 'smtp'
-                      ? 'bg-white text-[#173e49] shadow-xs border border-border'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Mail size={14} className={provider === 'smtp' ? 'text-[#2e7c67]' : ''} />
-                  <span>Microsoft Outlook / Office 365 SMTP</span>
-                  <span className="rounded-full bg-[#edf5f0] px-1.5 py-0.2 text-[9px] font-semibold text-[#2e7c67]">
-                    Recommended
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProvider('microsoft_graph')}
-                  className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-[11px] font-bold transition ${
-                    provider === 'microsoft_graph'
-                      ? 'bg-white text-[#173e49] shadow-xs border border-border'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Globe size={14} className={provider === 'microsoft_graph' ? 'text-[#2e7c67]' : ''} />
-                  <span>Microsoft Graph API (Azure AD)</span>
-                </button>
+              {/* Microsoft 365: status only. Its credentials live on the server, never in the app. */}
+              <div
+                className={`flex items-start gap-3 rounded-xl border p-4 ${
+                  graphStatus.isConfigured ? 'border-[#cbe4d9] bg-[#edf5f0]' : 'border-border bg-[#f7f5ef]'
+                }`}
+              >
+                {graphStatus.isConfigured ? (
+                  <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[#2e7c67]" />
+                ) : (
+                  <Globe size={18} className="mt-0.5 shrink-0 text-muted-foreground" />
+                )}
+                <div className="text-[11px] leading-relaxed">
+                  <div className="font-bold text-[#173e49]">
+                    Microsoft 365: {graphStatus.isConfigured ? 'connected' : 'not configured'}
+                  </div>
+                  {graphStatus.isConfigured ? (
+                    <p className="text-[#2e7c67]">
+                      Emails are sent from each user's own mailbox
+                      {graphStatus.sendAsDomains.length > 0 && <> (@{graphStatus.sendAsDomains.join(', @')})</>} and
+                      saved in their Outlook Sent Items. Nobody can send as someone else.
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Set up by the server administrator in the server's settings file; it is never entered or shown
+                      here.
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {!isConfigured && (
+              {provider === 'outbox' && (
                 <div className="flex items-start gap-3 rounded-xl border border-[#eadcb1] bg-[#fdf3d8]/60 p-3.5">
                   <Inbox size={18} className="mt-0.5 shrink-0 text-[#9a711f]" />
                   <div className="text-[11px] leading-relaxed text-[#7a5914]">
-                    <strong>In-App Outbox Mode Active:</strong> {provider === 'smtp' ? 'SMTP' : 'Microsoft Graph API'}{' '}
-                    is not yet fully configured. All generated emails (tag alerts, comments, updates) will safely queue
-                    in your dashboard Outbox with full HTML preview.
+                    <strong>In-App Outbox Mode Active:</strong> no email service is connected yet. Emails wait in the
+                    Outbox with a full preview and can be resent once one is connected.
                   </div>
                 </div>
               )}
 
               <form onSubmit={handleSaveSettings} className="rounded-xl border border-border bg-white p-5 space-y-4">
-                {/* SMTP FORM */}
-                {provider === 'smtp' && (
-                  <>
-                    <div className="flex flex-col gap-2 rounded-lg border border-[#cbe4d9] bg-[#edf5f0] p-3 text-[11px] text-[#2e7c67]">
-                      <div className="flex items-center justify-between font-bold">
-                        <span>Outlook & Office 365 SMTP Setup:</span>
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSmtpForm((prev) => ({
-                                ...prev,
-                                host: 'smtp-mail.outlook.com',
-                                port: 587,
-                                secure: false,
-                              }))
-                            }
-                            className="rounded bg-white px-2 py-0.5 text-[9px] font-bold shadow-2xs hover:bg-[#dfeee5]"
-                          >
-                            Use Outlook.com (587)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSmtpForm((prev) => ({
-                                ...prev,
-                                host: 'smtp.office365.com',
-                                port: 587,
-                                secure: false,
-                              }))
-                            }
-                            className="rounded bg-white px-2 py-0.5 text-[9px] font-bold shadow-2xs hover:bg-[#dfeee5]"
-                          >
-                            Use Office 365 (587)
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-[10px] leading-relaxed">
-                        Default server:{' '}
-                        <code className="bg-white/80 px-1 py-0.5 rounded font-mono">smtp-mail.outlook.com</code> on port{' '}
-                        <code className="bg-white/80 px-1 py-0.5 rounded font-mono">587</code> with STARTTLS.
-                      </p>
+                <div>
+                  <h4 className="text-[12px] font-bold text-[#173e49]">SMTP (fallback)</h4>
+                  <p className="text-[10px] text-muted-foreground">
+                    {graphStatus.isConfigured
+                      ? 'Not used while Microsoft 365 is connected.'
+                      : 'Emails are sent from this account, shown as "<name> via Encalm Projects", with replies to the person who sent them.'}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 rounded-lg border border-[#cbe4d9] bg-[#edf5f0] p-3 text-[11px] text-[#2e7c67]">
+                  <div className="flex items-center justify-between font-bold">
+                    <span>Outlook & Office 365 SMTP Setup:</span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSmtpForm((prev) => ({ ...prev, host: 'smtp-mail.outlook.com', port: 587, secure: false }))
+                        }
+                        className="rounded bg-white px-2 py-0.5 text-[9px] font-bold shadow-2xs hover:bg-[#dfeee5]"
+                      >
+                        Use Outlook.com (587)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSmtpForm((prev) => ({ ...prev, host: 'smtp.office365.com', port: 587, secure: false }))
+                        }
+                        className="rounded bg-white px-2 py-0.5 text-[9px] font-bold shadow-2xs hover:bg-[#dfeee5]"
+                      >
+                        Use Office 365 (587)
+                      </button>
                     </div>
+                  </div>
+                </div>
 
-                    {/* Microsoft 2FA App Password Helper Alert */}
-                    <div className="flex items-start gap-2.5 rounded-lg border border-[#eadcb1] bg-[#fffbf2] p-3 text-[10px] text-[#8e681c]">
-                      <Key size={14} className="mt-0.5 shrink-0 text-[#c9a04e]" />
-                      <div className="leading-relaxed">
-                        <strong>Two-Factor Authentication (2FA) Note:</strong> If your Microsoft account has two-step
-                        verification enabled, generate a 16-character <strong>App Password</strong> in your{' '}
-                        <a
-                          href="https://account.live.com/proofs/manage/additional"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-bold underline text-[#715011] inline-flex items-center gap-0.5"
-                        >
-                          Microsoft Security Settings <ExternalLink size={10} />
-                        </a>{' '}
-                        and paste it into the Password field below.
-                      </div>
-                    </div>
+                <div className="flex items-start gap-2.5 rounded-lg border border-[#eadcb1] bg-[#fffbf2] p-3 text-[10px] text-[#8e681c]">
+                  <Key size={14} className="mt-0.5 shrink-0 text-[#c9a04e]" />
+                  <div className="leading-relaxed">
+                    <strong>Two-Factor Authentication (2FA) Note:</strong> if the account uses two-step verification,
+                    create an <strong>App Password</strong> in your{' '}
+                    <a
+                      href="https://account.live.com/proofs/manage/additional"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-bold underline text-[#715011] inline-flex items-center gap-0.5"
+                    >
+                      Microsoft Security Settings <ExternalLink size={10} />
+                    </a>{' '}
+                    and paste it into the Password field below.
+                  </div>
+                </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-email-address-username"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Email Address / Username
-                        </label>
-                        <input
-                          id="email-hub-modal-email-address-username"
-                          type="email"
-                          value={smtpForm.user}
-                          onChange={(e) => setSmtpForm({ ...smtpForm, user: e.target.value })}
-                          placeholder="e.g. notifications@outlook.com or your-name@encalm.com"
-                          required
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-password-app-password"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Password / App Password
-                        </label>
-                        <input
-                          id="email-hub-modal-password-app-password"
-                          type="password"
-                          value={smtpForm.pass}
-                          onChange={(e) => setSmtpForm({ ...smtpForm, pass: e.target.value })}
-                          placeholder="••••••••••••••••"
-                          required
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="sm:col-span-2">
-                        <div className="flex items-center justify-between">
-                          <label
-                            htmlFor="email-hub-modal-smtp-server-host"
-                            className="block text-[11px] font-bold text-foreground"
-                          >
-                            SMTP Server (Host)
-                          </label>
-                          {smtpForm.user.includes('@encalm.com') && smtpForm.host !== 'smtp.office365.com' && (
-                            <button
-                              type="button"
-                              onClick={() => setSmtpForm((prev) => ({ ...prev, host: 'smtp.office365.com' }))}
-                              className="text-[10px] font-bold text-[#b87a14] underline hover:text-[#8a5b0e]"
-                            >
-                              ⚡ Switch to Office 365 Host
-                            </button>
-                          )}
-                        </div>
-                        <input
-                          id="email-hub-modal-smtp-server-host"
-                          type="text"
-                          value={smtpForm.host}
-                          onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })}
-                          placeholder="smtp.office365.com"
-                          required
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                        {smtpForm.user.includes('@encalm.com') && smtpForm.host === 'smtp-mail.outlook.com' && (
-                          <p className="mt-1 text-[10px] text-[#b87a14]">
-                            ⚠️ For corporate <strong>@encalm.com</strong> accounts, use{' '}
-                            <strong>smtp.office365.com</strong> (smtp-mail.outlook.com is for consumer accounts only).
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-port-encryption"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Port & Encryption
-                        </label>
-                        <div className="flex gap-2 mt-1">
-                          <input
-                            id="email-hub-modal-port-encryption"
-                            type="number"
-                            value={smtpForm.port}
-                            onChange={(e) => setSmtpForm({ ...smtpForm, port: parseInt(e.target.value, 10) || 587 })}
-                            placeholder="587"
-                            className="w-20 rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                          />
-                          <select
-                            value={smtpForm.secure ? 'ssl' : 'starttls'}
-                            onChange={(e) => setSmtpForm({ ...smtpForm, secure: e.target.value === 'ssl' })}
-                            className="flex-1 rounded-lg border border-border bg-[#faf8f3] px-2 text-[11px] font-medium"
-                          >
-                            <option value="starttls">STARTTLS (587)</option>
-                            <option value="ssl">SSL/TLS (465)</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-sender-display-name"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Sender Display Name
-                        </label>
-                        <input
-                          id="email-hub-modal-sender-display-name"
-                          type="text"
-                          value={smtpForm.fromName}
-                          onChange={(e) => setSmtpForm({ ...smtpForm, fromName: e.target.value })}
-                          placeholder="Encalm Project Dashboard"
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-sender-from-email-optional"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Sender "From" Email (Optional)
-                        </label>
-                        <input
-                          id="email-hub-modal-sender-from-email-optional"
-                          type="email"
-                          value={smtpForm.fromEmail}
-                          onChange={(e) => setSmtpForm({ ...smtpForm, fromEmail: e.target.value })}
-                          placeholder={smtpForm.user || 'Leave blank to use account email'}
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* MICROSOFT GRAPH API FORM */}
-                {provider === 'microsoft_graph' && (
-                  <>
-                    <div className="rounded-lg border border-[#cbe4d9] bg-[#edf5f0] p-3 text-[10px] text-[#2e7c67]">
-                      <strong>Azure AD App Setup Tip:</strong> In your Azure Portal, register an App with{' '}
-                      <strong>Application Permission</strong>:{' '}
-                      <code className="bg-white/80 px-1 py-0.5 rounded font-mono">Mail.Send</code> under Microsoft
-                      Graph, and grant Admin Consent for{' '}
-                      <code className="bg-white/80 px-1 py-0.5 rounded font-mono">@encalm.com</code>.
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-azure-directory-tenant-id"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Azure Directory (Tenant) ID
-                        </label>
-                        <input
-                          id="email-hub-modal-azure-directory-tenant-id"
-                          type="text"
-                          value={graphForm.tenantId}
-                          onChange={(e) => setGraphForm({ ...graphForm, tenantId: e.target.value })}
-                          placeholder="e.g. 84a7e930-b183-4a11-8f52-..."
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-application-client-id"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Application (Client) ID
-                        </label>
-                        <input
-                          id="email-hub-modal-application-client-id"
-                          type="text"
-                          value={graphForm.clientId}
-                          onChange={(e) => setGraphForm({ ...graphForm, clientId: e.target.value })}
-                          placeholder="e.g. 3df2a510-721a-4632-9b24-..."
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-azure-client-secret"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Azure Client Secret
-                        </label>
-                        <input
-                          id="email-hub-modal-azure-client-secret"
-                          type="password"
-                          value={graphForm.clientSecret || ''}
-                          onChange={(e) => setGraphForm({ ...graphForm, clientSecret: e.target.value })}
-                          placeholder="••••••••"
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="email-hub-modal-sender-mailbox-microsoft-365-user"
-                          className="block text-[11px] font-bold text-foreground"
-                        >
-                          Sender Mailbox (Microsoft 365 User)
-                        </label>
-                        <input
-                          id="email-hub-modal-sender-mailbox-microsoft-365-user"
-                          type="email"
-                          value={graphForm.senderEmail}
-                          onChange={(e) => setGraphForm({ ...graphForm, senderEmail: e.target.value })}
-                          placeholder="notifications@encalm.com or hod@encalm.com"
-                          className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="checkbox"
-                        id="saveToSentItems"
-                        checked={graphForm.saveToSentItems}
-                        onChange={(e) => setGraphForm({ ...graphForm, saveToSentItems: e.target.checked })}
-                        className="rounded border-border text-[#2e7c67] focus:ring-[#2e7c67]"
-                      />
-                      <label htmlFor="saveToSentItems" className="text-[11px] font-medium text-foreground">
-                        Automatically save a copy in the sender's Outlook <strong>"Sent Items"</strong> folder
-                      </label>
-                    </div>
-                  </>
-                )}
-
-                {/* Common Action Bar (Test Email & Save Button) */}
-                <div className="flex items-center justify-between border-t border-border pt-4">
-                  <div className="flex items-center gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      htmlFor="email-hub-modal-email-address-username"
+                      className="block text-[11px] font-bold text-foreground"
+                    >
+                      Account Email / Username
+                    </label>
                     <input
+                      id="email-hub-modal-email-address-username"
                       type="email"
-                      value={testEmailAddress}
-                      onChange={(e) => setTestEmailAddress(e.target.value)}
-                      placeholder="Test recipient email"
-                      className="w-48 rounded-lg border border-border bg-[#faf8f3] px-2.5 py-1.5 text-[11px]"
+                      value={smtpForm.user}
+                      onChange={(e) => setSmtpForm({ ...smtpForm, user: e.target.value })}
+                      placeholder="notifications@encalm.com"
+                      required
+                      className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
                     />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="email-hub-modal-password-app-password"
+                      className="block text-[11px] font-bold text-foreground"
+                    >
+                      Password / App Password
+                    </label>
+                    <input
+                      id="email-hub-modal-password-app-password"
+                      type="password"
+                      value={smtpForm.pass}
+                      onChange={(e) => setSmtpForm({ ...smtpForm, pass: e.target.value })}
+                      placeholder="••••••••••••••••"
+                      required
+                      className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="email-hub-modal-smtp-server-host"
+                      className="block text-[11px] font-bold text-foreground"
+                    >
+                      SMTP Server (Host)
+                    </label>
+                    <input
+                      id="email-hub-modal-smtp-server-host"
+                      type="text"
+                      value={smtpForm.host}
+                      onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })}
+                      placeholder="smtp.office365.com"
+                      required
+                      className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="email-hub-modal-port-encryption"
+                      className="block text-[11px] font-bold text-foreground"
+                    >
+                      Port & Encryption
+                    </label>
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        id="email-hub-modal-port-encryption"
+                        type="number"
+                        value={smtpForm.port}
+                        onChange={(e) => setSmtpForm({ ...smtpForm, port: parseInt(e.target.value, 10) || 587 })}
+                        placeholder="587"
+                        className="w-20 rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] font-mono focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
+                      />
+                      <select
+                        aria-label="Encryption"
+                        value={smtpForm.secure ? 'ssl' : 'starttls'}
+                        onChange={(e) => setSmtpForm({ ...smtpForm, secure: e.target.value === 'ssl' })}
+                        className="flex-1 rounded-lg border border-border bg-[#faf8f3] px-2 text-[11px] font-medium"
+                      >
+                        <option value="starttls">STARTTLS (587)</option>
+                        <option value="ssl">SSL/TLS (465)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="email-hub-modal-sender-display-name"
+                    className="block text-[11px] font-bold text-foreground"
+                  >
+                    Name for system emails
+                  </label>
+                  <input
+                    id="email-hub-modal-sender-display-name"
+                    type="text"
+                    value={smtpForm.fromName}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, fromName: e.target.value })}
+                    placeholder="Encalm Project Dashboard"
+                    className="mt-1 w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                     <button
                       type="button"
                       onClick={handleSendTest}
@@ -951,16 +749,16 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                       className="flex items-center gap-1 rounded-lg border border-border bg-white px-3 py-1.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted"
                     >
                       <Send size={11} />
-                      <span>{sendingTest ? 'Sending...' : 'Test Send'}</span>
+                      <span>{sendingTest ? 'Sending...' : 'Send me a test email'}</span>
                     </button>
+                    {currentUser?.email && <span>to {currentUser.email}</span>}
                   </div>
-
                   <button
                     type="submit"
                     disabled={savingSettings}
                     className="flex items-center gap-1.5 rounded-lg bg-[#2e7c67] px-4 py-2 text-[12px] font-bold text-white shadow-xs hover:bg-[#256654]"
                   >
-                    <span>{savingSettings ? 'Saving...' : 'Save Configuration'}</span>
+                    <span>{savingSettings ? 'Saving...' : 'Save SMTP Settings'}</span>
                   </button>
                 </div>
               </form>

@@ -64,6 +64,8 @@ type Options = {
   /** The signed-in user, or null for no session. */
   session?: FakeUser | null;
   mustChangePassword?: boolean;
+  /** Extra people returned by the user directory. */
+  extraUsers?: User[];
 };
 
 /**
@@ -117,9 +119,30 @@ export function installFakeServer(options: Options = {}) {
     if (route === 'GET /api/projects') return json(200, { projects: [sampleProject] });
     if (route === 'GET /api/notifications') return json(200, { notifications: [], unreadCount: 0 });
     if (route === 'GET /api/auth/leads') return json(200, { leads: [users.lead] });
-    if (route === 'GET /api/auth/users') return json(200, { users: Object.values(users).map(publicUser) });
+    if (route === 'GET /api/auth/users')
+      return json(200, { users: [...Object.values(users).map(publicUser), ...(options.extraUsers ?? [])] });
+    if (route === 'POST /api/email/tag-and-comment')
+      return json(200, {
+        success: true,
+        delivery: 'outbox',
+        recipients: (body.taggedUserIds as string[]).map((id) => ({
+          userId: id,
+          userName: id,
+          email: id,
+          status: 'queued',
+        })),
+      });
     if (route === 'GET /api/updates') return json(200, { updates: [] });
     if (route === 'GET /api/photos') return json(200, { photos: [] });
+    if (route === 'GET /api/email/logs') return json(200, { logs: [] });
+    if (route === 'GET /api/email/settings')
+      return json(200, {
+        settings: {
+          provider: 'microsoft_graph',
+          graph: { isConfigured: true, sendAsDomains: ['encalm.com'] },
+          smtp: { host: 'smtp.office365.com', port: 587, secure: false, user: '', pass: '', isConfigured: false },
+        },
+      });
     return json(200, {});
   });
 

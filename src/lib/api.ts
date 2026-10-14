@@ -115,33 +115,23 @@ export type PortfolioBackup = {
 /** Outcome of queueing or sending one email. */
 export type EmailSendResult = { id: string; status: 'queued' | 'sent' | 'failed' | 'outbox'; error?: string };
 
+/** Email settings as the server reports them. Microsoft 365 credentials never leave the server. */
 export type EmailSettings = {
-  provider: 'smtp' | 'microsoft_graph';
-  smtp?: {
+  provider: 'microsoft_graph' | 'smtp' | 'outbox';
+  graph: { isConfigured: boolean; sendAsDomains: string[] };
+  smtp: {
     host: string;
     port: number;
     secure: boolean;
     user: string;
     pass?: string;
     fromName?: string;
-    fromEmail?: string;
     isConfigured?: boolean;
   };
-  graph?: {
-    tenantId: string;
-    clientId: string;
-    clientSecret?: string;
-    senderEmail: string;
-    saveToSentItems: boolean;
-    isConfigured?: boolean;
-  };
-  tenantId?: string;
-  clientId?: string;
-  clientSecret?: string;
-  senderEmail?: string;
-  saveToSentItems?: boolean;
-  isConfigured: boolean;
 };
+
+/** The editable part: SMTP only. */
+export type EmailSettingsInput = { smtp: Omit<EmailSettings['smtp'], 'isConfigured'> };
 
 export const api = {
   auth: {
@@ -327,19 +317,16 @@ export const api = {
       ),
     searchDirectory: (q: string) => request<{ users: User[] }>(`/api/email/directory?q=${encodeURIComponent(q)}`),
     getSettings: () => request<{ settings: EmailSettings }>('/api/email/settings'),
-    saveSettings: (settings: Partial<EmailSettings>) =>
+    saveSettings: (settings: EmailSettingsInput) =>
       request<{ message: string; settings: EmailSettings }>('/api/email/settings', {
         method: 'POST',
         body: JSON.stringify(settings),
       }),
-    sendTest: (
-      to?: string,
-      recipientName?: string,
-      payload?: Partial<Pick<EmailSettings, 'provider' | 'smtp' | 'graph'>>,
-    ) =>
+    /** Sends a test email from and to the signed-in coordinator. */
+    sendTest: () =>
       request<{ success: boolean; message: string; result: EmailSendResult }>('/api/email/test', {
         method: 'POST',
-        body: JSON.stringify({ to, recipientName, ...payload }),
+        body: JSON.stringify({}),
       }),
     resend: (id: string) =>
       request<{ success: boolean; status: string; error?: string }>(`/api/email/resend/${id}`, {
@@ -364,12 +351,12 @@ export const api = {
       entityContext?: string;
       taggedUserIds: string[];
       comment?: string;
-      authorName?: string;
-      authorEmail?: string;
     }) =>
       request<{
         success: boolean;
         message: string;
+        /** How the emails will go out: 'outbox' means no email service is connected. */
+        delivery?: 'microsoft_graph' | 'smtp' | 'outbox';
         recipients: Array<{
           userId: string;
           userName: string;
