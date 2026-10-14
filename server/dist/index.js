@@ -981,7 +981,7 @@ function requireRole(allowedRoles) {
 }
 function canUserEditProject(projectId5, user) {
   if (user.role === "coordinator") return true;
-  if (user.role === "hod") return false;
+  if (user.role === "hod" || user.role === "viewer") return false;
   if (user.role === "lead") {
     const project = db.prepare("SELECT lead_id FROM projects WHERE id = ?").get(projectId5);
     if (!project) return false;
@@ -1004,7 +1004,7 @@ function requireProjectAccess(projectIdParam = "id") {
     }
     if (!canUserEditProject(projectId5, req.user)) {
       return res.status(403).json({
-        error: req.user.role === "hod" ? "Forbidden: HOD role has strict view-only oversight" : "Forbidden: You can only edit projects allotted to you"
+        error: req.user.role === "hod" || req.user.role === "viewer" ? "Forbidden: this account is view-only" : "Forbidden: You can only edit projects allotted to you"
       });
     }
     next();
@@ -1012,6 +1012,7 @@ function requireProjectAccess(projectIdParam = "id") {
 }
 function canUserTagOnProject(projectId5, user) {
   if (user.role === "coordinator" || user.role === "hod") return true;
+  if (user.role === "viewer") return false;
   return canUserEditProject(projectId5, user);
 }
 function requireTagAccess() {
@@ -1599,10 +1600,10 @@ var usersRepo = {
   },
   /** A user who can sign in (not a directory-only stakeholder), by email. */
   findLoginByEmail(email) {
-    return db.prepare("SELECT * FROM users WHERE LOWER(email) = ? AND role IN ('hod', 'lead', 'coordinator')").get(email.toLowerCase());
+    return db.prepare("SELECT * FROM users WHERE LOWER(email) = ? AND role IN ('hod', 'lead', 'coordinator', 'viewer')").get(email.toLowerCase());
   },
   findLoginById(id2) {
-    return db.prepare("SELECT * FROM users WHERE id = ? AND role IN ('hod', 'lead', 'coordinator')").get(id2);
+    return db.prepare("SELECT * FROM users WHERE id = ? AND role IN ('hod', 'lead', 'coordinator', 'viewer')").get(id2);
   },
   emailTaken(email) {
     return Boolean(db.prepare("SELECT 1 FROM users WHERE LOWER(email) = ?").get(email.toLowerCase()));
@@ -1613,7 +1614,7 @@ var usersRepo = {
   listPublic() {
     return db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users ORDER BY name`).all();
   },
-  /** Users who can sign in and therefore have a notification inbox. */
+  /** Users who get project notifications (viewers can sign in but only look, so they get none). */
   inboxUserIds() {
     const rows = db.prepare("SELECT id FROM users WHERE role IN ('coordinator', 'lead', 'hod')").all();
     return rows.map((r) => r.id);
@@ -4648,10 +4649,16 @@ function redactEmailSettings(req) {
 }
 var sender = (req) => ({ user: req.user, origin: publicBaseUrl(req) });
 var providerLabel = (provider) => provider === "microsoft_graph" ? "Microsoft 365" : provider === "smtp" ? "SMTP" : "Outbox";
-router8.get("/directory", requireAuth, validate({ query: directoryQuery }), async (req, res) => {
-  const query = (req.query.q || "").trim();
-  res.json({ users: await searchEncalmDirectory(query) });
-});
+router8.get(
+  "/directory",
+  requireAuth,
+  requireRole(["coordinator", "hod", "lead"]),
+  validate({ query: directoryQuery }),
+  async (req, res) => {
+    const query = (req.query.q || "").trim();
+    res.json({ users: await searchEncalmDirectory(query) });
+  }
+);
 router8.get("/logs", requireAuth, requireRole(["coordinator"]), validate({ query: emailLogsQuery }), (req, res) => {
   const projectId5 = req.query.projectId;
   const page = pageFrom(req.query, 50, 100);

@@ -259,8 +259,9 @@ Arguments:
   Email     : Corporate email (e.g. "amit@encalm.com")
   Password  : Temporary password (min 10 chars, letters and numbers);
               the user must change it at first sign-in
-  Role      : One of 'lead', 'coordinator', 'hod' (Default: 'lead')
-  Title     : Job title (Default: 'Project Lead', 'Project Coordinator', or 'Project HOD')
+  Role      : One of 'lead', 'coordinator', 'hod', 'viewer' (Default: 'lead')
+              viewer = strictly view-only (no edits, tagging or emails)
+  Title     : Job title (Default: 'Project Lead', 'Project Coordinator', 'Project HOD' or 'Viewer')
 
 Examples:
   npm run create-user -- "Amit Sharma" "amit@encalm.com" "<temporary-password>" "lead" "Project Lead"
@@ -274,11 +275,17 @@ var name = args[0].trim();
 var email = args[1].trim().toLowerCase();
 var password = args[2].trim();
 var roleInput = (args[3] || "lead").trim().toLowerCase();
-var role = roleInput === "coordinator" ? "coordinator" : roleInput === "hod" ? "hod" : "lead";
+var ROLES = ["coordinator", "lead", "hod", "viewer"];
+if (!ROLES.includes(roleInput)) {
+  console.error(`\u274C Unknown role "${roleInput}". Use one of: ${ROLES.join(", ")}.`);
+  process.exit(1);
+}
+var role = roleInput;
 var defaultTitles = {
   hod: "Project HOD",
   coordinator: "Project Coordinator",
-  lead: "Project Lead"
+  lead: "Project Lead",
+  viewer: "Viewer"
 };
 var title = args[4] && args[4].trim() || defaultTitles[role] || "Project Lead";
 var parts = name.split(/\s+/).filter(Boolean);
