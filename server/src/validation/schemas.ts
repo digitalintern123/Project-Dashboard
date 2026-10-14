@@ -185,6 +185,8 @@ export const createUpdateBody = z.object({
   role: optText(120),
   stage: optText(200),
   kind: updateKind.optional(),
+  /** People picked with @ in the update: each gets a notification and an email. */
+  taggedUsers,
 });
 
 // ---------------------------------------------------------------------------

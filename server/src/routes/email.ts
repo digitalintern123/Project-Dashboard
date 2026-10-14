@@ -153,6 +153,7 @@ router.post(
     res.json({
       success: true,
       message: `Queued notification email for ${recipients.filter((r) => r.status !== 'skipped').length} recipient(s)`,
+      delivery: getActiveEmailProvider(),
       recipients,
     });
   },

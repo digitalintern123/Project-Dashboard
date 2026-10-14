@@ -400,7 +400,7 @@ export function removeIssue(projectId: string, issueId: string): void {
 // ---------------------------------------------------------------------------
 
 export function addUpdate(projectId: string, input: z.infer<typeof S.createUpdateBody>, actor: Actor): string {
-  projectName(projectId);
+  const name = projectName(projectId);
   const id = `${projectId}-update-${Date.now()}`;
   const today = todayLabel();
   updatesRepo.insert({
@@ -415,5 +415,20 @@ export function addUpdate(projectId: string, input: z.infer<typeof S.createUpdat
     kind: input.kind || 'General',
   });
   projectsRepo.update(projectId, { last_updated: today });
+
+  const tagged = [...new Set(input.taggedUsers ?? [])];
+  if (tagged.length > 0) {
+    dispatchTagNotifications({
+      taggedUserIds: tagged,
+      taggedBy: actor.user.name,
+      entityType: 'Update',
+      entityTitle: `${input.kind || 'General'} update${input.stage ? `: ${input.stage}` : ''}`,
+      comment: input.text,
+      projectId,
+      projectName: name,
+      origin: actor.origin,
+      sender: { email: actor.user.email, name: actor.user.name },
+    });
+  }
   return id;
 }

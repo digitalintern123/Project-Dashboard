@@ -87,6 +87,8 @@ export type ProjectUpdate = {
   text: string;
   stage?: string;
   kind?: 'Progress' | 'Decision' | 'Risk' | 'General';
+  /** People picked with @ when posting; they are emailed. Not stored with the update. */
+  taggedUsers?: string[];
 };
 
 export type FOHAreaItem = {

@@ -276,3 +276,32 @@ describe('automatic emails are sent as the person who made the change', () => {
     expect(row.html_content).not.toContain('chinmay');
   });
 });
+
+describe('people picked with @ in a new update', () => {
+  it('are notified and emailed as the author; unknown ids get nothing', async () => {
+    const res = await lead.post(`${P}/updates`).send({
+      text: 'Ceiling closed @Hal Od',
+      date: '14 Oct 2026',
+      stage: 'Design',
+      kind: 'Progress',
+      taggedUsers: [testUsers.hod.id, 'u-not-a-user'],
+    });
+    expect(res.status).toBe(201);
+    const rows = db
+      .prepare(
+        "SELECT recipient_email, from_email FROM email_logs WHERE subject LIKE 'Tagged on Update: Progress update: Design%'",
+      )
+      .all();
+    expect(rows).toEqual([{ recipient_email: testUsers.hod.email, from_email: testUsers.leadA.email }]);
+    expect(db.prepare("SELECT COUNT(*) c FROM notifications WHERE recipient_id = 'u-not-a-user'").get()).toEqual({
+      c: 0,
+    });
+  });
+
+  it('a HOD still cannot post updates', async () => {
+    const res = await hod
+      .post(`${P}/updates`)
+      .send({ text: 'x', date: '14 Oct 2026', taggedUsers: [testUsers.leadA.id] });
+    expect(res.status).toBe(403);
+  });
+});

@@ -145,6 +145,7 @@ export function StageIssuesPanel({
                           taggedUsers={issue.taggedUsers}
                           onChange={(newTagged) => onUpdate(index, { taggedUsers: newTagged })}
                           canTag={canTag}
+                          saveTags={editable}
                           label="Tag Member"
                           projectId={project.id}
                           entityType="Issue"

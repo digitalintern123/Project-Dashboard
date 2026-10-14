@@ -61,8 +61,8 @@ export default function ProjectDetail() {
   if (!project) return <ProjectNotFound />;
   const isAllottedToMe = !project.leadId || project.leadId === user?.id;
   const canEdit = role === 'coordinator' || (role === 'lead' && isAllottedToMe);
-  // HOD and leads/coordinators can tag individuals on tasks and issues
-  const canTag = true;
+  // Tagging (in-app notice + email): coordinators and HODs on any project, leads on their own.
+  const canTag = role === 'coordinator' || role === 'hod' || canEdit;
   const activePhase = project.phases.find((phase) => phase.status === 'active')?.name ?? 'planning';
   const saveProgress = (progress: number, comment: string, nextMilestone: string) => {
     if (!canEdit) {

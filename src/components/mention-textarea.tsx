@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { User } from '@/data/users';
 import { api } from '@/lib/api';
+import { highlightMatch, rankMentionCandidates } from '@/lib/mention-match';
 
 interface MentionTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
   value: string;
@@ -8,94 +9,6 @@ interface MentionTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTex
   users: User[];
   onMentionSelect?: (user: User) => void;
   dropdownDirection?: 'auto' | 'top' | 'bottom';
-}
-
-/**
- * Parses text for any @mentions matching available users by first name, last name, or full name.
- */
-export function extractMentionedUserIds(text: string, users: User[]): string[] {
-  if (!text || !users || !users.length) return [];
-  const mentionedIds = new Set<string>();
-
-  // Sort users by full name length descending so longer full names match first
-  const sortedUsers = [...users].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
-
-  // Count first name occurrences across all users to guard against ambiguous first names (e.g. 7 users named Akash)
-  const firstNameCounts = new Map<string, number>();
-  for (const u of users) {
-    if (!u.name) continue;
-    const fn = u.name.toLowerCase().trim().split(' ')[0];
-    if (fn) {
-      firstNameCounts.set(fn, (firstNameCounts.get(fn) || 0) + 1);
-    }
-  }
-
-  const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  let remainingText = text;
-
-  // 1. Exact Full Name Matching (e.g. "@Akash Deep")
-  for (const u of sortedUsers) {
-    if (!u.name) continue;
-    const fullName = u.name.trim();
-    const fnRegex = new RegExp(`@${escapeRegex(fullName)}(?:\\b|\\s|[,:;!?]|$)`, 'i');
-    if (fnRegex.test(remainingText)) {
-      mentionedIds.add(u.id);
-      // Mask out matched full name so sub-tokens are not falsely re-matched
-      remainingText = remainingText.replace(new RegExp(`@${escapeRegex(fullName)}`, 'gi'), ' ');
-    }
-  }
-
-  // 2. Exact Email or Email Prefix Matching (e.g. "@akash.deep@encalm.com" or "@akash.deep")
-  for (const u of sortedUsers) {
-    if (!u.email) continue;
-    const email = u.email.trim();
-    const emailPrefix = email.split('@')[0];
-
-    const emailRegex = new RegExp(`@${escapeRegex(email)}(?:\\b|\\s|[,:;!?]|$)`, 'i');
-    if (emailRegex.test(remainingText)) {
-      mentionedIds.add(u.id);
-      remainingText = remainingText.replace(new RegExp(`@${escapeRegex(email)}`, 'gi'), ' ');
-      continue;
-    }
-
-    if (emailPrefix && emailPrefix.length >= 3) {
-      const prefixRegex = new RegExp(`@${escapeRegex(emailPrefix)}(?:\\b|\\s|[,:;!?]|$)`, 'i');
-      if (prefixRegex.test(remainingText)) {
-        mentionedIds.add(u.id);
-        remainingText = remainingText.replace(new RegExp(`@${escapeRegex(emailPrefix)}`, 'gi'), ' ');
-      }
-    }
-  }
-
-  // 3. User ID Slug Matching (e.g. "user-praveen-pal" -> "@praveen pal")
-  for (const u of sortedUsers) {
-    if (!u.id) continue;
-    const idSlug = u.id.replace('user-', '').replace(/-/g, ' ').trim();
-    if (idSlug.length >= 3) {
-      const idSlugRegex = new RegExp(`@${escapeRegex(idSlug)}(?:\\b|\\s|[,:;!?]|$)`, 'i');
-      if (idSlugRegex.test(remainingText)) {
-        mentionedIds.add(u.id);
-        remainingText = remainingText.replace(new RegExp(`@${escapeRegex(idSlug)}`, 'gi'), ' ');
-      }
-    }
-  }
-
-  // 4. First name matching ONLY IF that first name is completely unique across the organisation
-  // If multiple users share the same first name (e.g. multiple "Akash" in Encalm), matching on first name alone is strictly disabled
-  for (const u of sortedUsers) {
-    if (!u.name) continue;
-    const firstName = u.name.trim().split(' ')[0];
-    const fnLower = firstName.toLowerCase();
-    if (firstName.length >= 3 && firstNameCounts.get(fnLower) === 1) {
-      const firstNameRegex = new RegExp(`@${escapeRegex(firstName)}(?:\\b|\\s|[,:;!?]|$)`, 'i');
-      if (firstNameRegex.test(remainingText)) {
-        mentionedIds.add(u.id);
-        remainingText = remainingText.replace(new RegExp(`@${escapeRegex(firstName)}`, 'gi'), ' ');
-      }
-    }
-  }
-
-  return Array.from(mentionedIds);
 }
 
 export function MentionTextarea({
@@ -127,7 +40,8 @@ export function MentionTextarea({
       return;
     }
 
-    const q = mentionQuery.trim();
+    // The directory is searched by the first word; the list then filters on every word.
+    const q = mentionQuery.trim().split(/\s+/)[0] || '';
     const timer = setTimeout(async () => {
       try {
         setSearchingAzure(true);
@@ -145,30 +59,14 @@ export function MentionTextarea({
     return () => clearTimeout(timer);
   }, [mentionQuery]);
 
-  // Merge local users and live Azure directory users
+  // Local and directory people (one entry per email address), best matches first.
   const filteredUsers = React.useMemo(() => {
     if (mentionQuery === null) return [];
-    const q = mentionQuery.toLowerCase().trim();
-
-    // Start with local users matching the query
-    const matchedLocal = q
-      ? users.filter((u) => {
-          const name = u.name.toLowerCase();
-          const email = (u.email || '').toLowerCase();
-          const title = (u.title || '').toLowerCase();
-          return name.includes(q) || email.includes(q) || title.includes(q);
-        })
-      : users;
-
-    // Combine with Azure users avoiding duplicates by email
-    const combined: User[] = [...matchedLocal];
+    const combined: User[] = [...users];
     azureUsers.forEach((au) => {
-      if (!combined.some((cu) => cu.email?.toLowerCase() === au.email?.toLowerCase())) {
-        combined.push(au);
-      }
+      if (!combined.some((cu) => cu.email?.toLowerCase() === au.email?.toLowerCase())) combined.push(au);
     });
-
-    return combined.slice(0, 15);
+    return rankMentionCandidates(mentionQuery, combined, 15);
   }, [mentionQuery, users, azureUsers]);
 
   // Handle textarea change and detect @
@@ -179,8 +77,9 @@ export function MentionTextarea({
     const cursorPos = e.target.selectionStart;
     const textBeforeCursor = newValue.slice(0, cursorPos);
 
-    // Look for @ followed by word characters up to cursor
-    const lastAtMatch = /(?:^|\s)@([a-zA-Z0-9._-]*)$/.exec(textBeforeCursor);
+    // "@" then up to three words separated by single spaces ("@akash k" narrows the list);
+    // two spaces in a row end the mention.
+    const lastAtMatch = /(?:^|\s)@((?:[\p{L}\p{N}._'-]+(?: [\p{L}\p{N}._'-]+){0,2} ?)?)$/u.exec(textBeforeCursor);
 
     if (lastAtMatch) {
       const query = lastAtMatch[1];
@@ -347,11 +246,13 @@ export function MentionTextarea({
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate flex items-center gap-1.5">
-                      <span className="font-bold">{user.name}</span>
+                      <span className="font-bold">
+                        <Highlighted text={user.name} query={mentionQuery ?? ''} />
+                      </span>
                       <span className="text-[9px] text-muted-foreground font-normal">({user.title || user.role})</span>
                     </div>
                     <div className="truncate text-[9px] text-muted-foreground font-mono">
-                      {user.email || 'No email'}
+                      {user.email ? <Highlighted text={user.email} query={mentionQuery ?? ''} /> : 'No email'}
                     </div>
                   </div>
                 </button>
@@ -361,5 +262,22 @@ export function MentionTextarea({
         </div>
       )}
     </div>
+  );
+}
+
+/** The text with the letters that matched the query in bold. */
+function Highlighted({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {highlightMatch(text, query).map((part, i) =>
+        part.match ? (
+          <mark key={i} className="bg-transparent font-extrabold text-[#2e7c67] underline decoration-[#2e7c67]/40">
+            {part.text}
+          </mark>
+        ) : (
+          <React.Fragment key={i}>{part.text}</React.Fragment>
+        ),
+      )}
+    </>
   );
 }

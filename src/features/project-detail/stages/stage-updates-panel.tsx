@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MessageSquareText, Plus } from 'lucide-react';
 import { type Project } from '@/data/projects';
 import { useAppState } from '@/state/app-state';
 import { todayLabel } from '@/lib/date';
-import { initialsOf } from '@/data/users';
+import { initialsOf, users as defaultUsers, type User } from '@/data/users';
 import { TagUserPopover } from '@/components/tag-user-popover';
+import { MentionTextarea } from '@/components/mention-textarea';
+import { resolveTypedMentions } from '@/lib/mention-match';
 import { DetailCard } from '../ui';
 
 export function StageUpdatesPanel({
@@ -21,9 +23,10 @@ export function StageUpdatesPanel({
     role: string;
     stage: string;
     kind: 'Progress' | 'Decision' | 'Risk' | 'General';
+    taggedUsers?: string[];
   }) => void;
 }) {
-  const { user } = useAppState();
+  const { user, users: directory, leads } = useAppState();
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
   const [stage, setStage] = useState(
@@ -32,9 +35,20 @@ export function StageUpdatesPanel({
   const [kind, setKind] = useState<'Progress' | 'Decision' | 'Risk' | 'General'>('Progress');
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
 
+  // Everyone who can be @mentioned, one entry per id.
+  const people = useMemo(() => {
+    const map = new Map<string, User>();
+    for (const u of [...defaultUsers, ...(directory ?? []), ...(leads ?? [])])
+      map.set(u.id, { ...map.get(u.id), ...u });
+    return [...map.values()];
+  }, [directory, leads]);
+  // Typed @names count only when the full name is unique; shared names must be picked.
+  const typed = useMemo(() => resolveTypedMentions(text, people, taggedUsers), [text, people, taggedUsers]);
+  const pick = (id: string) => setTaggedUsers((prev) => (prev.includes(id) ? prev : [...prev, id]));
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() || typed.ambiguous.length > 0) return;
 
     onAdd({
       text: text.trim(),
@@ -43,6 +57,7 @@ export function StageUpdatesPanel({
       role: user?.title ?? 'Project Lead',
       stage,
       kind,
+      taggedUsers: [...new Set([...taggedUsers, ...typed.ids])],
     });
 
     setText('');
@@ -107,14 +122,40 @@ export function StageUpdatesPanel({
               </select>
             </div>
 
-            <textarea
+            <MentionTextarea
               required
+              aria-label="Update note"
               value={text}
-              onChange={(event) => setText(event.target.value)}
+              onChange={setText}
+              users={people}
+              onMentionSelect={(u) => pick(u.id)}
+              dropdownDirection="bottom"
               rows={3}
-              placeholder="What changed in this stage? Write your update note..."
+              placeholder="What changed in this stage? Type @name to tag and email someone..."
               className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[11px]"
             />
+            {typed.ambiguous.map((group) => (
+              <div
+                key={group.name}
+                role="group"
+                aria-label={`Which ${group.name}?`}
+                className="rounded-lg border border-[#eadcb1] bg-[#fdf8ec] p-2 text-[10px] text-[#7a5914]"
+              >
+                <div className="font-bold">Which {group.name}? Several people share this name.</div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {group.candidates.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => pick(c.id)}
+                      className="rounded-md bg-white px-2 py-1 hover:bg-[#f3ead2]"
+                    >
+                      {c.name} <span className="font-mono text-[9px] text-muted-foreground">{c.email || c.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#cbe4d9]/50">
               <div className="flex items-center gap-1.5">
@@ -126,7 +167,6 @@ export function StageUpdatesPanel({
                   onChange={setTaggedUsers}
                   canTag={true}
                   label="Tag & Email Member"
-                  projectId={project.id}
                   entityType="Update"
                   entityTitle={`${kind} Update: ${stage}`}
                   entityContext={text.slice(0, 100)}
@@ -143,7 +183,8 @@ export function StageUpdatesPanel({
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-[#173e49] px-3.5 py-1.5 text-[10px] font-bold text-white hover:bg-[#205160]"
+                  disabled={typed.ambiguous.length > 0}
+                  className="rounded-lg bg-[#173e49] disabled:opacity-40 px-3.5 py-1.5 text-[10px] font-bold text-white hover:bg-[#205160]"
                 >
                   Post update
                 </button>

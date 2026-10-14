@@ -152,6 +152,7 @@ export function StageTimelinePanel({
                         taggedUsers={phase.taggedUsers}
                         onChange={(newTagged) => onSave(index, { taggedUsers: newTagged })}
                         canTag={canTag}
+                        saveTags={editable}
                         label="Tag Member"
                         projectId={project.id}
                         entityType="Stage"

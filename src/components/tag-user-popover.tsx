@@ -4,13 +4,16 @@ import { users as defaultUsers, getUserById, initialsOf, type User } from '@/dat
 import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { MentionTextarea, extractMentionedUserIds } from './mention-textarea';
+import { MentionTextarea } from './mention-textarea';
+import { resolveTypedMentions } from '@/lib/mention-match';
 import { errorMessage } from '@/lib/utils';
 
 interface TagUserPopoverProps {
   taggedUsers?: string[];
   onChange: (taggedUserIds: string[]) => void;
   canTag?: boolean;
+  /** Whether the tag chips are saved on the item (needs edit rights). Emails go out either way. */
+  saveTags?: boolean;
   compact?: boolean;
   label?: string;
   projectId?: string;
@@ -24,6 +27,7 @@ export function TagUserPopover({
   taggedUsers = [],
   onChange,
   canTag = true,
+  saveTags = true,
   label = 'Tag',
   projectId,
   entityType = 'Stage',
@@ -61,15 +65,21 @@ export function TagUserPopover({
     return Array.from(map.values());
   }, [leads, contextUsers, externalMentionedUsers]);
 
-  // Real-time detection of @mentions directly from the comment input
-  const mentionedFromComment = React.useMemo(() => {
-    return extractMentionedUserIds(comment, baseUsers);
-  }, [comment, baseUsers]);
+  // @names typed without picking from the list: only a full name that belongs to
+  // exactly one person counts. A shared name is never guessed; the user picks.
+  const typedMentions = React.useMemo(
+    () => resolveTypedMentions(comment, baseUsers, stagedUserIds),
+    [comment, baseUsers, stagedUserIds],
+  );
 
-  // Combined selected IDs: staged checkboxes + mentions written in the comment
+  // Exactly the people who will be emailed: picked ones plus unambiguous typed names.
   const effectiveSelectedIds = React.useMemo(() => {
-    return Array.from(new Set([...(stagedUserIds || []), ...mentionedFromComment]));
-  }, [stagedUserIds, mentionedFromComment]);
+    return Array.from(new Set([...(stagedUserIds || []), ...typedMentions.ids]));
+  }, [stagedUserIds, typedMentions.ids]);
+  const recipients = effectiveSelectedIds
+    .map((id) => baseUsers.find((u) => u.id === id))
+    .filter((u): u is User => Boolean(u));
+  const unresolved = typedMentions.ambiguous;
 
   // Sort available users: currently selected/tagged users always appear at the top
   const availableUsers: User[] = React.useMemo(() => {
@@ -134,7 +144,7 @@ export function TagUserPopover({
 
   const removeTag = (e: React.MouseEvent, userId: string) => {
     e.stopPropagation();
-    if (!canTag) return;
+    if (!canTag || !saveTags) return;
     onChange((taggedUsers || []).filter((id) => id !== userId));
   };
 
@@ -154,6 +164,15 @@ export function TagUserPopover({
 
     const allRecipientIds = effectiveSelectedIds;
 
+    if (unresolved.length > 0) {
+      toast({
+        title: `Which ${unresolved[0].name}?`,
+        description: 'Several people share that name. Pick the right one before sending.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (allRecipientIds.length === 0) {
       toast({
         title: 'Select a team member',
@@ -163,8 +182,8 @@ export function TagUserPopover({
       return;
     }
 
-    // Keep parent state updated with newly discovered @mentions
-    onChange(allRecipientIds);
+    // Save the chips on the item when this user may edit it.
+    if (saveTags) onChange(allRecipientIds);
 
     if (!projectId) {
       // If no projectId is passed, we simply close with local tagging updated
@@ -199,9 +218,11 @@ export function TagUserPopover({
       toast({
         title: emailed > 0 ? '✓ Notification sent' : '✓ Notification saved',
         description:
-          emailed > 0
-            ? `Emails to ${recipientNames} are queued for delivery (track them in the Email Hub).`
-            : 'Tagged users were notified in the dashboard.',
+          emailed === 0
+            ? 'Tagged users were notified in the dashboard.'
+            : res.delivery === 'outbox'
+              ? `Emails to ${recipientNames} are waiting in the Outbox: no email service is connected yet.`
+              : `Emails to ${recipientNames} are on their way, sent from your address.`,
       });
 
       setComment('');
@@ -238,7 +259,7 @@ export function TagUserPopover({
               {initials}
             </span>
             <span className="max-w-[80px] truncate">{name.split(' ')[0]}</span>
-            {canTag && (
+            {canTag && saveTags && (
               <button
                 type="button"
                 onClick={(e) => removeTag(e, userId)}
@@ -361,15 +382,57 @@ export function TagUserPopover({
               className="w-full rounded-lg border border-border bg-[#faf8f3] px-2.5 py-1.5 text-[11px] outline-none focus:border-[#2e7c67] focus:bg-white transition resize-none"
             />
 
+            {unresolved.map((group) => (
+              <div
+                key={group.name}
+                role="group"
+                aria-label={`Which ${group.name}?`}
+                className="mt-2 rounded-lg border border-[#eadcb1] bg-[#fdf8ec] p-2 text-[10px] text-[#7a5914]"
+              >
+                <div className="font-bold">Which {group.name}? Several people share this name.</div>
+                <div className="mt-1 space-y-1">
+                  {group.candidates.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setStagedUserIds((prev) => Array.from(new Set([...prev, c.id])))}
+                      className="flex w-full items-center justify-between rounded-md bg-white px-2 py-1 text-left hover:bg-[#f3ead2]"
+                    >
+                      <span className="font-semibold">{c.name}</span>
+                      <span className="font-mono text-[9px] text-muted-foreground">
+                        {c.email || c.title || 'No email'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {recipients.length > 0 && (
+              <div className="mt-2 rounded-lg bg-[#f7f5ef] px-2 py-1.5 text-[10px]">
+                <div className="font-bold text-[#173e49]">Will email:</div>
+                <ul className="mt-0.5 space-y-0.5">
+                  {recipients.map((r) => (
+                    <li key={r.id} className="flex justify-between gap-2">
+                      <span className="truncate">{r.name}</span>
+                      <span className="truncate font-mono text-[9px] text-muted-foreground">
+                        {r.email || 'no email: dashboard notice only'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="mt-2.5 flex items-center justify-between gap-2">
               <span className="text-[9px] text-muted-foreground flex items-center gap-1">
                 <Mail size={11} className="text-[#3d9a7e]" />
-                Sends to tagged email
+                {projectId ? 'Sent from your email address' : 'Emailed when you post the update'}
               </span>
 
               <button
                 type="submit"
-                disabled={sending || effectiveSelectedIds.length === 0}
+                disabled={sending || effectiveSelectedIds.length === 0 || unresolved.length > 0}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#173e49] px-3 py-1.5 text-[10px] font-bold text-white shadow-xs transition hover:bg-[#205160] disabled:opacity-40"
               >
                 {sending ? (
@@ -380,7 +443,7 @@ export function TagUserPopover({
                 ) : (
                   <>
                     <Send size={11} />
-                    <span>Tag & Send Mail</span>
+                    <span>{projectId ? 'Tag & Send Mail' : 'Add to update'}</span>
                   </>
                 )}
               </button>

@@ -50,8 +50,10 @@ export function dispatchTagNotifications(params: TagNotificationParams): void {
     const user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(userId) as
       { id: string; name: string; email: string } | undefined;
 
-    const recipientName = user?.name || userId;
-    const recipientEmail = user?.email;
+    // Someone who is not a user (a stale or made-up id) gets nothing.
+    if (!user) continue;
+    const recipientName = user.name || userId;
+    const recipientEmail = user.email;
 
     // 1. Insert in-app notification with recipient_id
     const messageBody = comment

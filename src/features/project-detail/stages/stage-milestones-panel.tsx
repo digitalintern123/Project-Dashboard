@@ -166,6 +166,7 @@ export function StageMilestonesPanel({
                             updateMilestone(project.id, originalIndex, { taggedUsers: newTagged })
                           }
                           canTag={canTag}
+                          saveTags={editable}
                           label="Tag Member"
                           projectId={project.id}
                           entityType="Milestone"
@@ -275,6 +276,7 @@ export function StageMilestonesPanel({
                               updateMilestone(project.id, originalIndex, { taggedUsers: newTagged })
                             }
                             canTag={canTag}
+                            saveTags={editable}
                             label="Tag Member"
                             projectId={project.id}
                             entityType="Milestone"
