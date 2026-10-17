@@ -1,25 +1,46 @@
 version: 2
+# Monthly, one grouped PR per ecosystem, at most a few open at once.
+# Major version jumps are not proposed here: they need planned testing (and the
+# Plesk server runs Node 22). Security fixes still arrive through GitHub's
+# separate "Dependabot security updates", whatever the version jump.
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 10
+      interval: monthly
+    open-pull-requests-limit: 3
     groups:
-      # One PR for routine minor/patch bumps; majors arrive individually.
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+      # Native modules: update deliberately, the Windows server needs matching binaries.
+      - dependency-name: better-sqlite3
+        update-types: ['version-update:semver-minor']
+      - dependency-name: sharp
+        update-types: ['version-update:semver-minor']
     labels: [dependencies]
 
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
     labels: [dependencies]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns: ['*']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     labels: [dependencies]
