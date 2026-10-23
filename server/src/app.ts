@@ -110,11 +110,12 @@ export function createApp() {
   );
 
   // Method override: some hosting firewalls (Plesk's ModSecurity) block PATCH and
-  // DELETE, so the web app sends them as POST with the real method in a header.
-  // Only POST can be turned into PATCH, PUT or DELETE; every other request is
-  // left as it is, and the CSRF check below still applies.
+  // DELETE, and the standard X-HTTP-Method-Override header too, so the web app
+  // sends them as POST with the real method in X-Encalm-Method. Only POST can be
+  // turned into PATCH, PUT or DELETE; every other request is left as it is, and
+  // the CSRF check below still applies.
   app.use('/api', (req, _res, next) => {
-    const override = req.get('X-HTTP-Method-Override')?.toUpperCase();
+    const override = (req.get('X-Encalm-Method') || req.get('X-HTTP-Method-Override'))?.toUpperCase();
     if (req.method === 'POST' && override && ['PATCH', 'PUT', 'DELETE'].includes(override)) req.method = override;
     next();
   });

@@ -28,11 +28,12 @@ function send(path: string, options: RequestInit): Promise<Response> {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...((options.headers as Record<string, string>) || {}),
   };
-  // Some hosting firewalls (Plesk's ModSecurity) refuse PATCH and DELETE outright.
-  // Send them as POST with the real method in a header; the server restores it.
+  // Some hosting firewalls (Plesk's ModSecurity) refuse PATCH and DELETE outright,
+  // and also block the standard X-HTTP-Method-Override header. Send them as POST
+  // with the real method in our own header; the server restores it.
   const method = (options.method || 'GET').toUpperCase();
   if (OVERRIDDEN_METHODS.has(method)) {
-    headers['X-HTTP-Method-Override'] = method;
+    headers['X-Encalm-Method'] = method;
     options = { ...options, method: 'POST' };
   }
   const url = path.startsWith('http') ? path : `${apiBase}${path}`;

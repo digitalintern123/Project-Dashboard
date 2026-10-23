@@ -19,12 +19,12 @@ const capture = () => {
 };
 
 describe('requests the hosting firewall would block', () => {
-  it('sends PATCH as POST with the real method in X-HTTP-Method-Override', async () => {
+  it('sends PATCH as POST with the real method in X-Encalm-Method', async () => {
     const calls = capture();
     await api.phases.update('p1', 'ph1', { progress: 67 });
     expect(calls[0].url).toBe('/api/projects/p1/phases/ph1');
     expect(calls[0].init.method).toBe('POST');
-    expect((calls[0].init.headers as Record<string, string>)['X-HTTP-Method-Override']).toBe('PATCH');
+    expect((calls[0].init.headers as Record<string, string>)['X-Encalm-Method']).toBe('PATCH');
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ progress: 67 });
   });
 
@@ -34,7 +34,7 @@ describe('requests the hosting firewall would block', () => {
     await api.projects.getAll();
     await api.phases.add('p1', { name: 'X' });
     expect(
-      calls.map((c) => [c.init.method ?? 'GET', (c.init.headers as Record<string, string>)['X-HTTP-Method-Override']]),
+      calls.map((c) => [c.init.method ?? 'GET', (c.init.headers as Record<string, string>)['X-Encalm-Method']]),
     ).toEqual([
       ['POST', 'DELETE'],
       ['GET', undefined],
