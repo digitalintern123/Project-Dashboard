@@ -3376,13 +3376,6 @@ function buildTestEmailHtml(recipientName) {
 }
 
 // server/src/services/email/directory.ts
-function roleFromJobTitle(jobTitle) {
-  const title = (jobTitle || "").toLowerCase();
-  if (title.includes("hod") || title.includes("head")) return "hod";
-  if (title.includes("lead") || title.includes("manager")) return "lead";
-  if (title.includes("coordinator")) return "coordinator";
-  return "stakeholder";
-}
 async function searchEncalmDirectory(searchQuery = "") {
   const cfg = getGraphConfig();
   if (!cfg.tenantId || !cfg.clientId || !cfg.clientSecret) {
@@ -3413,7 +3406,9 @@ async function searchEncalmDirectory(searchQuery = "") {
         id: local ? local.id : `azure-${u.id}`,
         name: local ? local.name : name,
         email,
-        role: local ? local.role : roleFromJobTitle(u.jobTitle),
+        // Directory people are only tagged and emailed. App roles are given by a
+        // coordinator, never guessed from a job title.
+        role: local ? local.role : "stakeholder",
         title: local ? local.title : u.jobTitle || u.department || "Encalm Team",
         department: u.department || void 0,
         initials: local ? local.initials : initials
