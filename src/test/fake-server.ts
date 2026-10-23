@@ -66,6 +66,8 @@ type Options = {
   mustChangePassword?: boolean;
   /** Extra people returned by the user directory. */
   extraUsers?: User[];
+  /** Answers a request first when it returns a response (for failures and slow replies). */
+  handle?: (route: string, body: any) => Response | Promise<Response> | undefined;
 };
 
 /**
@@ -115,6 +117,9 @@ export function installFakeServer(options: Options = {}) {
     }
     if (state.mustChangePassword)
       return json(403, { error: 'Password change required', code: 'PASSWORD_CHANGE_REQUIRED' });
+
+    const handled = options.handle?.(route, body);
+    if (handled) return handled;
 
     if (route === 'GET /api/projects') return json(200, { projects: [sampleProject] });
     if (route === 'GET /api/notifications') return json(200, { notifications: [], unreadCount: 0 });

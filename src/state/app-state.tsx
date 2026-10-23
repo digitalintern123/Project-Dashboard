@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   type Health,
   type Milestone,
@@ -15,6 +15,7 @@ import { getUserById, users as defaultUsers, type User } from '@/data/users';
 import { api, onUnauthorized, type NotificationItem, type PhotoUploadInput } from '@/lib/api';
 import { calculateWeightedProgress } from '@/lib/calculations';
 import { errorMessage } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 export type AppRole = 'hod' | 'lead' | 'coordinator' | 'viewer';
 export type AuthUser = User;
@@ -191,13 +192,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     removeItem(ROLE_KEY);
   }, []);
 
+  // Saves in flight and a count of saves started, so that a refresh which read
+  // the data before a save cannot put the old values back on screen.
+  const writesInFlight = useRef(0);
+  const writeCount = useRef(0);
+  const latestWrite = useRef(new Map<string, number>());
+  const writeQueue = useRef(new Map<string, Promise<void>>());
+
   // Fetch full project list from backend database (server is the sole source of truth)
   const refreshProjects = useCallback(async () => {
+    const startedAt = writeCount.current;
     try {
       const data = await api.projects.getAll();
       if (Array.isArray(data.projects)) {
-        setProjectState(data.projects.map(normaliseProject));
         setIsConnected(true);
+        // A save started while this was loading: skip it, the next refresh is current.
+        if (writesInFlight.current > 0 || writeCount.current !== startedAt) return;
+        setProjectState(data.projects.map(normaliseProject));
       }
     } catch {
       setIsConnected(false);
@@ -424,6 +435,44 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [canEditProject, mutate],
   );
 
+  /**
+   * Sends a save for a project once its previous save has finished, so the server
+   * applies them in order. The server's copy replaces the screen only when no newer
+   * save has started; a failed save reloads the project and says it was not saved.
+   */
+  const syncWrite = useCallback((projectId: string, what: string, send: () => Promise<unknown>) => {
+    const seq = ++writeCount.current;
+    latestWrite.current.set(projectId, seq);
+    writesInFlight.current++;
+    const showServerCopy = (project: Project) => {
+      if (latestWrite.current.get(projectId) !== seq) return;
+      const saved = normaliseProject(project);
+      setProjectState((projects) => projects.map((p) => (p.id === projectId ? saved : p)));
+    };
+    const run = async () => {
+      try {
+        const res = (await send()) as { project?: Project } | undefined;
+        if (res?.project) showServerCopy(res.project);
+      } catch (err) {
+        toast({
+          variant: 'destructive',
+          title: `Couldn't save ${what}`,
+          description: `${errorMessage(err)} Your change was not saved.`,
+        });
+        try {
+          const { project } = await api.projects.get(projectId);
+          if (project) showServerCopy(project);
+        } catch {
+          // The next refresh restores it.
+        }
+      } finally {
+        writesInFlight.current--;
+      }
+    };
+    const next = (writeQueue.current.get(projectId) ?? Promise.resolve()).then(run);
+    writeQueue.current.set(projectId, next);
+  }, []);
+
   const updateProject = useCallback(
     (id: string, patch: Partial<Project>): boolean => {
       const ok = patchById(id, (project) => {
@@ -444,13 +493,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok) {
-        api.projects.update(id, patch).catch((err) => {
-          console.warn('Backend update failed:', err);
-        });
+        void syncWrite(id, 'the project details', () => api.projects.update(id, patch));
       }
       return ok;
     },
-    [patchById],
+    [patchById, syncWrite],
   );
 
   const updatePhase = useCallback(
@@ -477,18 +524,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok && phaseId) {
-        api.phases
-          .update(id, phaseId, patch)
-          .then((res) => {
-            if (res?.project) {
-              patchById(id, () => normaliseProject(res.project));
-            }
-          })
-          .catch(console.warn);
+        void syncWrite(id, `stage "${phase?.name ?? patch.name ?? ''}"`, () => api.phases.update(id, phaseId, patch));
       }
       return ok;
     },
-    [patchById, projectState],
+    [patchById, projectState, syncWrite],
   );
 
   const addPhase = useCallback(
@@ -508,18 +548,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok) {
-        api.phases
-          .add(id, newPhase)
-          .then((res) => {
-            if (res?.project) {
-              patchById(id, () => normaliseProject(res.project));
-            }
-          })
-          .catch(console.warn);
+        void syncWrite(id, `new stage "${newPhase.name}"`, () => api.phases.add(id, newPhase));
       }
       return ok;
     },
-    [patchById],
+    [patchById, syncWrite],
   );
 
   const removePhase = useCallback(
@@ -542,18 +575,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok && phaseId) {
-        api.phases
-          .delete(id, phaseId)
-          .then((res) => {
-            if (res?.project) {
-              patchById(id, () => normaliseProject(res.project));
-            }
-          })
-          .catch(console.warn);
+        void syncWrite(id, `removal of stage "${phase?.name ?? ''}"`, () => api.phases.delete(id, phaseId));
       }
       return ok;
     },
-    [patchById, projectState],
+    [patchById, projectState, syncWrite],
   );
 
   const movePhase = useCallback(
@@ -569,18 +595,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok) {
-        api.phases
-          .move(id, phaseIndex, direction)
-          .then((res) => {
-            if (res?.project) {
-              patchById(id, () => normaliseProject(res.project));
-            }
-          })
-          .catch(console.warn);
+        void syncWrite(id, 'the new stage order', () => api.phases.move(id, phaseIndex, direction));
       }
       return ok;
     },
-    [patchById],
+    [patchById, syncWrite],
   );
 
   const addProject = useCallback(
@@ -633,18 +652,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }));
 
       if (ok) {
-        api.milestones
-          .add(id, milestone)
-          .then((res) => {
-            if (res?.project) {
-              patchById(id, () => normaliseProject(res.project));
-            }
-          })
-          .catch(console.warn);
+        void syncWrite(id, `milestone "${milestone.title}"`, () => api.milestones.add(id, milestone));
       }
       return ok;
     },
-    [patchById],
+    [patchById, syncWrite],
   );
 
   const updateMilestone = useCallback(
@@ -663,18 +675,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok && milestoneId) {
-        api.milestones
-          .update(id, milestoneId, patch)
-          .then((res) => {
-            if (res?.project) {
-              patchById(id, () => normaliseProject(res.project));
-            }
-          })
-          .catch(console.warn);
+        void syncWrite(id, `milestone "${milestone?.title ?? ''}"`, () =>
+          api.milestones.update(id, milestoneId, patch),
+        );
       }
       return ok;
     },
-    [patchById, projectState],
+    [patchById, projectState, syncWrite],
   );
 
   const approveMilestone = useCallback(
@@ -746,11 +753,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }));
 
       if (ok) {
-        api.issues.add(id, newIssue).catch(console.warn);
+        void syncWrite(id, `issue "${newIssue.title}"`, () => api.issues.add(id, newIssue));
       }
       return ok;
     },
-    [patchById],
+    [patchById, syncWrite],
   );
 
   const updateIssue = useCallback(
@@ -769,11 +776,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       if (ok && issueId) {
-        api.issues.update(id, issueId, patch).catch(console.warn);
+        void syncWrite(id, `issue "${issue?.title ?? ''}"`, () => api.issues.update(id, issueId, patch));
       }
       return ok;
     },
-    [patchById, projectState],
+    [patchById, projectState, syncWrite],
   );
 
   const addUpdate = useCallback(
@@ -785,11 +792,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }));
 
       if (ok) {
-        api.updates.add(id, update).catch(console.warn);
+        void syncWrite(id, 'the stage update', () => api.updates.add(id, update));
       }
       return ok;
     },
-    [patchById],
+    [patchById, syncWrite],
   );
 
   const addMultiplePhotos = useCallback(
