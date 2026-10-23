@@ -229,6 +229,45 @@ describe('versioned migration runner', () => {
     expect(mem.prepare('SELECT COUNT(*) c FROM refresh_tokens').get()).toEqual({ c: 0 });
   });
 
+  it('turns directory-only people with a guessed role into stakeholders, leaving real accounts alone', async () => {
+    const { runMigrations, MIGRATIONS_DIR } = await import('../src/db/migrate.js');
+    const os = await import('node:os');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'migr-'));
+    for (const f of fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql') && f < '007')) {
+      fs.copyFileSync(path.join(MIGRATIONS_DIR, f), path.join(dir, f));
+    }
+    const mem = new Database(':memory:');
+    mem.pragma('foreign_keys = ON');
+    runMigrations(mem, dir);
+    const add = mem.prepare(
+      'INSERT INTO users (id, name, email, password_hash, role, title, initials) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    );
+    add.run('azure-1', 'Asst Manager', 'am@test.local', '', 'lead', 'Asst Manager', 'AM');
+    add.run('azure-2', 'Head Ops', 'ho@test.local', '', 'hod', 'Head of Ops', 'HO');
+    add.run('azure-3', 'Ops Coord', 'oc@test.local', '', 'coordinator', 'Coordinator', 'OC');
+    add.run('azure-4', 'Guest', 'g@test.local', '', 'stakeholder', 'Staff', 'G');
+    add.run('u-lead', 'Real Lead', 'lead@test.local', 'hash', 'lead', 'Project Lead', 'RL');
+    add.run('u-hod', 'Real HOD', 'hod@test.local', 'hash', 'hod', 'Project HOD', 'RH');
+    add.run('u-coord', 'Real Coord', 'coord@test.local', 'hash', 'coordinator', 'Project Coordinator', 'RC');
+    add.run('u-viewer', 'Real Viewer', 'viewer@test.local', 'hash', 'viewer', 'Viewer', 'RV');
+
+    fs.copyFileSync(
+      path.join(MIGRATIONS_DIR, '007_directory_stakeholders.sql'),
+      path.join(dir, '007_directory_stakeholders.sql'),
+    );
+    expect(runMigrations(mem, dir)).toEqual([7]);
+    expect(mem.prepare('SELECT id, role FROM users ORDER BY id').all()).toEqual([
+      { id: 'azure-1', role: 'stakeholder' },
+      { id: 'azure-2', role: 'stakeholder' },
+      { id: 'azure-3', role: 'stakeholder' },
+      { id: 'azure-4', role: 'stakeholder' },
+      { id: 'u-coord', role: 'coordinator' },
+      { id: 'u-hod', role: 'hod' },
+      { id: 'u-lead', role: 'lead' },
+      { id: 'u-viewer', role: 'viewer' },
+    ]);
+  });
+
   it('rolls back a failing migration and does not record it', async () => {
     const { runMigrations } = await import('../src/db/migrate.js');
     const os = await import('node:os');

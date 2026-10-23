@@ -342,7 +342,11 @@ describe('Microsoft Graph provider (configured from the server environment)', ()
     const users = await searchEncalmDirectory('asha');
     expect(users).toHaveLength(1);
     expect(users[0]).toMatchObject({ name: 'Asha Rao', email: 'asha.rao@test.local', initials: 'AR' });
-    expect(db.prepare("SELECT 1 FROM users WHERE email = 'asha.rao@test.local'").get()).toBeTruthy();
+    // A job title never grants an app role: directory people are stakeholders.
+    expect(users[0].role).toBe('stakeholder');
+    expect(db.prepare("SELECT role FROM users WHERE email = 'asha.rao@test.local'").get()).toEqual({
+      role: 'stakeholder',
+    });
   });
 
   it('returns no directory users when Graph errors', async () => {

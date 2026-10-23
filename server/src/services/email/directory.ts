@@ -22,14 +22,6 @@ type GraphUser = {
   department?: string | null;
 };
 
-function roleFromJobTitle(jobTitle: string | null | undefined): string {
-  const title = (jobTitle || '').toLowerCase();
-  if (title.includes('hod') || title.includes('head')) return 'hod';
-  if (title.includes('lead') || title.includes('manager')) return 'lead';
-  if (title.includes('coordinator')) return 'coordinator';
-  return 'stakeholder';
-}
-
 /**
  * Searches the Encalm corporate directory via Microsoft Graph API
  * (User.Read.All). Directory people are saved as local users so tag chips and
@@ -74,7 +66,9 @@ export async function searchEncalmDirectory(searchQuery: string = ''): Promise<D
           id: local ? local.id : `azure-${u.id}`,
           name: local ? local.name : name,
           email,
-          role: local ? local.role : roleFromJobTitle(u.jobTitle),
+          // Directory people are only tagged and emailed. App roles are given by a
+          // coordinator, never guessed from a job title.
+          role: local ? local.role : 'stakeholder',
           title: local ? local.title : u.jobTitle || u.department || 'Encalm Team',
           department: u.department || undefined,
           initials: local ? local.initials : initials,
