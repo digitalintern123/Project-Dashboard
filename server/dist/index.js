@@ -1945,6 +1945,26 @@ function broadcastNotification(type, baseId, title, message, projectId5, link) {
     }
   })();
 }
+function notifyProjectWatchers(input) {
+  const project = db.prepare("SELECT lead_id FROM projects WHERE id = ?").get(input.projectId);
+  const rows = db.prepare("SELECT id FROM users WHERE role IN ('hod', 'coordinator') OR (role = 'lead' AND id = ?)").all(project?.lead_id ?? "");
+  const skip = /* @__PURE__ */ new Set([input.actorId, ...input.exclude ?? []]);
+  const recipients = [...new Set(rows.map((r) => r.id))].filter((id2) => !skip.has(id2));
+  db.transaction(() => {
+    for (const userId of recipients) {
+      notificationsRepo.insert({
+        id: `${input.baseId}--${userId}`,
+        type: input.type,
+        title: input.title,
+        message: input.message,
+        project_id: input.projectId,
+        link: `/project/${input.projectId}`,
+        recipient_id: userId
+      });
+    }
+  })();
+  return recipients;
+}
 function fanOutLegacyNotifications() {
   const legacy = notificationsRepo.listLegacy();
   if (legacy.length === 0) return;
@@ -3591,6 +3611,18 @@ function recomputeProjectProgress(projectId5) {
 }
 
 // server/src/services/project-items.service.ts
+var STAGE_LABEL = {
+  upcoming: "Not started",
+  active: "In progress",
+  blocked: "Blocked",
+  complete: "Complete"
+};
+function shownStageState(status, progress) {
+  if (status === "blocked") return "blocked";
+  if (progress >= 100) return "complete";
+  if (progress > 0) return "active";
+  return status === "active" ? "active" : "upcoming";
+}
 var nextOrder = (table, projectId5) => (db.prepare(`SELECT MAX(order_index) AS m FROM ${table} WHERE project_id = ?`).get(projectId5).m ?? -1) + 1;
 function projectName(projectId5) {
   const project = projectsRepo.find(projectId5);
@@ -3663,6 +3695,27 @@ function updateStage(projectId5, stageId2, patch, actor4) {
     decision_required: patch.decisionRequired,
     tagged_users: patch.taggedUsers !== void 0 ? JSON.stringify(patch.taggedUsers) : void 0
   });
+  const oldProgress = Number(stage.progress) || 0;
+  const newProgress = patch.progress ?? oldProgress;
+  const before = shownStageState(stage.status, oldProgress);
+  const after = shownStageState(patch.status ?? stage.status, newProgress);
+  if (newProgress !== oldProgress || before !== after) {
+    const stageName = patch.name || stage.name;
+    const changes = [
+      newProgress !== oldProgress ? `${oldProgress}% \u2192 ${newProgress}%` : "",
+      before !== after ? `${STAGE_LABEL[before]} \u2192 ${STAGE_LABEL[after]}` : ""
+    ].filter(Boolean);
+    const type = after === "complete" && before !== "complete" ? "stage_complete" : after === "blocked" && before !== "blocked" ? "stage_blocked" : "stage_update";
+    const title = type === "stage_complete" ? `Stage complete: ${stageName}` : type === "stage_blocked" ? `Stage blocked: ${stageName}` : `Stage updated: ${stageName}`;
+    notifyProjectWatchers({
+      type,
+      baseId: `notif-stage-${stageId2}-${Date.now()}`,
+      title,
+      message: `${actor4.user.name} updated ${stageName} on ${name}: ${changes.join(", ")}.`,
+      projectId: projectId5,
+      actorId: actor4.user.id
+    });
+  }
   if (patch.decisionRequired) {
     broadcastNotification(
       "system",
@@ -3925,6 +3978,17 @@ function addUpdate(projectId5, input, actor4) {
   });
   projectsRepo.update(projectId5, { last_updated: today });
   const tagged = [...new Set(input.taggedUsers ?? [])];
+  const kind = input.kind || "General";
+  const text2 = input.text.length > 160 ? `${input.text.slice(0, 157)}...` : input.text;
+  notifyProjectWatchers({
+    type: "stage_update",
+    baseId: `notif-update-${id2}`,
+    title: `${kind} update: ${name}`,
+    message: `${actor4.user.name}${input.stage ? ` on ${input.stage}` : ""}: ${text2}`,
+    projectId: projectId5,
+    actorId: actor4.user.id,
+    exclude: tagged
+  });
   if (tagged.length > 0) {
     dispatchTagNotifications({
       taggedUserIds: tagged,
