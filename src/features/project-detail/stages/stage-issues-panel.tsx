@@ -12,6 +12,7 @@ import { todayLabel } from '@/lib/date';
 import { TagUserPopover } from '@/components/tag-user-popover';
 import { getIssueStatusTheme, issueStatusOptions } from '@/lib/issue-theme';
 import { DetailCard } from '../ui';
+import { currentStage } from '@/lib/stage-status';
 
 export function StageIssuesPanel({
   project,
@@ -32,7 +33,7 @@ export function StageIssuesPanel({
     detail: '',
     category: 'Design' as IssueCategory,
     severity: 'Medium' as ProjectIssue['severity'],
-    stage: project.phases.find((phase) => phase.status === 'active')?.name ?? project.phases[0]?.name ?? '',
+    stage: currentStage(project.phases)?.name ?? project.phases[0]?.name ?? '',
     owner: '',
     issueAriseDate: todayLabel(),
     targetClosureDate: '',
@@ -209,7 +210,7 @@ export function StageIssuesPanel({
                 detail: '',
                 category: 'Design',
                 severity: 'Medium',
-                stage: project.phases.find((phase) => phase.status === 'active')?.name ?? project.phases[0]?.name ?? '',
+                stage: currentStage(project.phases)?.name ?? project.phases[0]?.name ?? '',
                 owner: '',
                 dueDate: '',
                 issueAriseDate: todayLabel(),

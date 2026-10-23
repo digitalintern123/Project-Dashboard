@@ -3,6 +3,7 @@ import { ArrowUpRight, CalendarDays, CircleCheck as CheckCircle2, Clock3 } from 
 import type { Project } from '@/data/projects';
 import { initialsOf, leadName } from '@/data/users';
 import { milestoneWindowLabel } from './helpers';
+import { currentStage } from '@/lib/stage-status';
 
 interface PortfolioSidebarProps {
   upcoming: Project[];
@@ -63,8 +64,8 @@ export function PortfolioSidebar({ upcoming, nearCompletionProject, portfolioExp
           <p className="mt-4 text-[11px] leading-5 text-[#517167]">
             <strong className="text-foreground">{nearCompletionProject.name}</strong> is at{' '}
             <strong className="text-foreground">{nearCompletionProject.progress}%</strong> complete in stage &ldquo;
-            {nearCompletionProject.phases.find((phase) => phase.status === 'active')?.name || 'Delivery'}&rdquo;. Target
-            completion is {nearCompletionProject.targetLabel}.
+            {currentStage(nearCompletionProject.phases)?.name || 'Delivery'}&rdquo;. Target completion is{' '}
+            {nearCompletionProject.targetLabel}.
           </p>
           <div className="mt-5 flex items-center justify-between">
             <div className="flex items-center gap-2">

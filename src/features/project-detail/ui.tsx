@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { Check, Target } from 'lucide-react';
 import { type Project } from '@/data/projects';
 import { clampPercent } from './helpers';
+import { effectiveStageStatus } from '@/lib/stage-status';
 
 export function Metric({
   label,
@@ -75,11 +76,11 @@ export function PhaseList({ project }: { project: Project }) {
       {project.phases.map((phase, index) => (
         <div key={`${phase.name}-${index}`} className="group flex items-center gap-3 rounded-xl p-3 hover:bg-[#f8f5ec]">
           <div
-            className={`relative grid size-8 shrink-0 place-items-center rounded-full ${phase.status === 'complete' ? 'bg-[#e4f1ec] text-[#2e7c67]' : phase.status === 'active' ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-muted text-muted-foreground'}`}
+            className={`relative grid size-8 shrink-0 place-items-center rounded-full ${effectiveStageStatus(phase) === 'complete' ? 'bg-[#e4f1ec] text-[#2e7c67]' : effectiveStageStatus(phase) === 'active' ? 'bg-[#f8edcf] text-[#9a711f]' : 'bg-muted text-muted-foreground'}`}
           >
-            {phase.status === 'complete' ? (
+            {effectiveStageStatus(phase) === 'complete' ? (
               <Check size={14} strokeWidth={3} />
-            ) : phase.status === 'active' ? (
+            ) : effectiveStageStatus(phase) === 'active' ? (
               <span className="size-2 rounded-full bg-[#d19b35]" />
             ) : (
               <span className="size-1.5 rounded-full bg-muted-foreground/50" />
@@ -88,14 +89,16 @@ export function PhaseList({ project }: { project: Project }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-4">
-              <p className={`text-[12px] font-bold ${phase.status === 'upcoming' ? 'text-muted-foreground' : ''}`}>
+              <p
+                className={`text-[12px] font-bold ${effectiveStageStatus(phase) === 'upcoming' ? 'text-muted-foreground' : ''}`}
+              >
                 {phase.name}
               </p>
               <span className="font-mono text-[10px] text-muted-foreground">{phase.progress}%</span>
             </div>
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#e7e7dc]">
               <div
-                className={`h-full rounded-full ${phase.status === 'active' ? 'bg-[#d19b35]' : 'bg-[#3d9a7e]'}`}
+                className={`h-full rounded-full ${effectiveStageStatus(phase) === 'active' ? 'bg-[#d19b35]' : 'bg-[#3d9a7e]'}`}
                 style={{ width: `${phase.progress}%` }}
               />
             </div>

@@ -26,7 +26,19 @@ export function StageEditorForm({
     nextAction: phase.nextAction ?? '',
     decisionRequired: phase.decisionRequired ?? '',
   });
-  const set = (key: keyof typeof draft, value: string) => setDraft((current) => ({ ...current, [key]: value }));
+  const set = (key: keyof typeof draft, value: string) =>
+    setDraft((current) => {
+      const next = { ...current, [key]: value };
+      // Keep Status and Progress in step; Blocked is a deliberate call and is left alone.
+      if (key === 'progress' && current.status !== 'blocked') {
+        const progress = Number(value) || 0;
+        if (progress >= 100) next.status = 'complete';
+        else if (progress > 0 && (current.status === 'upcoming' || current.status === 'complete'))
+          next.status = 'active';
+      }
+      if (key === 'status' && value === 'complete') next.progress = '100';
+      return next;
+    });
 
   return (
     <form

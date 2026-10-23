@@ -7,6 +7,7 @@ import { healthTone } from '@/lib/tones';
 import { leadName } from '@/data/users';
 import { sortProjectsIncompleteFirst } from '@/lib/calculations';
 import { PageHeader } from './page-header';
+import { currentStage, effectiveStageStatus } from '@/lib/stage-status';
 
 export function TimelineView() {
   const { projects } = useAppState();
@@ -77,7 +78,7 @@ export function TimelineView() {
           </p>
         ) : (
           filtered.map((project) => {
-            const activePhase = project.phases.find((ph) => ph.status === 'active');
+            const activePhase = currentStage(project.phases);
             return (
               <div
                 key={project.id}
@@ -138,8 +139,8 @@ export function TimelineView() {
 
                   <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                     {project.phases.map((phase, idx) => {
-                      const isComplete = phase.status === 'complete';
-                      const isActive = phase.status === 'active';
+                      const isComplete = effectiveStageStatus(phase) === 'complete';
+                      const isActive = effectiveStageStatus(phase) === 'active';
                       const isBlocked = phase.status === 'blocked';
                       return (
                         <div

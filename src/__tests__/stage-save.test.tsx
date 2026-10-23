@@ -174,4 +174,57 @@ describe('saving a stage', () => {
     });
     expect(screen.getByText('No Site Photographs Uploaded Yet')).toBeInTheDocument();
   });
+
+  it('shows a 100% stage as Complete in green, whatever its saved status', async () => {
+    installFakeServer({
+      session: users.lead,
+      handle: (route) => {
+        if (route === 'GET /api/projects')
+          return json(200, {
+            projects: [
+              {
+                ...sampleProject,
+                phases: [
+                  { id: 'ph-1', name: 'Brief & scope', status: 'active', progress: 100, owner: 'PMO' },
+                  { id: 'ph-2', name: 'Design development', status: 'upcoming', progress: 100, owner: 'Design' },
+                  { id: 'ph-3', name: 'Procurement', status: 'upcoming', progress: 0, owner: 'Sourcing' },
+                ],
+              },
+            ],
+          });
+        return undefined;
+      },
+    });
+    const user = userEvent.setup();
+    await openTimeline(user);
+    for (const name of ['Brief & scope', 'Design development']) {
+      const card = screen.getByText(name, { selector: 'strong' }).closest('div.relative')!;
+      expect(within(card as HTMLElement).getByText(/^Complete/)).toBeInTheDocument();
+      expect(card.querySelector('.bg-\\[\\#3d9a7e\\]')).not.toBeNull();
+    }
+    const procurement = screen.getByText('Procurement', { selector: 'strong' }).closest('div.relative')!;
+    expect(within(procurement as HTMLElement).getByText(/^Not started/)).toBeInTheDocument();
+  });
+
+  it('keeps Status and Progress in step in the stage editor', async () => {
+    installFakeServer({ session: users.lead });
+    const user = userEvent.setup();
+    await openTimeline(user);
+    await user.click(screen.getByRole('button', { name: 'Update stage' }));
+    const form = screen.getByRole('button', { name: 'Save stage update' }).closest('form')!;
+    const progress = within(form).getByLabelText('Progress %');
+    const status = within(form).getByLabelText('Status') as HTMLSelectElement;
+    await user.clear(progress);
+    await user.type(progress, '100');
+    expect(status.value).toBe('complete');
+    await user.clear(progress);
+    await user.type(progress, '30');
+    expect(status.value).toBe('active');
+    await user.selectOptions(status, 'complete');
+    expect((progress as HTMLInputElement).value).toBe('100');
+    await user.selectOptions(status, 'blocked');
+    await user.clear(progress);
+    await user.type(progress, '100');
+    expect(status.value).toBe('blocked');
+  });
 });

@@ -5,6 +5,7 @@ import { calculateWeightedProgress } from '@/lib/calculations';
 import { TagUserPopover } from '@/components/tag-user-popover';
 import { DetailCard } from '../ui';
 import { StageEditorForm } from './stage-editor-form';
+import { effectiveStageStatus } from '@/lib/stage-status';
 
 export function StageTimelinePanel({
   project,
@@ -42,6 +43,7 @@ export function StageTimelinePanel({
         <div className="mt-8 space-y-4">
           {project.phases.map((phase, index) => {
             const stageInfo = weighted.stages[index];
+            const status = effectiveStageStatus(phase);
             return (
               <div
                 key={`${phase.id ?? phase.name}-${index}`}
@@ -50,16 +52,16 @@ export function StageTimelinePanel({
                 <div className="flex gap-3">
                   <span
                     className={`relative grid size-7 shrink-0 place-items-center rounded-full ${
-                      phase.status === 'complete'
+                      status === 'complete'
                         ? 'bg-[#3d9a7e] text-white'
-                        : phase.status === 'active'
+                        : status === 'active'
                           ? 'bg-[#d6a95d] text-[#173e49]'
-                          : phase.status === 'blocked'
+                          : status === 'blocked'
                             ? 'bg-[#fae5e1] text-[#b2473d]'
                             : 'bg-[#eef0ed] text-muted-foreground'
                     }`}
                   >
-                    {phase.status === 'complete' ? (
+                    {status === 'complete' ? (
                       <Check size={12} />
                     ) : (
                       <span className="size-1.5 rounded-full bg-current" />
@@ -70,11 +72,11 @@ export function StageTimelinePanel({
                       <div>
                         <strong className="text-[12px]">{phase.name}</strong>
                         <p className="mt-1 text-[10px] text-muted-foreground">
-                          {phase.status === 'complete'
+                          {status === 'complete'
                             ? 'Complete'
-                            : phase.status === 'active'
+                            : status === 'active'
                               ? 'Current stage'
-                              : phase.status === 'blocked'
+                              : status === 'blocked'
                                 ? 'Blocked'
                                 : 'Not started'}{' '}
                           · Owner {phase.owner}
@@ -96,11 +98,7 @@ export function StageTimelinePanel({
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e7e7dc]">
                       <span
                         className={`block h-full rounded-full ${
-                          phase.status === 'active'
-                            ? 'bg-[#d19b35]'
-                            : phase.status === 'blocked'
-                              ? 'bg-[#d66254]'
-                              : 'bg-[#3d9a7e]'
+                          status === 'active' ? 'bg-[#d19b35]' : status === 'blocked' ? 'bg-[#d66254]' : 'bg-[#3d9a7e]'
                         }`}
                         style={{ width: `${phase.progress}%` }}
                       />

@@ -3,6 +3,7 @@ import { ClipboardCheck } from 'lucide-react';
 import { formatShortDate, type Project } from '@/data/projects';
 import { getProgressVariance, calculateWeightedProgress } from '@/lib/calculations';
 import { ProgressRing, DetailCard } from '../ui';
+import { currentStage } from '@/lib/stage-status';
 
 export function StageProgressPanel({
   project,
@@ -16,7 +17,7 @@ export function StageProgressPanel({
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState('');
   const [milestone, setMilestone] = useState(project.nextMilestone);
-  const activePhase = project.phases.find((phase) => phase.status === 'active');
+  const activePhase = currentStage(project.phases);
   const weighted = calculateWeightedProgress(project.phases);
 
   return (

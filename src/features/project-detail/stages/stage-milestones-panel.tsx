@@ -5,6 +5,7 @@ import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
 import { TagUserPopover } from '@/components/tag-user-popover';
 import { DetailCard } from '../ui';
+import { currentStage } from '@/lib/stage-status';
 
 export function StageMilestonesPanel({
   project,
@@ -30,9 +31,7 @@ export function StageMilestonesPanel({
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
-  const [stage, setStage] = useState(
-    project.phases.find((phase) => phase.status === 'active')?.name ?? project.phases[0]?.name ?? '',
-  );
+  const [stage, setStage] = useState(currentStage(project.phases)?.name ?? project.phases[0]?.name ?? '');
   const [owner, setOwner] = useState('');
   const [approvalRequired, setApprovalRequired] = useState(false);
 

@@ -1,6 +1,7 @@
 import { CRORE, type Project } from '@/data/projects';
 import { getCommercialSummary } from '@/lib/calculations';
 import { healthStyles } from './styles';
+import { currentStage } from '@/lib/stage-status';
 
 export function clampPercent(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -8,7 +9,7 @@ export function clampPercent(value: number): number {
 }
 
 export function activePhaseLabel(project: Project) {
-  return project.phases.find((phase) => phase.status === 'active')?.name ?? 'Not started';
+  return currentStage(project.phases)?.name ?? 'Not started';
 }
 
 /** Converts the crore-denominated inputs, rejecting blank or negative values. */

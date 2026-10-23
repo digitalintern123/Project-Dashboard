@@ -27,6 +27,7 @@ import { ProjectHeader } from './project-header';
 import { ProjectMetrics } from './project-metrics';
 import { ProjectTabBar } from './project-tab-bar';
 import { DeleteProjectDialog } from './delete-project-dialog';
+import { currentStage } from '@/lib/stage-status';
 
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -63,7 +64,7 @@ export default function ProjectDetail() {
   const canEdit = role === 'coordinator' || (role === 'lead' && isAllottedToMe);
   // Tagging (in-app notice + email): coordinators and HODs on any project, leads on their own.
   const canTag = role === 'coordinator' || role === 'hod' || canEdit;
-  const activePhase = project.phases.find((phase) => phase.status === 'active')?.name ?? 'planning';
+  const activePhase = currentStage(project.phases)?.name ?? 'planning';
   const saveProgress = (progress: number, comment: string, nextMilestone: string) => {
     if (!canEdit) {
       toast({

@@ -9,6 +9,7 @@ import { IssuesToolbar } from './issues-toolbar';
 import { ProjectIssuesCard } from './project-issues-card';
 import type { IssueDraft, IssueFilter, IssueScope } from './types';
 import { useIssueRegister } from './use-issue-register';
+import { currentStage } from '@/lib/stage-status';
 
 export function IssuesView() {
   const { projects, canEditProject, updateIssue, addIssue } = useAppState();
@@ -100,7 +101,7 @@ export function IssuesView() {
       detail: '',
       category: 'Design',
       severity: 'Medium',
-      stage: project.phases.find((ph) => ph.status === 'active')?.name ?? project.phases[0]?.name ?? '',
+      stage: currentStage(project.phases)?.name ?? project.phases[0]?.name ?? '',
       owner: '',
       dueDate: '',
       issueAriseDate: todayLabel(),

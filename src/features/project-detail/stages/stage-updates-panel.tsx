@@ -8,6 +8,7 @@ import { TagUserPopover } from '@/components/tag-user-popover';
 import { MentionTextarea } from '@/components/mention-textarea';
 import { resolveTypedMentions } from '@/lib/mention-match';
 import { DetailCard } from '../ui';
+import { currentStage } from '@/lib/stage-status';
 
 export function StageUpdatesPanel({
   project,
@@ -29,9 +30,7 @@ export function StageUpdatesPanel({
   const { user, users: directory, leads } = useAppState();
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
-  const [stage, setStage] = useState(
-    project.phases.find((phase) => phase.status === 'active')?.name ?? project.phases[0]?.name ?? '',
-  );
+  const [stage, setStage] = useState(currentStage(project.phases)?.name ?? project.phases[0]?.name ?? '');
   const [kind, setKind] = useState<'Progress' | 'Decision' | 'Risk' | 'General'>('Progress');
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
 
