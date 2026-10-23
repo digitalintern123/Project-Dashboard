@@ -31,6 +31,43 @@ export function broadcastNotification(
 }
 
 /**
+ * Notifies the people who oversee a project: every HOD and Coordinator, plus the
+ * project's lead. The person who made the change is left out, and so is anyone
+ * in `exclude` (for example people already notified because they were tagged).
+ */
+export function notifyProjectWatchers(input: {
+  type: string;
+  baseId: string;
+  title: string;
+  message: string;
+  projectId: string;
+  actorId: string;
+  exclude?: string[];
+}): string[] {
+  const project = db.prepare('SELECT lead_id FROM projects WHERE id = ?').get(input.projectId) as
+    { lead_id: string | null } | undefined;
+  const rows = db
+    .prepare("SELECT id FROM users WHERE role IN ('hod', 'coordinator') OR (role = 'lead' AND id = ?)")
+    .all(project?.lead_id ?? '') as { id: string }[];
+  const skip = new Set([input.actorId, ...(input.exclude ?? [])]);
+  const recipients = [...new Set(rows.map((r) => r.id))].filter((id) => !skip.has(id));
+  db.transaction(() => {
+    for (const userId of recipients) {
+      notificationsRepo.insert({
+        id: `${input.baseId}--${userId}`,
+        type: input.type,
+        title: input.title,
+        message: input.message,
+        project_id: input.projectId,
+        link: `/project/${input.projectId}`,
+        recipient_id: userId,
+      });
+    }
+  })();
+  return recipients;
+}
+
+/**
  * One-off migration: legacy notifications were global (recipient_id NULL).
  * Copy each one into every inbox and drop the global row, keeping its read flag.
  */

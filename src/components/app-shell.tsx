@@ -27,6 +27,9 @@ import {
   X,
   Clock3,
   Activity,
+  CheckCircle2,
+  OctagonAlert,
+  TrendingUp,
   Server,
   Users,
   Camera,
@@ -551,6 +554,12 @@ export function AppShell({ children }: AppShellProps) {
                       key={notif.id}
                       className={`group relative rounded-xl border p-3.5 transition ${
                         isUnread ? 'border-[#eadcb1] bg-white shadow-sm' : 'border-border/70 bg-white/60 opacity-80'
+                      } ${
+                        notif.type === 'stage_blocked'
+                          ? 'border-l-4 border-l-[#d66254] bg-[#fdf4f2]'
+                          : notif.type === 'stage_complete'
+                            ? 'border-l-4 border-l-[#3d9a7e] bg-[#f3faf6]'
+                            : ''
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -566,7 +575,11 @@ export function AppShell({ children }: AppShellProps) {
                                     ? 'bg-[#edf5f0] text-[#2e7c67]'
                                     : notif.type === 'tagged_task'
                                       ? 'bg-[#f8edcf] text-[#9a711f]'
-                                      : 'bg-[#edf5f0] text-[#2e7c67]'
+                                      : notif.type === 'stage_blocked'
+                                        ? 'bg-[#fae5e1] text-[#b2473d]'
+                                        : notif.type === 'stage_complete'
+                                          ? 'bg-[#3d9a7e] text-white'
+                                          : 'bg-[#edf5f0] text-[#2e7c67]'
                           }`}
                         >
                           {notif.type === 'milestone_overdue' && <AlertTriangle size={14} />}
@@ -575,6 +588,9 @@ export function AppShell({ children }: AppShellProps) {
                           {notif.type === 'tagged_issue' && <Tag size={14} />}
                           {notif.type === 'tagged_task' && <UserCheck size={14} />}
                           {notif.type === 'system' && <Activity size={14} />}
+                          {notif.type === 'stage_update' && <TrendingUp size={14} />}
+                          {notif.type === 'stage_complete' && <CheckCircle2 size={14} />}
+                          {notif.type === 'stage_blocked' && <OctagonAlert size={14} />}
                         </span>
 
                         <div className="min-w-0 flex-1">

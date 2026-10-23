@@ -90,7 +90,16 @@ export type PhotoUploadInput = {
 
 export type NotificationItem = {
   id: string;
-  type: 'milestone_overdue' | 'high_issue' | 'approval_required' | 'system' | 'tagged_issue' | 'tagged_task';
+  type:
+    | 'milestone_overdue'
+    | 'high_issue'
+    | 'approval_required'
+    | 'system'
+    | 'tagged_issue'
+    | 'tagged_task'
+    | 'stage_update'
+    | 'stage_complete'
+    | 'stage_blocked';
   title: string;
   message: string;
   projectId?: string;
