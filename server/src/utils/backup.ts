@@ -509,21 +509,24 @@ export function restoreDatabaseFromJSON(data: { projects?: ExportedProject[]; no
 }
 
 /**
- * On server boot, if the database has fewer than 68 projects, automatically restores from snapshot.
+ * On server boot, fills an empty database (a fresh install) from the snapshot
+ * file. A database that has any projects is never touched: the snapshot can be
+ * older than the live data (it is not rewritten when the server is stopped
+ * without notice, as IIS does), and restoring it would undo recent changes.
  */
 export function autoRestoreSnapshotIfEmpty(): void {
   try {
     const row = db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number };
-    if (row && row.count < 68) {
+    if (row && row.count === 0) {
       if (fs.existsSync(SNAPSHOT_FILE_PATH)) {
         const raw = fs.readFileSync(SNAPSHOT_FILE_PATH, 'utf-8');
         const data = JSON.parse(raw);
-        if (Array.isArray(data.projects) && data.projects.length >= 68) {
+        if (Array.isArray(data.projects) && data.projects.length > 0) {
           logger.info(
-            `[Auto-Restore] SQLite database has ${row.count} projects (< 68). Auto-restoring ${data.projects.length} authentic facilities from ${SNAPSHOT_FILE_PATH}...`,
+            `[Auto-Restore] Database is empty. Restoring ${data.projects.length} projects from ${SNAPSHOT_FILE_PATH}...`,
           );
           restoreDatabaseFromJSON(data);
-          logger.info(`[Auto-Restore] Successfully restored full portfolio with ${data.projects.length} projects!`);
+          logger.info(`[Auto-Restore] Restored ${data.projects.length} projects.`);
         }
       }
     }

@@ -60,10 +60,30 @@ describe('snapshots', () => {
     expect(restoreDatabaseFromJSON({ projects: [] }).count).toBe(0);
   });
 
-  it('auto-restores a full snapshot when the database has fewer than 68 projects', () => {
+  it('never overwrites live data with an older snapshot on start-up', () => {
+    // The live database has a stage at 67%; the snapshot on disk is older (0%) and
+    // holds the full portfolio, as on a server that was stopped without notice.
+    db.prepare("UPDATE phases SET progress = 67 WHERE project_id = 'bk-1'").run();
+    const stale = getFullProjectRecord('bk-1')!;
+    stale.phases = stale.phases.map((ph) => ({ ...ph, progress: 0 }));
+    const committed = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, '../data/portfolio-database.json'), 'utf-8'),
+    ) as { projects: unknown[] };
+    fs.writeFileSync(SNAPSHOT_FILE_PATH, JSON.stringify({ projects: [stale, ...committed.projects] }));
+    const before = count();
+    expect(before).toBeLessThan(68);
+
+    autoRestoreSnapshotIfEmpty();
+
+    expect(count()).toBe(before);
+    expect(db.prepare("SELECT progress FROM phases WHERE project_id = 'bk-1'").get()).toEqual({ progress: 67 });
+  });
+
+  it('restores the snapshot only into an empty database (a fresh install)', () => {
     const committed = path.resolve(__dirname, '../data/portfolio-database.json');
     fs.copyFileSync(committed, SNAPSHOT_FILE_PATH);
-    expect(count()).toBeLessThan(68);
+    db.prepare('DELETE FROM projects').run();
+    expect(count()).toBe(0);
     autoRestoreSnapshotIfEmpty();
     expect(count()).toBeGreaterThanOrEqual(68);
   });
