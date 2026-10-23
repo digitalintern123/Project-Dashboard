@@ -4894,6 +4894,11 @@ function createApp() {
       credentials: true
     })
   );
+  app2.use("/api", (req, _res, next) => {
+    const override = req.get("X-HTTP-Method-Override")?.toUpperCase();
+    if (req.method === "POST" && override && ["PATCH", "PUT", "DELETE"].includes(override)) req.method = override;
+    next();
+  });
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1e3,
     max: envInt("API_RATE_LIMIT", 600),
