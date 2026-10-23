@@ -18,6 +18,8 @@ export function onUnauthorized(handler: (() => void) | null): void {
 
 const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
+const OVERRIDDEN_METHODS = new Set(['PATCH', 'PUT', 'DELETE']);
+
 function send(path: string, options: RequestInit): Promise<Response> {
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
@@ -26,6 +28,13 @@ function send(path: string, options: RequestInit): Promise<Response> {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...((options.headers as Record<string, string>) || {}),
   };
+  // Some hosting firewalls (Plesk's ModSecurity) refuse PATCH and DELETE outright.
+  // Send them as POST with the real method in a header; the server restores it.
+  const method = (options.method || 'GET').toUpperCase();
+  if (OVERRIDDEN_METHODS.has(method)) {
+    headers['X-HTTP-Method-Override'] = method;
+    options = { ...options, method: 'POST' };
+  }
   const url = path.startsWith('http') ? path : `${apiBase}${path}`;
   return fetch(url, { ...options, headers, credentials: 'include' });
 }

@@ -90,7 +90,8 @@ export function installFakeServer(options: Options = {}) {
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = new URL(String(input), 'http://localhost');
-    const method = (init.method || 'GET').toUpperCase();
+    const override = (init.headers as Record<string, string> | undefined)?.['X-HTTP-Method-Override'];
+    const method = (init.method === 'POST' && override ? override : init.method || 'GET').toUpperCase();
     const body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
     state.requests.push({ method, path: url.pathname, body, headers: (init.headers || {}) as Record<string, string> });
     const route = `${method} ${url.pathname}`;
