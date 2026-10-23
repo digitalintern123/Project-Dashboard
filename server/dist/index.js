@@ -890,16 +890,16 @@ function restoreDatabaseFromJSON(data) {
 function autoRestoreSnapshotIfEmpty() {
   try {
     const row = db.prepare("SELECT COUNT(*) as count FROM projects").get();
-    if (row && row.count < 68) {
+    if (row && row.count === 0) {
       if (fs4.existsSync(SNAPSHOT_FILE_PATH)) {
         const raw = fs4.readFileSync(SNAPSHOT_FILE_PATH, "utf-8");
         const data = JSON.parse(raw);
-        if (Array.isArray(data.projects) && data.projects.length >= 68) {
+        if (Array.isArray(data.projects) && data.projects.length > 0) {
           logger.info(
-            `[Auto-Restore] SQLite database has ${row.count} projects (< 68). Auto-restoring ${data.projects.length} authentic facilities from ${SNAPSHOT_FILE_PATH}...`
+            `[Auto-Restore] Database is empty. Restoring ${data.projects.length} projects from ${SNAPSHOT_FILE_PATH}...`
           );
           restoreDatabaseFromJSON(data);
-          logger.info(`[Auto-Restore] Successfully restored full portfolio with ${data.projects.length} projects!`);
+          logger.info(`[Auto-Restore] Restored ${data.projects.length} projects.`);
         }
       }
     }
