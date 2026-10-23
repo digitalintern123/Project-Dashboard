@@ -197,7 +197,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const writesInFlight = useRef(0);
   const writeCount = useRef(0);
   const latestWrite = useRef(new Map<string, number>());
-  const writeQueue = useRef(new Map<string, Promise<void>>());
+  const writeQueue = useRef(new Map<string, Promise<unknown>>());
+
+  /**
+   * Runs a save for a project once its previous save has finished, so the server
+   * applies them in order, and marks it in flight so refreshes skip stale data.
+   * Resolves with the server's reply; `isLatest` says no newer save has started.
+   */
+  const trackWrite = useCallback(<T,>(projectId: string, send: () => Promise<T>) => {
+    const seq = ++writeCount.current;
+    latestWrite.current.set(projectId, seq);
+    writesInFlight.current++;
+    const isLatest = () => latestWrite.current.get(projectId) === seq;
+    const result = (writeQueue.current.get(projectId) ?? Promise.resolve()).then(send).finally(() => {
+      writesInFlight.current--;
+    });
+    writeQueue.current.set(
+      projectId,
+      result.catch(() => undefined),
+    );
+    return { result, isLatest };
+  }, []);
 
   // Fetch full project list from backend database (server is the sole source of truth)
   const refreshProjects = useCallback(async () => {
@@ -282,15 +302,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [refreshLeads, refreshUsers],
   );
 
-  const allotProject = useCallback(async (projectId: string, leadId: string) => {
-    try {
-      const res = await api.projects.allot(projectId, leadId);
-      setProjectState((prev) => prev.map((p) => (p.id === projectId ? normaliseProject(res.project) : p)));
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: errorMessage(err, 'Failed to allot project') };
-    }
-  }, []);
+  const allotProject = useCallback(
+    async (projectId: string, leadId: string) => {
+      try {
+        const res = await trackWrite(projectId, () => api.projects.allot(projectId, leadId)).result;
+        setProjectState((prev) => prev.map((p) => (p.id === projectId ? normaliseProject(res.project) : p)));
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: errorMessage(err, 'Failed to allot project') };
+      }
+    },
+    [trackWrite],
+  );
 
   const clearSession = useCallback(() => {
     setRole(null);
@@ -436,23 +459,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * Sends a save for a project once its previous save has finished, so the server
-   * applies them in order. The server's copy replaces the screen only when no newer
-   * save has started; a failed save reloads the project and says it was not saved.
+   * Sends a save made on screen already. The server's copy replaces the screen only
+   * when no newer save has started; a failed save reloads the project and says it
+   * was not saved. Resolves to whether it was saved.
    */
-  const syncWrite = useCallback((projectId: string, what: string, send: () => Promise<unknown>) => {
-    const seq = ++writeCount.current;
-    latestWrite.current.set(projectId, seq);
-    writesInFlight.current++;
-    const showServerCopy = (project: Project) => {
-      if (latestWrite.current.get(projectId) !== seq) return;
-      const saved = normaliseProject(project);
-      setProjectState((projects) => projects.map((p) => (p.id === projectId ? saved : p)));
-    };
-    const run = async () => {
+  const syncWrite = useCallback(
+    async (projectId: string, what: string, send: () => Promise<unknown>): Promise<boolean> => {
+      const { result, isLatest } = trackWrite(projectId, send);
+      const showServerCopy = (project: Project) => {
+        if (!isLatest()) return;
+        const saved = normaliseProject(project);
+        setProjectState((projects) => projects.map((p) => (p.id === projectId ? saved : p)));
+      };
       try {
-        const res = (await send()) as { project?: Project } | undefined;
+        const res = (await result) as { project?: Project } | undefined;
         if (res?.project) showServerCopy(res.project);
+        return true;
       } catch (err) {
         toast({
           variant: 'destructive',
@@ -465,13 +487,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         } catch {
           // The next refresh restores it.
         }
-      } finally {
-        writesInFlight.current--;
+        return false;
       }
-    };
-    const next = (writeQueue.current.get(projectId) ?? Promise.resolve()).then(run);
-    writeQueue.current.set(projectId, next);
-  }, []);
+    },
+    [trackWrite],
+  );
 
   const updateProject = useCallback(
     (id: string, patch: Partial<Project>): boolean => {
@@ -611,7 +631,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       });
 
       try {
-        const res = await api.projects.create(normalised);
+        const res = await trackWrite(normalised.id, () => api.projects.create(normalised)).result;
         if (res?.project) {
           const saved = normaliseProject(res.project);
           setProjectState((projects) => projects.map((p) => (p.id === project.id || p.id === saved.id ? saved : p)));
@@ -624,14 +644,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
-    [refreshProjects, refreshNotifications],
+    [refreshProjects, refreshNotifications, trackWrite],
   );
 
   const deleteProject = useCallback(
     async (id: string): Promise<boolean> => {
       setProjectState((prev) => prev.filter((p) => p.id !== id));
       try {
-        await api.projects.delete(id);
+        await trackWrite(id, () => api.projects.delete(id)).result;
         await refreshNotifications();
         return true;
       } catch (err) {
@@ -640,7 +660,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
-    [refreshProjects, refreshNotifications],
+    [refreshProjects, refreshNotifications, trackWrite],
   );
 
   const addMilestone = useCallback(
@@ -684,10 +704,25 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [patchById, projectState, syncWrite],
   );
 
+  const milestoneTitle = useCallback(
+    (projectId: string, milestoneId: string) =>
+      projectState
+        .find((p) => p.id === projectId)
+        ?.milestones.find((m) => m.id === milestoneId || m.title === milestoneId)?.title ?? milestoneId,
+    [projectState],
+  );
+
   const approveMilestone = useCallback(
     async (projectId: string, milestoneId: string, status: 'Approved' | 'Rejected'): Promise<boolean> => {
       // Governance approval is strictly reserved for Coordinator
-      if (role !== 'coordinator') return false;
+      if (role !== 'coordinator') {
+        toast({
+          variant: 'destructive',
+          title: 'Not allowed',
+          description: 'Only Project Coordinators can approve milestones.',
+        });
+        return false;
+      }
 
       setProjectState((projects) =>
         projects.map((project) => {
@@ -701,21 +736,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }),
       );
 
-      try {
-        await api.milestones.update(projectId, milestoneId, { approvalStatus: status });
-        refreshNotifications();
-        return true;
-      } catch {
-        return false;
-      }
+      const verb = status === 'Approved' ? 'approval' : 'rejection';
+      const saved = await syncWrite(
+        projectId,
+        `the ${verb} of milestone "${milestoneTitle(projectId, milestoneId)}"`,
+        () => api.milestones.update(projectId, milestoneId, { approvalStatus: status }),
+      );
+      if (saved) refreshNotifications();
+      return saved;
     },
-    [role, refreshNotifications],
+    [role, refreshNotifications, syncWrite, milestoneTitle],
   );
 
   const completeMilestone = useCallback(
     async (projectId: string, milestoneId: string): Promise<boolean> => {
       // Only the assigned project lead or coordinator can complete milestones
-      if (!canEditProject(projectId)) return false;
+      if (!canEditProject(projectId)) {
+        toast({
+          variant: 'destructive',
+          title: 'Not allowed',
+          description: 'You can only complete milestones on projects you can edit.',
+        });
+        return false;
+      }
 
       const today = new Date().toISOString().split('T')[0];
       setProjectState((projects) =>
@@ -730,15 +773,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }),
       );
 
-      try {
-        await api.milestones.update(projectId, milestoneId, { status: 'complete', completedDate: today });
-        refreshNotifications();
-        return true;
-      } catch {
-        return false;
-      }
+      const saved = await syncWrite(
+        projectId,
+        `milestone "${milestoneTitle(projectId, milestoneId)}" as complete`,
+        () => api.milestones.update(projectId, milestoneId, { status: 'complete', completedDate: today }),
+      );
+      if (saved) refreshNotifications();
+      return saved;
     },
-    [canEditProject, refreshNotifications],
+    [canEditProject, refreshNotifications, syncWrite, milestoneTitle],
   );
 
   const addIssue = useCallback(
@@ -801,7 +844,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const addMultiplePhotos = useCallback(
     async (projectId: string, photoList: PhotoUploadInput[]): Promise<SitePhoto[]> => {
-      const res = await api.photos.upload(projectId, photoList);
+      const res = await trackWrite(projectId, () => api.photos.upload(projectId, photoList)).result;
       if (res && res.photos && res.photos.length > 0) {
         patchById(projectId, (p) => ({
           ...p,
@@ -813,7 +856,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
       return [];
     },
-    [patchById, refreshNotifications],
+    [patchById, refreshNotifications, trackWrite],
   );
 
   const addPhoto = useCallback(
@@ -827,7 +870,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const deletePhoto = useCallback(
     async (projectId: string, photoId: string): Promise<boolean> => {
       try {
-        await api.photos.delete(projectId, photoId);
+        await trackWrite(projectId, () => api.photos.delete(projectId, photoId)).result;
         patchById(projectId, (p) => ({
           ...p,
           photos: (p.photos || []).filter((ph) => ph.id !== photoId),
@@ -838,7 +881,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
-    [patchById],
+    [patchById, trackWrite],
   );
 
   const exportBackup = useCallback(async () => {

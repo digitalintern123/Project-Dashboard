@@ -90,4 +90,88 @@ describe('saving a stage', () => {
     expect(screen.getAllByText('65%')).not.toHaveLength(0);
     expect(serverProgress).toBe(65);
   });
+
+  it('says so and keeps "Pending" when a milestone approval is refused', async () => {
+    const pending = {
+      ...sampleProject,
+      milestones: [
+        {
+          id: 'ms-1',
+          title: 'Design freeze',
+          date: '2026-12-01',
+          status: 'upcoming',
+          approvalRequired: true,
+          approvalStatus: 'Pending',
+        },
+      ],
+    };
+    installFakeServer({
+      session: users.coordinator,
+      handle: (route) => {
+        if (route === 'GET /api/projects') return json(200, { projects: [pending] });
+        if (route === 'GET /api/projects/delhi-lounge') return json(200, { project: pending });
+        if (route === 'PATCH /api/projects/delhi-lounge/milestones/ms-1')
+          return json(400, { error: 'Validation failed' });
+        return undefined;
+      },
+    });
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '/project/delhi-lounge');
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: /Delhi Lounge/ }, { timeout: 3000 })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Milestones/ }));
+    await user.click(screen.getAllByRole('button', { name: /Approve/ })[0]);
+
+    expect(await screen.findByText('Couldn\'t save the approval of milestone "Design freeze"')).toBeInTheDocument();
+    expect(screen.getAllByText(/Approval · Pending/)).not.toHaveLength(0);
+    expect(screen.queryByText(/Approval · Approved/)).not.toBeInTheDocument();
+  });
+
+  it('keeps a deleted photo deleted when an older background refresh arrives after it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const photo = {
+      id: 'ph-photo-1',
+      projectId: 'delhi-lounge',
+      url: '/uploads/delhi-lounge/site.webp',
+      caption: 'Site walk',
+      uploadedBy: 'Lee Lead',
+    };
+    let photos = [photo];
+    let releaseRefresh: () => void = () => {};
+    let loads = 0;
+    installFakeServer({
+      session: users.lead,
+      handle: (route) => {
+        if (route === 'GET /api/projects') {
+          loads++;
+          const reply = json(200, { projects: [{ ...sampleProject, photos }] });
+          if (loads === 1) return reply;
+          return new Promise<Response>((resolve) => {
+            releaseRefresh = () => resolve(reply);
+          });
+        }
+        if (route === 'DELETE /api/projects/delhi-lounge/photos/ph-photo-1') {
+          photos = [];
+          return json(200, { message: 'deleted' });
+        }
+        return undefined;
+      },
+    });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    window.history.replaceState(null, '', '/project/delhi-lounge');
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: /Delhi Lounge/ }, { timeout: 3000 })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Site Photograph/ }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(15_000); // the background refresh starts, still with the photo
+    });
+    await user.click(screen.getByRole('button', { name: 'Delete Photograph' }));
+    expect(await screen.findByText('No Site Photographs Uploaded Yet')).toBeInTheDocument();
+
+    await act(async () => {
+      releaseRefresh(); // the old copy, with the photo, lands after the delete
+    });
+    expect(screen.getByText('No Site Photographs Uploaded Yet')).toBeInTheDocument();
+  });
 });
