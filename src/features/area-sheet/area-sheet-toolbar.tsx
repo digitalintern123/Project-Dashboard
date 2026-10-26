@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Search } from 'lucide-react';
-import { locations, type Location } from '@/data/projects';
+import type { Location } from '@/data/projects';
 import type { AreaSection } from './sheet-items';
 
 interface AreaSheetToolbarProps {
@@ -12,6 +12,7 @@ interface AreaSheetToolbarProps {
   setSelectedLocation: Dispatch<SetStateAction<'All' | Location>>;
   selectedStatus: string;
   setSelectedStatus: Dispatch<SetStateAction<string>>;
+  locations: string[];
 }
 
 export function AreaSheetToolbar({
@@ -23,6 +24,7 @@ export function AreaSheetToolbar({
   setSelectedLocation,
   selectedStatus,
   setSelectedStatus,
+  locations,
 }: AreaSheetToolbarProps) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3.5 sm:flex-row sm:flex-wrap items-center shadow-xs">

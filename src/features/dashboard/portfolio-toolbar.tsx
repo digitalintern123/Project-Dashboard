@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { ListFilter as Filter, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   healthOptions,
-  locations,
+  locationOptions,
   projectStatuses,
   type Category,
   type Health,
@@ -94,7 +94,7 @@ export function PortfolioToolbar({
             className="h-8 rounded-lg border border-border bg-background px-2 text-[11px] font-semibold outline-none"
           >
             <option value="All">All locations</option>
-            {locations.map((value) => (
+            {locationOptions(projects).map((value) => (
               <option key={value} value={value}>
                 {value}
               </option>

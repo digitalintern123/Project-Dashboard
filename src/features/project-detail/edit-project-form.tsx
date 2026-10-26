@@ -2,15 +2,15 @@ import { useState, type FormEvent } from 'react';
 import {
   CRORE,
   projectStatuses,
-  locations,
+  locationOptions,
   categories,
   type Health,
   type Project,
   type ProjectStatus,
-  type Location,
   type Category,
 } from '@/data/projects';
 import { useAppState } from '@/state/app-state';
+import { LocationField } from '@/components/location-field';
 import { formatFullDate, isValidIsoDate } from '@/lib/date';
 import { healthStyles } from './styles';
 
@@ -23,10 +23,10 @@ export function EditProjectForm({
   onCancel: () => void;
   onSave: (patch: Partial<Project>) => void;
 }) {
-  const { leads, role } = useAppState();
+  const { leads, role, projects } = useAppState();
   const [name, setName] = useState(project.name);
   const [code, setCode] = useState(project.code || '');
-  const [location, setLocation] = useState<Location>(project.location);
+  const [location, setLocation] = useState(project.location);
   const [category, setCategory] = useState<Category>(project.category);
   const [status, setStatus] = useState<ProjectStatus>(project.status || 'Yet to start');
   const [health, setHealth] = useState<Health>(project.health);
@@ -50,6 +50,10 @@ export function EditProjectForm({
     event.preventDefault();
     if (!name.trim()) {
       setError('Project name cannot be empty.');
+      return;
+    }
+    if (!location.trim()) {
+      setError('Enter the location.');
       return;
     }
     if (!isValidIsoDate(targetDate)) {
@@ -157,20 +161,16 @@ export function EditProjectForm({
               ))}
             </select>
           </label>
-          <label>
+          <div>
             <span className="mb-1.5 block text-[10px] font-bold">Location</span>
-            <select
+            <LocationField
               value={location}
-              onChange={(e) => setLocation(e.target.value as Location)}
+              onChange={setLocation}
+              options={locationOptions(projects)}
+              required
               className="h-9 w-full rounded-lg border border-border bg-white px-3 text-[11px]"
-            >
-              {locations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           <label>
             <span className="mb-1.5 block text-[10px] font-bold">Category</span>
             <select

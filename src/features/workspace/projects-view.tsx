@@ -3,7 +3,8 @@ import { Link } from 'wouter';
 import { Plus, Search } from 'lucide-react';
 import {
   healthOptions,
-  locations,
+  locationOptions,
+  type Location,
   projectStatuses,
   type Category,
   type Health,
@@ -19,7 +20,7 @@ export function ProjectsView({ mine = false }: { mine?: boolean }) {
   const { projects, user } = useAppState();
   const [search, setSearch] = useState('');
   const [health, setHealth] = useState<'All' | Health>('All');
-  const [location, setLocation] = useState<'All' | (typeof locations)[number]>('All');
+  const [location, setLocation] = useState<'All' | Location>('All');
   const [category, setCategory] = useState<'All' | Category>('All');
   const [status, setStatus] = useState<'All' | ProjectStatus>('All');
 
@@ -100,7 +101,7 @@ export function ProjectsView({ mine = false }: { mine?: boolean }) {
           className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold"
         >
           <option value="All">All locations</option>
-          {locations.map((item) => (
+          {locationOptions(projects).map((item) => (
             <option key={item}>{item}</option>
           ))}
         </select>

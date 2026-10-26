@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { ArrowUpRight, Search } from 'lucide-react';
-import { categories, locations, type Category } from '@/data/projects';
+import { categories, locationOptions, type Category, type Location } from '@/data/projects';
 import { useAppState } from '@/state/app-state';
 import { healthTone } from '@/lib/tones';
 import { leadName } from '@/data/users';
@@ -12,7 +12,7 @@ import { currentStage, effectiveStageStatus } from '@/lib/stage-status';
 export function TimelineView() {
   const { projects } = useAppState();
   const [search, setSearch] = useState('');
-  const [location, setLocation] = useState<'All' | (typeof locations)[number]>('All');
+  const [location, setLocation] = useState<'All' | Location>('All');
   const [category, setCategory] = useState<'All' | Category>('All');
 
   const filtered = useMemo(() => {
@@ -51,7 +51,7 @@ export function TimelineView() {
           className="h-10 rounded-xl border border-border bg-background px-3 text-[11px] font-semibold"
         >
           <option value="All">All locations</option>
-          {locations.map((loc) => (
+          {locationOptions(projects).map((loc) => (
             <option key={loc} value={loc}>
               {loc}
             </option>

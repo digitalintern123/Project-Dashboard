@@ -89,6 +89,13 @@ describe('POST /api/projects', () => {
 });
 
 describe('PATCH /api/projects/:id', () => {
+  it('saves a location that is not one of the standard places', async () => {
+    const res = await leadA.patch('/api/projects/proj-p1').send({ location: 'Navi Mumbai' });
+    expect(res.status).toBe(200);
+    const read = await hod.get('/api/projects/proj-p1');
+    expect(read.body.project.location).toBe('Navi Mumbai');
+  });
+
   it('updates fields, clamps progress and keeps the manual status', async () => {
     const res = await leadA.patch('/api/projects/proj-p1').send({
       name: 'Renamed',

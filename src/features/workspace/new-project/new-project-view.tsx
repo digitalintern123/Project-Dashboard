@@ -13,7 +13,7 @@ import { ProjectCreated } from './project-created';
 import type { NewProjectForm } from './types';
 
 export function NewProjectView() {
-  const { addProject, user, canEdit, role, leads } = useAppState();
+  const { addProject, user, canEdit, role, leads, projects } = useAppState();
   const { toast } = useToast();
   const [createdName, setCreatedName] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -71,6 +71,7 @@ export function NewProjectView() {
     const projectedCrore = Number(form.projectedCost || form.aop);
 
     if (!name) found.push('Project name is required.');
+    if (!form.location.trim()) found.push('Enter the location.');
     if (!isValidIsoDate(form.startDate)) found.push('Enter a valid start date.');
     if (!isValidIsoDate(form.targetDate)) found.push('Enter a valid target completion date.');
     if (!Number.isFinite(aopCrore) || aopCrore < 0) found.push('Approved Budget (AOP) must be a number of 0 or more.');
@@ -92,14 +93,24 @@ export function NewProjectView() {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
-    const id = `${form.location.toLowerCase()}-${slug || 'project'}-${Date.now()}`;
+    const place =
+      form.location
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'site';
+    const id = `${place}-${slug || 'project'}-${Date.now()}`;
 
     const created = await addProject({
       id,
       name,
       location: form.location,
       category: form.category,
-      code: `${form.location.slice(0, 3).toUpperCase()}-NEW-${new Date().getFullYear() % 100}`,
+      code: `${
+        form.location
+          .replace(/[^a-z]/gi, '')
+          .slice(0, 3)
+          .toUpperCase() || 'PRJ'
+      }-NEW-${new Date().getFullYear() % 100}`,
       health: progressNum > 0 ? 'On track' : 'Not started',
       status: form.status,
       progress: progressNum,
@@ -167,7 +178,7 @@ export function NewProjectView() {
           </div>
         )}
 
-        <BasicInfoSection form={form} set={set} role={role} leads={leads} />
+        <BasicInfoSection form={form} set={set} role={role} leads={leads} projects={projects} />
 
         <AreaCommercialsSection form={form} set={set} />
 

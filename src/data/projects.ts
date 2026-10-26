@@ -1,6 +1,7 @@
 import { formatDayMonth } from '@/lib/date';
 
-export type Location = 'Delhi' | 'Hyderabad' | 'Goa' | 'Bhogapuram' | 'Vizag';
+/** Any place name. `locations` lists the standard ones; users can add others. */
+export type Location = string;
 export type Category = 'Hotel' | 'Lounge' | 'Kitchen' | 'Encalm Eats' | 'Other';
 export type Health = 'On track' | 'At risk' | 'Delayed' | 'Not started';
 export type ProjectStatus =
@@ -341,6 +342,31 @@ export const defaultDemoProjects: Project[] = [];
 
 export const projects: Project[] = [];
 export const locations: Location[] = ['Delhi', 'Hyderabad', 'Goa', 'Bhogapuram', 'Vizag'];
+
+/** Trims, collapses spaces and capitalises each word: "  navi  mumbai " → "Navi Mumbai". */
+export function cleanLocation(text: string): string {
+  return text
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/(^|[\s-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
+/**
+ * Standard locations first, then any other location a project already uses
+ * (A–Z). Duplicates that differ only in letter case are listed once.
+ */
+export function locationOptions(projects: { location?: string }[]): string[] {
+  const seen = new Set(locations.map((l) => l.toLowerCase()));
+  const extra: string[] = [];
+  for (const p of projects) {
+    const loc = (p.location || '').trim();
+    if (!loc || seen.has(loc.toLowerCase())) continue;
+    seen.add(loc.toLowerCase());
+    extra.push(loc);
+  }
+  extra.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  return [...locations, ...extra];
+}
 export const categories: Category[] = ['Hotel', 'Lounge', 'Kitchen', 'Encalm Eats', 'Other'];
 export const healthOptions: Health[] = ['On track', 'At risk', 'Delayed', 'Not started'];
 

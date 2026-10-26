@@ -1,4 +1,5 @@
-import { categories, locations, projectStatuses } from '@/data/projects';
+import { categories, locationOptions, projectStatuses, type Project } from '@/data/projects';
+import { LocationField } from '@/components/location-field';
 import type { User } from '@/data/users';
 import type { AppRole } from '@/state/app-state';
 import type { NewProjectForm, SetNewProjectField } from './types';
@@ -8,10 +9,11 @@ type BasicInfoSectionProps = {
   set: SetNewProjectField;
   role: AppRole | null;
   leads: User[];
+  projects: Project[];
 };
 
 /** Section 1: project name, lead allotment, location, category, progress, status, and dates. */
-export function BasicInfoSection({ form, set, role, leads }: BasicInfoSectionProps) {
+export function BasicInfoSection({ form, set, role, leads, projects }: BasicInfoSectionProps) {
   return (
     <section className="rounded-2xl border border-border bg-card p-5 md:p-7">
       <div className="border-b border-border/70 pb-4">
@@ -45,20 +47,16 @@ export function BasicInfoSection({ form, set, role, leads }: BasicInfoSectionPro
             </select>
           </label>
         )}
-        <label>
+        <div>
           <span className="mb-2 block text-[11px] font-bold">Location *</span>
-          <select
+          <LocationField
             value={form.location}
-            onChange={(event) => set('location', event.target.value)}
+            onChange={(value) => set('location', value)}
+            options={locationOptions(projects)}
+            required
             className="h-11 w-full rounded-xl border border-border bg-background px-3 text-[12px]"
-          >
-            {locations.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
         <label>
           <span className="mb-2 block text-[11px] font-bold">Category *</span>
           <select

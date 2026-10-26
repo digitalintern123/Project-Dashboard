@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import { useAppState } from '@/state/app-state';
-import type { Location } from '@/data/projects';
+import { locationOptions, type Location } from '@/data/projects';
 import { useToast } from '@/hooks/use-toast';
 import { AreaSectionTable, type AreaSectionConfig } from './area-section-table';
 import { AreaSheetHeader } from './area-sheet-header';
@@ -101,6 +101,7 @@ export default function AreaSheet() {
         setSelectedLocation={setSelectedLocation}
         selectedStatus={selectedStatus}
         setSelectedStatus={setSelectedStatus}
+        locations={locationOptions(projects)}
       />
 
       <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">

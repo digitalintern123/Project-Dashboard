@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { Camera, Search, Upload } from 'lucide-react';
-import { locations, photoCategories, type Project, type SitePhoto, photoThumbnail } from '@/data/projects';
+import { locationOptions, photoCategories, type Project, type SitePhoto, photoThumbnail } from '@/data/projects';
 import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
 import { formatFullDate } from '@/lib/date';
@@ -99,7 +99,7 @@ export function SitePhotographsView() {
             className="h-9 rounded-xl border border-border bg-background px-3 text-[11px] outline-none"
           >
             <option value="all">All Locations</option>
-            {locations.map((loc) => (
+            {locationOptions(projects).map((loc) => (
               <option key={loc} value={loc}>
                 {loc}
               </option>
