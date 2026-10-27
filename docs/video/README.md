@@ -32,8 +32,11 @@ node docs/video/assemble.cjs                     # → .out/out/Encalm-Projects-
 - Subtitles and voice are placed at each beat's real start time.
 
 ## Adding the voiceover
-1. Put one WAV per beat in `.out/audio/<chapter>-<beat>.wav` (e.g. `7-2.wav`), and write their lengths in seconds to `.out/audio/durations.json` as `{ "7-2": 6.41, … }`.
-2. Re-record (`reset.sh`, then the Playwright command) so the scenes match the clip lengths, then run `encode.sh` and `assemble.cjs`.
-3. `assemble.cjs` mixes each clip at its beat's start, normalises loudness to -16 LUFS, and writes `.out/out/Encalm-Projects-Tutorial.mp4`.
+The voice is a cloned, consenting person's voice, made with OmniVoice ([VoiceStudio](https://github.com/debpalash/VoiceStudio)'s default engine) run locally. Its reference recording is described in `voice-reference.md`. **Don't commit voice recordings**; they are personal data.
 
-The planned voice is a cloned, consenting colleague's voice via [VoiceStudio](https://github.com/debpalash/VoiceStudio), run locally. Its reference recording is described in `voice-reference.md`. **Don't commit voice recordings**; they are personal data.
+1. Install the tools in a Python venv: `pip install omnivoice faster-whisper`. A GPU isn't needed, but on a 4-core CPU each beat takes 2–4 minutes (about 3 hours for all 62).
+2. Cut 10–15 s of the reference recording at a sentence break: `ffmpeg -i memo.m4a -ss 0.3 -to 14.8 -ac 1 -ar 24000 ref.wav`.
+3. `python docs/video/voice-gen.py ref.wav "<exactly what is said in ref.wav>"`: one clip per beat in `.out/audio/raw/`. Re-running it skips clips that already exist.
+4. `python docs/video/voice-check.py`: transcribes each clip, flags dropped or extra words, trims edge silence into `.out/audio/<chapter>-<beat>.wav` and writes `.out/audio/durations.json`. The model sometimes drops a beat's first words, so listen to flagged beats, regenerate them with `voice-gen.py ref.wav "…" 7-1 9-2`, and check again.
+5. Re-record (`reset.sh`, then the Playwright command) so the scenes match the clip lengths, then run `encode.sh`, `cards.cjs` and `assemble.cjs`.
+6. `assemble.cjs` mixes each clip at its beat's start, normalises loudness to -16 LUFS, and writes `.out/out/Encalm-Projects-Tutorial.mp4`. With a natural speaking pace, the video comes to about 12 minutes.
