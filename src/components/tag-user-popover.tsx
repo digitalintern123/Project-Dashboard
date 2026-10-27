@@ -44,11 +44,13 @@ export function TagUserPopover({
   const { leads, users: contextUsers, resolveUser } = useAppState();
   const { toast } = useToast();
 
-  // Reset staged selections whenever popover opens
+  // Reset staged selections when the popover opens. Only on opening: the page
+  // refreshes every few seconds with fresh `taggedUsers`, which must not wipe
+  // the people someone has just ticked.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (isOpen) {
-      setStagedUserIds(taggedUsers || []);
-    }
+    if (isOpen && !wasOpen.current) setStagedUserIds(taggedUsers || []);
+    wasOpen.current = isOpen;
   }, [isOpen, taggedUsers]);
 
   // Merge default users, context directory users, leads, and dynamically fetched Azure users
