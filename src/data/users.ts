@@ -37,9 +37,16 @@ export const users: User[] = [
   },
 ];
 
+/** People loaded from the server (Project Leads and the user list), so their names resolve too. */
+const loadedUsers = new Map<string, User>();
+
+export function rememberUsers(list: User[]) {
+  for (const user of list) if (user?.id) loadedUsers.set(user.id, user);
+}
+
 export function getUserById(id: string | undefined | null): User | undefined {
   if (!id) return undefined;
-  return users.find((user) => user.id === id);
+  return users.find((user) => user.id === id) ?? loadedUsers.get(id);
 }
 
 /** Display name for a `leadId`. Never blank — falls back to "Unassigned". */

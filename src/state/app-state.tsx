@@ -11,7 +11,7 @@ import {
 } from '@/data/projects';
 import { removeItem } from '@/lib/storage';
 import { todayLabel } from '@/lib/date';
-import { getUserById, users as defaultUsers, type User } from '@/data/users';
+import { getUserById, rememberUsers, users as defaultUsers, type User } from '@/data/users';
 import { api, onUnauthorized, type NotificationItem, type PhotoUploadInput } from '@/lib/api';
 import { calculateWeightedProgress } from '@/lib/calculations';
 import { errorMessage } from '@/lib/utils';
@@ -251,6 +251,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.auth.getLeads();
       if (Array.isArray(data.leads)) {
+        rememberUsers(data.leads);
         setLeads(data.leads);
       }
     } catch {
@@ -263,6 +264,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.auth.getUsers();
       if (Array.isArray(data.users) && data.users.length > 0) {
+        rememberUsers(data.users);
         setAllUsers((prev) => {
           const map = new Map<string, User>();
           defaultUsers.forEach((u) => map.set(u.id, u));
