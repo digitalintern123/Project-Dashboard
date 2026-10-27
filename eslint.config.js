@@ -14,6 +14,8 @@ export default tseslint.config(
       'lighthouse-report/**',
       'test-results/**',
       'node_modules/**',
+      // Tutorial video tooling (docs/video/README.md): scripts, not app code.
+      'docs/video/**',
     ],
   },
   js.configs.recommended,

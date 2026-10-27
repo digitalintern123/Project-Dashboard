@@ -93,3 +93,6 @@ lighthouse-report/
 
 # iisnode log files (Plesk on Windows)
 iisnode/
+
+# Tutorial video: recordings, audio and sample databases
+docs/video/.out/
