@@ -382,7 +382,11 @@ ch('p2s6', async ({ browser }) => {
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
-    const first = page.locator('main').getByText('Brief & scope', { exact: true }).first();
+    // The stage list's own name, not the header's "Current delivery stage: Brief & scope".
+    const first = page
+      .locator('main strong')
+      .filter({ hasText: /^Brief & scope$/ })
+      .last();
     await scrollTo(page, first, 200);
     await pop(page, first, 'Stage bars', { up: 5 });
   });
