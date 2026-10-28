@@ -44,7 +44,8 @@ export const BADGES = {
   lead: { text: 'PROJECT LEAD VIEW · Rahul Mehta', bg: '#c9a04e', fg: '#173e49' },
 } as const;
 
-/** Runs in the page on every navigation: cursor, highlight box, role badge, hides bundled demo users. */
+/** Runs in the page on every navigation: cursor, highlight box, role badge; hides the bundled demo users and the
+ * sample HOD, so only the two personas appear in people lists. */
 const PAGE_SETUP = (badge: { text: string; bg: string; fg: string } | null) => {
   const ready = () => {
     if (document.getElementById('__cur')) return;
@@ -89,7 +90,7 @@ const PAGE_SETUP = (badge: { text: string; bg: string; fg: string } | null) => {
   const hide = () => {
     for (const el of Array.from(document.querySelectorAll('button, li, [role=option], label'))) {
       const t = el.textContent || '';
-      if (t.length < 200 && /hod@encalm\.com|digital\.intern@encalm\.com/.test(t))
+      if (t.length < 200 && /hod@encalm\.com|digital\.intern@encalm\.com|anita\.desai@encalm\.com/.test(t))
         (el as HTMLElement).style.display = 'none';
     }
   };

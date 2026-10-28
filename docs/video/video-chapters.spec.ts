@@ -128,9 +128,9 @@ ch('p1s3', async ({ browser }) => {
     await pop(page, page.getByRole('heading', { name: /Team & Project Allotment/ }), 'Team & Allotment');
   });
   await r.beat(async () => {
+    await hl(page, page.locator('form').filter({ hasText: 'Create Project Lead Account' }), { move: false });
     await type(page, page.getByPlaceholder('e.g. Karan Verma'), 'Rahul Mehta', 45);
     await type(page, page.getByPlaceholder('e.g. karan.verma@encalm.com'), 'rahul.mehta@encalm.com', 25);
-    await pop(page, page.getByText('Create Project Lead').first(), 'Create Project Lead', { up: 2 });
   });
   await r.beat(() => pop(page, page.getByPlaceholder(/Temporary password/), 'Temporary password'));
   await r.stop();
@@ -213,10 +213,9 @@ ch('p1s7', async ({ browser }) => {
   });
   await r.beat(async () => {
     const to = page.getByPlaceholder(/Type @ followed by/);
-    // The Email Update picker lists Project Leads (not HODs), so Priya picks Vikram.
-    await type(page, to, '@Vik', 120);
+    await type(page, to, '@Rah', 120);
     await pause(page, 0.8);
-    await click(page, page.getByText('Vikram Rao').last());
+    await click(page, page.getByRole('button', { name: /Rahul Mehta/ }).last());
     await pop(page, to, 'Recipients', { up: 1 });
   });
   await r.beat(async () => {
@@ -382,11 +381,7 @@ ch('p2s6', async ({ browser }) => {
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
-    // The stage list's own name, not the header's "Current delivery stage: Brief & scope".
-    const first = page
-      .locator('main strong')
-      .filter({ hasText: /^Brief & scope$/ })
-      .last();
+    const first = page.locator('main strong[class~="text-[12px]"]', { hasText: /^Brief & scope$/ }).first();
     await scrollTo(page, first, 200);
     await pop(page, first, 'Stage bars', { up: 5 });
   });
@@ -435,7 +430,7 @@ ch('p2s7', async ({ browser }) => {
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
-    const design = page.locator('main').getByText('Design development', { exact: true }).first();
+    const design = page.locator('main strong[class~="text-[12px]"]', { hasText: /^Design development$/ }).first();
     await scrollTo(page, design, 220);
     await hl(page, design, { up: 5 });
   });
@@ -577,11 +572,11 @@ ch('p2s12', async ({ browser }) => {
     await type(page, page.getByLabel('Update note'), 'Layouts shared for review with ', 18);
   });
   await r.beat(async () => {
-    await page.getByLabel('Update note').pressSequentially('@Ani', { delay: 160 });
+    await page.getByLabel('Update note').pressSequentially('@Pri', { delay: 160 });
     await pause(page, 0.8);
-    await pop(page, page.getByText('Anita Desai').last(), 'Pick a person', { up: 2 });
+    await pop(page, page.getByRole('button', { name: /Priya Sharma/ }).last(), 'Pick a person', { up: 1 });
     await pause(page, 1.8);
-    await click(page, page.getByText('Anita Desai').last());
+    await click(page, page.getByRole('button', { name: /Priya Sharma/ }).last());
     await click(page, page.getByRole('button', { name: 'Post update' }));
   });
   await r.beat(async () => {
@@ -589,9 +584,9 @@ ch('p2s12', async ({ browser }) => {
     const tagBtn = page.getByRole('button', { name: /Tag Member/ }).nth(1);
     await scrollTo(page, tagBtn, 320);
     await click(page, tagBtn);
-    await pop(page, page.getByText('Select Member(s):'), 'Select members', { up: 1 });
+    await pop(page, page.getByText('Select Member(s):'), 'Select members', { up: 2 });
     await pause(page, 0.9);
-    await click(page, page.getByRole('button', { name: /Anita Desai/ }));
+    await click(page, page.getByRole('button', { name: /Priya Sharma/ }));
   });
   await r.beat(async () => {
     await type(
