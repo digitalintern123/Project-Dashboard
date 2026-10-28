@@ -56,21 +56,19 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
   const [recipientMentionText, setRecipientMentionText] = useState('');
   const [sendingUpdate, setSendingUpdate] = useState(false);
 
-  const { leads, user: currentUser } = useAppState();
+  const { leads, users: contextUsers, user: currentUser } = useAppState();
   const { toast } = useToast();
 
-  // Merge default users with leads
+  // Everyone who can be tagged elsewhere (built-in accounts, every app user and
+  // the Project Leads), so HODs and Coordinators can receive the update too.
+  // Typing @name also searches the Encalm directory (MentionTextarea).
   const availableUsers: User[] = React.useMemo(() => {
-    const combined = [...defaultUsers];
-    if (Array.isArray(leads)) {
-      leads.forEach((l) => {
-        if (!combined.some((u) => u.id === l.id || u.email?.toLowerCase() === l.email?.toLowerCase())) {
-          combined.push(l);
-        }
-      });
-    }
-    return combined;
-  }, [leads]);
+    const map = new Map<string, User>();
+    defaultUsers.forEach((u) => map.set(u.id, u));
+    if (Array.isArray(contextUsers)) contextUsers.forEach((u) => map.set(u.id, { ...map.get(u.id), ...u }));
+    if (Array.isArray(leads)) leads.forEach((l) => map.set(l.id, { ...map.get(l.id), ...l }));
+    return Array.from(map.values());
+  }, [leads, contextUsers]);
 
   useEffect(() => {
     setActiveTab(defaultTab);
@@ -496,7 +494,7 @@ export function EmailHubModal({ isOpen, onClose, defaultTab = 'outbox', projectI
                       users={availableUsers}
                       onMentionSelect={handleAddRecipientMention}
                       dropdownDirection="bottom"
-                      placeholder="Type @ followed by colleague name (e.g. @Ruchika, @Chinmay, or Azure directory)..."
+                      placeholder="Type @ followed by a colleague's name to add them…"
                       className="w-full rounded-lg border border-border bg-[#faf8f3] px-3 py-2 text-[12px] focus:outline-hidden focus:ring-1 focus:ring-[#2e7c67]"
                     />
                   </div>

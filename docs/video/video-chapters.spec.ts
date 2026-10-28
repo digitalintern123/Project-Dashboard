@@ -213,10 +213,9 @@ ch('p1s7', async ({ browser }) => {
   });
   await r.beat(async () => {
     const to = page.getByPlaceholder(/Type @ followed by/);
-    // The Email Update picker lists Project Leads (not HODs), so Priya picks Vikram.
-    await type(page, to, '@Vik', 120);
+    await type(page, to, '@Ani', 120);
     await pause(page, 0.8);
-    await click(page, page.getByText('Vikram Rao').last());
+    await click(page, page.getByRole('button', { name: /Anita Desai/ }).last());
     await pop(page, to, 'Recipients', { up: 1 });
   });
   await r.beat(async () => {
