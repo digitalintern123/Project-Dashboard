@@ -91,7 +91,7 @@ ch('p1s1', async ({ browser }) => {
     await type(page, page.getByLabel('Email'), u.email, 30);
     await type(page, page.getByLabel('Password', { exact: true }), u.password, 30);
     await pop(page, page.getByRole('button', { name: /sign in/i }), 'Sign in');
-    await pause(page, 1.5);
+    await pause(page, 0.9);
     await click(page, page.getByRole('button', { name: /sign in/i }));
   });
   await r.beat(() => expect(page.getByText('Portfolio health', { exact: true }).first()).toBeVisible());
@@ -356,9 +356,7 @@ ch('p2s6', async ({ browser }) => {
   await openProject(page, url);
   await r.rec();
   const form = stageForm(page);
-  const plan = async (index: number, start: string, finish: string) => {
-    await click(page, page.getByRole('button', { name: 'Update stage' }).nth(index));
-    await expect(form).toBeVisible();
+  const plan = async (start: string, finish: string) => {
     const s = form.getByLabel('Planned start');
     await scrollTo(page, s, 260);
     await click(page, s);
@@ -372,10 +370,13 @@ ch('p2s6', async ({ browser }) => {
     const btn = page.getByRole('button', { name: 'Update stage' }).first();
     await scrollTo(page, btn, 300);
     await pop(page, btn, 'Update stage');
+    await pause(page, 0.6);
+    await click(page, btn);
+    await expect(form).toBeVisible();
   });
   await r.beat(async () => {
     // Brief & scope was due to finish 12 days ago; Design development has just started.
-    await plan(0, iso(-60), iso(-12));
+    await plan(iso(-60), iso(-12));
     await pop(page, form.getByLabel('Planned start'), 'Planned start · Planned finish', { up: 2 });
     await pause(page, 1);
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
@@ -533,12 +534,9 @@ ch('p2s11', async ({ browser }) => {
     await scrollTo(page, add, 300);
     await click(page, add);
     await type(page, page.getByPlaceholder('Issue or risk title *'), 'Stone delivery at risk', 14);
-    await type(
-      page,
-      page.getByPlaceholder('Describe the issue, cause, and current situation *'),
-      'Quarry strike may delay the stone.',
-      7,
-    );
+    await page
+      .getByPlaceholder('Describe the issue, cause, and current situation *')
+      .fill('Quarry strike may delay the stone.');
   });
   await r.beat(async () => {
     const severity = page
@@ -588,7 +586,7 @@ ch('p2s12', async ({ browser }) => {
     await scrollTo(page, tagBtn, 320);
     await click(page, tagBtn);
     await pop(page, page.getByText('Select Member(s):'), 'Select members', { up: 1 });
-    await pause(page, 1.5);
+    await pause(page, 0.9);
     await click(page, page.getByRole('button', { name: /Anita Desai/ }));
   });
   await r.beat(async () => {
