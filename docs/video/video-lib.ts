@@ -3,9 +3,10 @@
  *
  * Frames come from the DevTools screencast (sharp 1920x1080 JPEGs), not
  * Playwright's recordVideo (low bitrate, blurry text). Each chapter is split
- * into narration beats: a beat runs its on-screen action, then waits until
- * the beat's target length has passed. Actual beat start times are saved so
- * subtitles and voice line up with the picture even if an action overruns.
+ * into narration beats: a beat runs its on-screen action, then holds until
+ * the beat's length has passed. Actual beat start times are saved so
+ * subtitles and voice line up with the picture. An action that runs well past
+ * its sentence is reported, because then picture and narration drift apart.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,23 +21,31 @@ export const BASE = 'http://localhost:5073';
 const H = { 'X-Requested-With': 'XMLHttpRequest' };
 
 type Beat = { text: string; est: number };
-type Chapter = { n: number; title: string; beats: Beat[] };
+type Chapter = { id: string; title: string; beats: Beat[] };
 
-export function chapter(n: number): Chapter {
+export function chapter(id: string): Chapter {
   const all: Chapter[] = JSON.parse(fs.readFileSync(path.join(VIDEO, 'script.json'), 'utf8'));
-  return all.find((c) => c.n === n)!;
+  const found = all.find((c) => c.id === id);
+  if (!found) throw new Error(`no chapter ${id} in script.json; run parse-script.cjs`);
+  return found;
 }
 
 /** Real voice clip lengths, once they exist; otherwise the word-count estimate. */
-function beatLength(n: number, i: number, est: number) {
+function beatLength(id: string, i: number, est: number) {
   const f = path.join(VIDEO, 'audio', 'durations.json');
   if (!fs.existsSync(f)) return est;
   const d = JSON.parse(fs.readFileSync(f, 'utf8'));
-  return (d[`${n}-${i}`] ?? est) + 0.45; // short breath between sentences
+  return (d[`${id}-${i}`] ?? est) + 0.45; // short breath between sentences
 }
 
-/** Runs in the page on every navigation: cursor, highlight box, hides bundled demo users. */
-const PAGE_SETUP = () => {
+/** Role badges, one per part of the video. */
+export const BADGES = {
+  coordinator: { text: 'PROJECT COORDINATOR VIEW · Priya Sharma', bg: '#173e49', fg: '#e6c58a' },
+  lead: { text: 'PROJECT LEAD VIEW · Rahul Mehta', bg: '#c9a04e', fg: '#173e49' },
+} as const;
+
+/** Runs in the page on every navigation: cursor, highlight box, role badge, hides bundled demo users. */
+const PAGE_SETUP = (badge: { text: string; bg: string; fg: string } | null) => {
   const ready = () => {
     if (document.getElementById('__cur')) return;
     const cur = document.createElement('div');
@@ -44,12 +53,13 @@ const PAGE_SETUP = () => {
     cur.innerHTML =
       '<svg width="26" height="26" viewBox="0 0 24 24"><path d="M4 2l15 11-6.5 1.2L16 21l-3 1.4-3.4-6.8L4 20z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
     const saved = JSON.parse(sessionStorage.getItem('__cur') || '{"x":720,"y":420}');
-    cur.style.cssText = `position:fixed;left:${saved.x}px;top:${saved.y}px;z-index:2147483647;pointer-events:none;transition:left .65s cubic-bezier(.4,0,.2,1),top .65s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))`;
+    // The arrow's tip sits 4px right and 2px down from the box corner.
+    cur.style.cssText = `position:fixed;left:${saved.x - 4}px;top:${saved.y - 2}px;z-index:2147483647;pointer-events:none;transition:left .6s cubic-bezier(.4,0,.2,1),top .6s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))`;
     document.body.appendChild(cur);
     const box = document.createElement('div');
     box.id = '__hl';
     box.style.cssText =
-      'position:fixed;z-index:2147483646;pointer-events:none;border:3px solid #E4572E;border-radius:12px;box-shadow:0 0 0 4px rgba(228,87,46,.18);opacity:0;transition:opacity .3s,left .3s,top .3s,width .3s,height .3s';
+      'position:fixed;z-index:2147483646;pointer-events:none;border:3px solid #E4572E;border-radius:12px;box-shadow:0 0 0 4px rgba(228,87,46,.18);opacity:0;transition:opacity .3s';
     document.body.appendChild(box);
     const w = window as unknown as { __hlEl?: Element | null; __hlPad?: number };
     const follow = () => {
@@ -67,8 +77,14 @@ const PAGE_SETUP = () => {
       } else box.style.opacity = '0';
       requestAnimationFrame(follow);
     };
-    box.style.transition = 'opacity .3s';
     follow();
+    if (badge) {
+      const b = document.createElement('div');
+      b.id = '__badge';
+      b.textContent = badge.text;
+      b.style.cssText = `position:fixed;right:22px;top:78px;z-index:2147482000;pointer-events:none;background:${badge.bg};color:${badge.fg};font:700 12px/1 Inter,Arial,sans-serif;letter-spacing:.12em;padding:9px 14px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.18)`;
+      document.body.appendChild(b);
+    }
   };
   const hide = () => {
     for (const el of Array.from(document.querySelectorAll('button, li, [role=option], label'))) {
@@ -86,17 +102,20 @@ const PAGE_SETUP = () => {
   else document.addEventListener('DOMContentLoaded', go);
 };
 
+type Who = keyof typeof E2E_USERS;
+
 export class Recorder {
   page!: Page;
   private cdp!: CDPSession;
   private frames: { ts: number; data: Buffer }[] = [];
   private t0 = 0;
-  private marks: { i: number; start: number; end: number; text: string }[] = [];
+  private marks: { i: number; start: number; end: number; text: string; over: number }[] = [];
   private beatIndex = 0;
   constructor(private ch: Chapter) {}
 
-  static async start(browser: Browser, n: number, who?: keyof typeof E2E_USERS) {
-    const r = new Recorder(chapter(n));
+  /** Opens a fresh browser for one chapter, signed in as `who` (if given), with the role badge. */
+  static async start(browser: Browser, id: string, who?: Who, badge?: keyof typeof BADGES) {
+    const r = new Recorder(chapter(id));
     const context = await browser.newContext({
       baseURL: BASE,
       viewport: { width: 1440, height: 810 },
@@ -104,15 +123,8 @@ export class Recorder {
       locale: 'en-IN',
       timezoneId: 'Asia/Kolkata',
     });
-    if (who) {
-      const u = E2E_USERS[who];
-      const res = await context.request.post('/api/auth/login', {
-        headers: H,
-        data: { email: u.email, password: u.password },
-      });
-      if (res.status() !== 200) throw new Error(`login ${who}: ${res.status()}`);
-    }
-    await context.addInitScript(PAGE_SETUP);
+    if (who) await signIn(context.request, who);
+    await context.addInitScript(PAGE_SETUP, badge ? BADGES[badge] : null);
     r.page = await context.newPage();
     return r;
   }
@@ -140,22 +152,23 @@ export class Recorder {
   async beat(action: () => Promise<unknown> = async () => {}) {
     const i = this.beatIndex++;
     const b = this.ch.beats[i];
-    if (!b) throw new Error(`chapter ${this.ch.n} has no beat ${i}`);
+    if (!b) throw new Error(`chapter ${this.ch.id} has no beat ${i}`);
     const start = Date.now() / 1000 - this.t0;
-    const len = beatLength(this.ch.n, i, b.est);
+    const len = beatLength(this.ch.id, i, b.est);
     await action();
-    const left = len - (Date.now() / 1000 - this.t0 - start);
-    if (left > 0) await this.page.waitForTimeout(left * 1000);
-    this.marks.push({ i, start, end: Date.now() / 1000 - this.t0, text: b.text });
+    const took = Date.now() / 1000 - this.t0 - start;
+    if (len - took > 0) await this.page.waitForTimeout((len - took) * 1000);
+    this.marks.push({ i, start, end: Date.now() / 1000 - this.t0, text: b.text, over: Math.max(0, took - len) });
   }
 
   async stop() {
     if (this.beatIndex !== this.ch.beats.length)
-      throw new Error(`chapter ${this.ch.n}: ran ${this.beatIndex} of ${this.ch.beats.length} beats`);
+      throw new Error(`chapter ${this.ch.id}: ran ${this.beatIndex} of ${this.ch.beats.length} beats`);
+    await unpop(this.page).catch(() => {});
     await this.page.waitForTimeout(500);
     const end = Date.now() / 1000;
     await this.cdp.send('Page.stopScreencast');
-    const dir = path.join(VIDEO, 'rec', `ch${String(this.ch.n).padStart(2, '0')}`);
+    const dir = path.join(VIDEO, 'rec', this.ch.id);
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
     // Frames arrive only when the screen changes; each one lasts until the next.
@@ -173,10 +186,28 @@ export class Recorder {
     fs.writeFileSync(path.join(dir, 'frames.txt'), list);
     fs.writeFileSync(
       path.join(dir, 'meta.json'),
-      JSON.stringify({ n: this.ch.n, title: this.ch.title, length: end - this.t0, beats: this.marks }, null, 2),
+      JSON.stringify({ id: this.ch.id, title: this.ch.title, length: end - this.t0, beats: this.marks }, null, 2),
     );
     await this.page.context().close();
+    // Picture and narration drift apart when an action runs well past its sentence.
+    const late = this.marks.filter((m) => m.over > 1);
+    if (late.length) {
+      throw new Error(
+        `${this.ch.id}: actions ran past their narration: ${late.map((m) => `beat ${m.i} +${m.over.toFixed(1)}s`).join(', ')}`,
+      );
+    }
   }
+}
+
+/** Signs a request context in; Rahul uses his new password once he has set it in Part 2, step 1. */
+export async function signIn(request: Page['request'], who: Who) {
+  const u = E2E_USERS[who] as { email: string; password: string; newPassword?: string };
+  // The new password first: failed attempts count towards the account lockout.
+  for (const password of [u.newPassword, u.password].filter(Boolean) as string[]) {
+    const res = await request.post(`${BASE}/api/auth/login`, { headers: H, data: { email: u.email, password } });
+    if (res.status() === 200) return;
+  }
+  throw new Error(`could not sign in as ${who}`);
 }
 
 // ---------- On-screen actions ----------
@@ -193,6 +224,7 @@ async function box(loc: Locator, up = 0) {
 /** Smoothly scrolls so the element sits `offset` px below the top. */
 export async function scrollTo(page: Page, loc: Locator, offset = 120) {
   await hlOff(page);
+  await unpop(page);
   await loc.first().evaluate((el, off) => {
     const y = el.getBoundingClientRect().top + window.scrollY - off;
     window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
@@ -202,36 +234,41 @@ export async function scrollTo(page: Page, loc: Locator, offset = 120) {
 
 export async function scrollTop(page: Page) {
   await hlOff(page);
+  await unpop(page);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   await page.waitForTimeout(800);
 }
 
+/** Glides the cursor onto the element and returns the point it points at, relative to the element. */
 export async function moveTo(page: Page, loc: Locator) {
   await loc.first().scrollIntoViewIfNeeded();
   const b = await box(loc);
-  const x = b.x + Math.min(b.w / 2, 60);
-  const y = b.y + b.h / 2;
+  const dx = Math.round(Math.min(b.w / 2, 60));
+  const dy = Math.round(b.h / 2);
   await page.evaluate(
     ([x, y]) => {
       const c = document.getElementById('__cur');
       if (c) {
         c.style.left = `${x - 4}px`;
-        c.style.top = `${y - 3}px`;
+        c.style.top = `${y - 2}px`;
       }
-      sessionStorage.setItem('__cur', JSON.stringify({ x: x - 4, y: y - 3 }));
+      sessionStorage.setItem('__cur', JSON.stringify({ x, y }));
     },
-    [x, y],
+    [b.x + dx, b.y + dy],
   );
   await page.waitForTimeout(700);
+  return { x: dx, y: dy };
 }
 
+/** Moves the cursor onto the element, then clicks exactly where the cursor points. */
 export async function click(page: Page, loc: Locator) {
-  await moveTo(page, loc);
+  await unpop(page);
+  const at = await moveTo(page, loc);
   await page.evaluate(() => {
     const c = document.getElementById('__cur');
     if (!c) return;
     const ring = document.createElement('div');
-    ring.style.cssText = `position:fixed;left:${parseFloat(c.style.left) - 10}px;top:${parseFloat(c.style.top) - 10}px;width:24px;height:24px;border-radius:50%;border:3px solid #E4572E;z-index:2147483647;pointer-events:none;transition:transform .45s,opacity .45s`;
+    ring.style.cssText = `position:fixed;left:${parseFloat(c.style.left) - 8}px;top:${parseFloat(c.style.top) - 10}px;width:24px;height:24px;border-radius:50%;border:3px solid #E4572E;z-index:2147483647;pointer-events:none;transition:transform .45s,opacity .45s`;
     document.body.appendChild(ring);
     requestAnimationFrame(() => {
       ring.style.transform = 'scale(1.8)';
@@ -239,7 +276,7 @@ export async function click(page: Page, loc: Locator) {
     });
     setTimeout(() => ring.remove(), 500);
   });
-  await loc.first().click();
+  await loc.first().click({ position: at });
   await page.waitForTimeout(450);
 }
 
@@ -249,7 +286,15 @@ export async function type(page: Page, loc: Locator, text: string, delay = 45) {
   await page.waitForTimeout(250);
 }
 
-export async function pick(page: Page, loc: Locator, option: string) {
+/** Replaces a field's value, typing the new one. */
+export async function retype(page: Page, loc: Locator, text: string, delay = 110) {
+  await click(page, loc);
+  await loc.first().fill('');
+  await loc.first().pressSequentially(text, { delay });
+  await page.waitForTimeout(300);
+}
+
+export async function pick(page: Page, loc: Locator, option: string | { label: string }) {
   await click(page, loc);
   await loc.first().selectOption(option);
   await page.waitForTimeout(400);
@@ -272,6 +317,119 @@ export async function hl(page: Page, loc: Locator, opts: { up?: number; pad?: nu
 
 export async function hlOff(page: Page) {
   await page.evaluate(() => Object.assign(window, { __hlEl: null }));
+}
+
+/**
+ * Pop-out: dims the screen, lifts an enlarged copy of the element (a parent
+ * `up` levels above, if given) above the dimming, and shows `label` beside it.
+ * The copy is static, so pop out what is being explained, not what is being typed.
+ */
+export async function pop(page: Page, loc: Locator, label: string, opts: { up?: number; scale?: number } = {}) {
+  await hlOff(page);
+  await unpop(page);
+  await loc.first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(150);
+  await loc.first().evaluate(
+    (el, [up, label, scaleWanted]) => {
+      let node = el as HTMLElement;
+      for (let i = 0; i < (up as number) && node.parentElement; i++) node = node.parentElement;
+      const r = node.getBoundingClientRect();
+      // The copy needs a background: the nearest one that isn't transparent.
+      let bg = 'rgba(0, 0, 0, 0)';
+      for (let n: HTMLElement | null = node; n && /rgba\(0, 0, 0, 0\)|transparent/.test(bg); n = n.parentElement)
+        bg = getComputedStyle(n).backgroundColor;
+      if (/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) bg = '#fbfaf6';
+      const copy = node.cloneNode(true) as HTMLElement;
+      const from = [node, ...Array.from(node.querySelectorAll('input,select,textarea'))] as HTMLInputElement[];
+      const to = [copy, ...Array.from(copy.querySelectorAll('input,select,textarea'))] as HTMLInputElement[];
+      from.forEach((f, k) => {
+        if ('value' in f && to[k]) {
+          to[k].value = f.value;
+          if (f.checked) to[k].checked = true;
+        }
+      });
+      const big = r.width > 900 || r.height > 420;
+      const scale = (scaleWanted as number) || (big ? 1.025 : r.width > 480 ? 1.06 : 1.12);
+      copy.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;box-sizing:border-box;z-index:2147483001;background:${bg};border-radius:12px;overflow:hidden;pointer-events:none;transform-origin:center;transform:scale(1);transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s;box-shadow:0 0 0 3px #E4572E`;
+      const dim = document.createElement('div');
+      dim.style.cssText =
+        'position:fixed;inset:0;background:rgba(10,24,30,.58);z-index:2147483000;opacity:0;transition:opacity .35s;pointer-events:none';
+      const tag = document.createElement('div');
+      tag.textContent = label as string;
+      const below = r.bottom * scale + 70 < innerHeight;
+      tag.style.cssText = `position:fixed;z-index:2147483002;pointer-events:none;background:#E4572E;color:#fff;font:700 17px/1.2 Inter,Arial,sans-serif;padding:10px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;transition:opacity .35s;max-width:520px;white-space:nowrap`;
+      document.body.append(dim, copy, tag);
+      const tw = tag.getBoundingClientRect().width;
+      const cx = r.left + r.width / 2;
+      tag.style.left = `${Math.max(16, Math.min(innerWidth - tw - 16, cx - tw / 2))}px`;
+      const grow = ((scale - 1) * r.height) / 2;
+      tag.style.top = below ? `${r.bottom + grow + 16}px` : `${Math.max(12, r.top - grow - 58)}px`;
+      requestAnimationFrame(() => {
+        dim.style.opacity = '1';
+        tag.style.opacity = '1';
+        copy.style.transform = `scale(${scale})`;
+        copy.style.boxShadow = '0 0 0 3px #E4572E, 0 22px 60px rgba(0,0,0,.5)';
+      });
+      Object.assign(window, {
+        __unpop: () => {
+          dim.remove();
+          copy.remove();
+          tag.remove();
+        },
+      });
+    },
+    [opts.up ?? 0, label, opts.scale ?? 0] as const,
+  );
+  await page.waitForTimeout(500);
+}
+
+export async function unpop(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as { __unpop?: (() => void) | null };
+    w.__unpop?.();
+    w.__unpop = null;
+  });
+}
+
+/** A pop-out card with the stage bar colours, drawn over the page (matches src/lib/progress-tone.ts). */
+export async function legend(page: Page) {
+  await unpop(page);
+  await page.evaluate(() => {
+    const rows: [string, string][] = [
+      ['#3d9a7e', 'Green — on or ahead of plan, or complete'],
+      ['#9bb84a', 'Lime — up to 10 points behind'],
+      ['#d19b35', 'Amber — 10 to 25 points behind'],
+      ['#d66254', 'Red — more than 25 behind, overdue or blocked'],
+      ['#c9c9bd', 'Grey — not due to start yet'],
+    ];
+    const dim = document.createElement('div');
+    dim.style.cssText =
+      'position:fixed;inset:0;background:rgba(10,24,30,.58);z-index:2147483000;opacity:0;transition:opacity .35s;pointer-events:none';
+    const card = document.createElement('div');
+    card.style.cssText =
+      'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);z-index:2147483001;background:#fffdf8;border-radius:16px;padding:26px 32px;box-shadow:0 0 0 3px #E4572E,0 22px 60px rgba(0,0,0,.5);font:15px/1.4 Inter,Arial,sans-serif;color:#173e49;opacity:0;transition:opacity .35s,transform .35s;pointer-events:none;min-width:520px';
+    card.innerHTML =
+      '<div style="font:700 12px Inter;letter-spacing:.18em;color:#9a711f;margin-bottom:6px">STAGE & PROJECT BARS</div><div style="font:700 22px Inter;margin-bottom:16px">What the colours mean</div>' +
+      rows
+        .map(
+          ([c, t]) =>
+            `<div style="display:flex;align-items:center;gap:14px;margin:10px 0"><span style="width:90px;height:10px;border-radius:6px;background:${c}"></span><span>${t}</span></div>`,
+        )
+        .join('');
+    document.body.append(dim, card);
+    requestAnimationFrame(() => {
+      dim.style.opacity = '1';
+      card.style.opacity = '1';
+      card.style.transform = 'translate(-50%,-50%) scale(1)';
+    });
+    Object.assign(window, {
+      __unpop: () => {
+        dim.remove();
+        card.remove();
+      },
+    });
+  });
+  await page.waitForTimeout(500);
 }
 
 export const tab = (page: Page, name: RegExp) => page.getByRole('button', { name }).first();

@@ -13,8 +13,8 @@ E2E_PORT=5073 KEEP_DIR=$DIR nohup npx tsx docs/video/video-server.mts > "$HERE/.
 for i in $(seq 1 40); do curl -sf -o /dev/null http://localhost:5073/api/client-config && break; sleep 1; done
 npx playwright test -c docs/video/video.config.ts video-seed --reporter=dot >/dev/null
 npx playwright test -c docs/video/video.config.ts video-prep --reporter=dot >/dev/null
-# Chapter 1 shows a first sign-in, so Priya must be asked for a new password.
+# Part 2 step 1 shows Rahul's first sign-in, so he must be asked for a new password.
 node -e "
 const D=require('better-sqlite3');const db=new D('$DIR/e2e.db');
-db.prepare(\"update users set must_change_password=1 where id='u-priya'\").run();"
+db.prepare(\"update users set must_change_password=1 where id='u-rahul'\").run();"
 echo "reset: $DIR"

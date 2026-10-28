@@ -1,6 +1,12 @@
 # Tutorial video tooling
 
-Builds the "Encalm Projects – How to use the dashboard" tutorial video, about 9½ minutes at 1080p with subtitles and chapter cards, from the approved script in `tutorial-script.md`.
+Builds the "Encalm Projects – How to use the dashboard" tutorial video at 1080p from the approved script in `tutorial-script.md`.
+
+It has two parts, each opening with a role title card (who they are and what they can do in the app):
+- **Part 1, Project Coordinator: Priya Sharma.** Seven steps, from signing in to an Email Update.
+- **Part 2, Project Lead: Rahul Mehta.** Twelve steps: he creates *Delhi T2 Departure Lounge* and works through its tabs left to right.
+
+A role badge sits in the corner throughout each part. Explained features pop out: the screen dims and the part is enlarged with a label.
 
 The app runs on a **throwaway sample database** with made-up projects and people (`users.mjs`), on port 5073. Nothing here touches `server/data`. Everything generated goes to `docs/video/.out/`, which git ignores.
 
@@ -17,14 +23,15 @@ Run from the repo root:
 npm run build                                    # the sample server serves the built app
 node docs/video/parse-script.cjs                 # script → .out/script.json (narration beats)
 docs/video/reset.sh                              # fresh sample database + seed
-npx playwright test -c docs/video/video.config.ts video-chapters   # record all 14 chapters (~10 min)
-docs/video/encode.sh                             # frames → .out/rec/chNN.mp4
-node docs/video/cards.cjs                        # title, chapter and end cards
+npx playwright test -c docs/video/video.config.ts video-chapters   # record all 21 chapters (~12 min)
+docs/video/encode.sh                             # frames → .out/rec/<chapter>.mp4
+node docs/video/cards.cjs                        # opening, role title, step and end cards
 node docs/video/assemble.cjs                     # → .out/out/Encalm-Projects-Tutorial-silent.mp4 + chapters.txt
 ```
 
-- To record only some chapters, run `CH=3,7 npx playwright test …`.
-- Chapters share one database in order (for example, chapter 5 creates "Mumbai Departure Lounge"). Run `reset.sh` before a full recording.
+- Chapter ids are `open`, `p1s1`…`p1s7`, `p2s1`…`p2s12` and `close`; the role cards `p1card` and `p2card` are pictures, not recordings. To record only some chapters, run `CH=p2s6,p2s7 npx playwright test …`.
+- Chapters share one database in order: `p2s1` changes Rahul's password, and `p2s3` creates the project that later steps use. Run `reset.sh` before a full recording.
+- A chapter fails if an on-screen action runs more than 1 second past its narration line, because picture and voice would drift apart. Shorten the action or split it across lines.
 
 ## How the timing works
 - Each sentence of narration is a **beat**. A chapter runs a beat's on-screen action, then holds until that beat's time is up.
@@ -32,8 +39,8 @@ node docs/video/assemble.cjs                     # → .out/out/Encalm-Projects-
 - Subtitles and voice are placed at each beat's real start time.
 
 ## Adding the voiceover
-1. Put one WAV per beat in `.out/audio/<chapter>-<beat>.wav` (e.g. `7-2.wav`), and write their lengths in seconds to `.out/audio/durations.json` as `{ "7-2": 6.41, … }`.
+1. Each beat in `.out/script.json` has `text` (the subtitle) and `speak` (the same line spelt for the voice: EN-calm, A-O-P, H-O-D, N-O-C, "crore rupees"). Generate one WAV per beat from `speak` into `.out/audio/<chapter>-<beat>.wav` (e.g. `p2s7-2.wav`, `p1card-0.wav`), and write their lengths in seconds to `.out/audio/durations.json` as `{ "p2s7-2": 6.41, … }`.
 2. Re-record (`reset.sh`, then the Playwright command) so the scenes match the clip lengths, then run `encode.sh` and `assemble.cjs`.
 3. `assemble.cjs` mixes each clip at its beat's start, normalises loudness to -16 LUFS, and writes `.out/out/Encalm-Projects-Tutorial.mp4`.
 
-The planned voice is a cloned, consenting colleague's voice via [VoiceStudio](https://github.com/debpalash/VoiceStudio), run locally. Its reference recording is described in `voice-reference.md`. **Don't commit voice recordings**; they are personal data.
+The planned voice is the user's own voice, cloned with their consent via [VoiceStudio](https://github.com/debpalash/VoiceStudio), run locally. Its reference recording is described in `voice-reference.md`. **Don't commit voice recordings**; they are personal data.

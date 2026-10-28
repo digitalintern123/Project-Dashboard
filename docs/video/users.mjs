@@ -1,12 +1,12 @@
 export const E2E_USERS = {
   coordinator: {
-    id: 'u-neha',
-    name: 'Neha Kapoor',
-    email: 'neha.kapoor@encalm.com',
-    password: 'Manual-coord-pass-1',
+    id: 'u-priya',
+    name: 'Priya Sharma',
+    email: 'priya.sharma@encalm.com',
+    password: 'Manual-new-pass-1',
     role: 'coordinator',
     title: 'Project Coordinator',
-    initials: 'NK',
+    initials: 'PS',
   },
   lead: {
     id: 'u-rahul',
@@ -16,6 +16,8 @@ export const E2E_USERS = {
     role: 'lead',
     title: 'Project Lead',
     initials: 'RM',
+    // Set during the first sign-in scene (Part 2, step 1).
+    newPassword: 'Lounge-2026-plan',
   },
   lead2: {
     id: 'u-vikram',
@@ -43,14 +45,5 @@ export const E2E_USERS = {
     role: 'lead',
     title: 'Site Engineer',
     initials: 'SN',
-  },
-  newbie: {
-    id: 'u-priya',
-    name: 'Priya Sharma',
-    email: 'priya.sharma@encalm.com',
-    password: 'Manual-new-pass-1',
-    role: 'lead',
-    title: 'Project Lead',
-    initials: 'PS',
   },
 };
