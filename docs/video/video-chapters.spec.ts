@@ -49,6 +49,19 @@ async function dashboard(page: Page) {
   await expect(page.getByText('Portfolio health', { exact: true }).first()).toBeVisible();
 }
 
+/** Sets a stage's planned dates off camera, as the Lead would in Update stage. */
+async function stageDates(page: Page, url: string, stage: string, plannedStart: string, plannedFinish: string) {
+  const id = url.split('/').pop();
+  const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+  const { project } = await (await page.request.get(`/api/projects/${id}`, { headers })).json();
+  const phase = (project.phases as { id: string; name: string }[]).find((p) => p.name === stage)!;
+  const res = await page.request.patch(`/api/projects/${id}/phases/${phase.id}`, {
+    headers,
+    data: { plannedStart, plannedFinish },
+  });
+  expect(res.status()).toBe(200);
+}
+
 const stageForm = (page: Page) => page.locator('form').filter({ hasText: 'Save stage update' });
 
 // ---------------------------------------------------------------- Opening
@@ -200,9 +213,10 @@ ch('p1s7', async ({ browser }) => {
   });
   await r.beat(async () => {
     const to = page.getByPlaceholder(/Type @ followed by/);
-    await type(page, to, '@Ani', 120);
+    // The Email Update picker lists Project Leads (not HODs), so Priya picks Vikram.
+    await type(page, to, '@Vik', 120);
     await pause(page, 0.8);
-    await click(page, page.getByText('Anita Desai').last());
+    await click(page, page.getByText('Vikram Rao').last());
     await pop(page, to, 'Recipients', { up: 1 });
   });
   await r.beat(async () => {
@@ -337,7 +351,9 @@ ch('p2s5', async ({ browser }) => {
 ch('p2s6', async ({ browser }) => {
   const r = await Recorder.start(browser, 'p2s6', 'lead', 'lead');
   const page = r.page;
-  await openProject(page, await t2(page));
+  const url = await t2(page);
+  await stageDates(page, url, 'Design development', iso(-11), iso(60));
+  await openProject(page, url);
   await r.rec();
   const form = stageForm(page);
   const plan = async (index: number, start: string, finish: string) => {
@@ -361,9 +377,7 @@ ch('p2s6', async ({ browser }) => {
     // Brief & scope was due to finish 12 days ago; Design development has just started.
     await plan(0, iso(-60), iso(-12));
     await pop(page, form.getByLabel('Planned start'), 'Planned start · Planned finish', { up: 2 });
-    await pause(page, 1.5);
-    await click(page, form.getByRole('button', { name: 'Save stage update' }));
-    await plan(1, iso(-11), iso(60));
+    await pause(page, 1);
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
@@ -409,8 +423,8 @@ ch('p2s7', async ({ browser }) => {
   });
   await r.beat(async () => {
     await hlOff(page);
-    await type(page, form.getByLabel('Work completed'), 'Concept layouts done; lighting brief agreed.', 22);
-    await type(page, form.getByLabel('Next action'), 'Share design options with Operations.', 22);
+    await type(page, form.getByLabel('Work completed'), 'Concept layouts done.', 14);
+    await type(page, form.getByLabel('Next action'), 'Share options with Operations.', 14);
     await pop(page, form.getByLabel('Work completed'), 'Work completed · Next action', { up: 2 });
     await pause(page, 1.5);
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
@@ -430,11 +444,11 @@ ch('p2s8', async ({ browser }) => {
   await r.rec();
   const add = async (title: string, date: string, owner: string, approval: boolean) => {
     await click(page, page.getByRole('button', { name: /add milestone/i }).first());
-    await type(page, page.getByPlaceholder('Milestone name'), title, 40);
+    await type(page, page.getByPlaceholder('Milestone name'), title, 22);
     const d = page.locator('form input[type="date"]').first();
     await click(page, d);
     await d.fill(date);
-    await type(page, page.getByPlaceholder('Milestone owner'), owner, 40);
+    await type(page, page.getByPlaceholder('Milestone owner'), owner, 18);
     if (approval) await click(page, page.getByText('Requires HOD / stakeholder approval'));
     await click(page, page.getByRole('button', { name: /add milestone/i }).last());
     await pause(page, 0.8);
@@ -490,8 +504,8 @@ ch('p2s10', async ({ browser }) => {
   });
   await r.beat(async () => {
     await click(page, page.getByRole('button', { name: /edit commercial data/i }));
-    await retype(page, page.getByLabel('Committed Cost'), '6.5');
-    await retype(page, page.getByLabel('Spent Till Date'), '1.2');
+    await retype(page, page.getByLabel('Committed Cost'), '6.5', 60);
+    await retype(page, page.getByLabel('Spent Till Date'), '1.2', 60);
     await click(page, page.getByRole('button', { name: 'Save', exact: true }));
     await pop(page, page.getByText('Spent Till Date', { exact: true }).last(), 'Committed · Spent till date', {
       up: 2,
@@ -509,16 +523,13 @@ ch('p2s11', async ({ browser }) => {
     await click(page, tab(page, /^Issues & risks$/));
     const add = page.getByRole('button', { name: /Add issue or risk/ });
     await scrollTo(page, add, 300);
-    await pop(page, add, 'Add issue or risk');
-    await pause(page, 1.2);
     await click(page, add);
-    await type(page, page.getByPlaceholder('Issue or risk title *'), 'Stone delivery at risk', 35);
-    await type(page, page.getByPlaceholder('Issue owner'), 'Rahul Mehta', 35);
+    await type(page, page.getByPlaceholder('Issue or risk title *'), 'Stone delivery at risk', 22);
     await type(
       page,
       page.getByPlaceholder('Describe the issue, cause, and current situation *'),
-      'Quarry strike may delay the imported stone by 10 days.',
-      14,
+      'Quarry strike may delay the stone.',
+      12,
     );
   });
   await r.beat(async () => {
@@ -550,12 +561,10 @@ ch('p2s12', async ({ browser }) => {
     await click(page, tab(page, /^Updates$/));
     const add = page.getByRole('button', { name: /add stage update/i });
     await scrollTo(page, add, 300);
-    await pop(page, add, 'Add stage update');
-    await pause(page, 1.2);
     await click(page, add);
     await pick(page, form.locator('select').nth(0), 'Design development');
     await pick(page, form.locator('select').nth(1), 'Progress');
-    await type(page, page.getByLabel('Update note'), 'Concept layouts shared for review with ', 28);
+    await type(page, page.getByLabel('Update note'), 'Layouts shared for review with ', 18);
   });
   await r.beat(async () => {
     await page.getByLabel('Update note').pressSequentially('@Ani', { delay: 160 });
