@@ -128,9 +128,9 @@ ch('p1s3', async ({ browser }) => {
     await pop(page, page.getByRole('heading', { name: /Team & Project Allotment/ }), 'Team & Allotment');
   });
   await r.beat(async () => {
+    await hl(page, page.locator('form').filter({ hasText: 'Create Project Lead Account' }), { move: false });
     await type(page, page.getByPlaceholder('e.g. Karan Verma'), 'Rahul Mehta', 45);
     await type(page, page.getByPlaceholder('e.g. karan.verma@encalm.com'), 'rahul.mehta@encalm.com', 25);
-    await pop(page, page.locator('form').filter({ hasText: 'Create Project Lead Account' }), 'Create Project Lead');
   });
   await r.beat(() => pop(page, page.getByPlaceholder(/Temporary password/), 'Temporary password'));
   await r.stop();
@@ -586,7 +586,7 @@ ch('p2s12', async ({ browser }) => {
     const tagBtn = page.getByRole('button', { name: /Tag Member/ }).nth(1);
     await scrollTo(page, tagBtn, 320);
     await click(page, tagBtn);
-    await pop(page, page.getByText('Select Member(s):'), 'Select members', { up: 1 });
+    await pop(page, page.getByText('Select Member(s):'), 'Select members', { up: 2 });
     await pause(page, 1.5);
     await click(page, page.getByRole('button', { name: /Priya Sharma/ }));
   });
