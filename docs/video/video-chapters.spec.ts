@@ -380,7 +380,7 @@ ch('p2s6', async ({ browser }) => {
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
-    const first = page.locator('main strong.text-\[12px\]', { hasText: /^Brief & scope$/ }).first();
+    const first = page.locator('main strong[class~="text-[12px]"]', { hasText: /^Brief & scope$/ }).first();
     await scrollTo(page, first, 200);
     await pop(page, first, 'Stage bars', { up: 5 });
   });
@@ -429,7 +429,7 @@ ch('p2s7', async ({ browser }) => {
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
-    const design = page.locator('main strong.text-\[12px\]', { hasText: /^Design development$/ }).first();
+    const design = page.locator('main strong[class~="text-[12px]"]', { hasText: /^Design development$/ }).first();
     await scrollTo(page, design, 220);
     await hl(page, design, { up: 5 });
   });
