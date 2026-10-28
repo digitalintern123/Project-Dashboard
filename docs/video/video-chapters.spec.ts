@@ -423,10 +423,10 @@ ch('p2s7', async ({ browser }) => {
   });
   await r.beat(async () => {
     await hlOff(page);
-    await type(page, form.getByLabel('Work completed'), 'Concept layouts done.', 14);
-    await type(page, form.getByLabel('Next action'), 'Share options with Operations.', 14);
+    await type(page, form.getByLabel('Work completed'), 'Concept layouts done.', 9);
+    await type(page, form.getByLabel('Next action'), 'Share options with Operations.', 9);
     await pop(page, form.getByLabel('Work completed'), 'Work completed · Next action', { up: 2 });
-    await pause(page, 1.5);
+    await pause(page, 0.6);
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
@@ -440,33 +440,41 @@ ch('p2s7', async ({ browser }) => {
 ch('p2s8', async ({ browser }) => {
   const r = await Recorder.start(browser, 'p2s8', 'lead', 'lead');
   const page = r.page;
-  await openProject(page, await t2(page));
+  const url = await t2(page);
+  // Off camera: an earlier milestone, ready to be marked Complete in the last line.
+  const res = await page.request.post(`/api/projects/${url.split('/').pop()}/milestones`, {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    data: {
+      title: 'Brief signed off',
+      date: iso(-12),
+      status: 'upcoming',
+      stage: 'Brief & scope',
+      owner: 'Rahul Mehta',
+    },
+  });
+  expect(res.status()).toBeLessThan(300);
+  await openProject(page, url);
   await r.rec();
-  const add = async (title: string, date: string, owner: string, approval: boolean) => {
-    await click(page, page.getByRole('button', { name: /add milestone/i }).first());
-    await type(page, page.getByPlaceholder('Milestone name'), title, 22);
-    const d = page.locator('form input[type="date"]').first();
-    await click(page, d);
-    await d.fill(date);
-    await type(page, page.getByPlaceholder('Milestone owner'), owner, 18);
-    if (approval) await click(page, page.getByText('Requires HOD / stakeholder approval'));
-    await click(page, page.getByRole('button', { name: /add milestone/i }).last());
-    await pause(page, 0.8);
-  };
   await r.beat(async () => {
     await click(page, tab(page, /^Milestones$/));
     await scrollTo(page, page.getByText('Milestones & approvals', { exact: true }), 110);
-    await add('Brief signed off', iso(-12), 'Rahul Mehta', false);
-    await pop(page, page.getByText('Brief signed off').first(), 'Add milestone', { up: 2 });
+    await click(page, page.getByRole('button', { name: /add milestone/i }).first());
+    await type(page, page.getByPlaceholder('Milestone name'), 'Design freeze', 22);
+    const d = page.locator('form input[type="date"]').first();
+    await click(page, d);
+    await d.fill(iso(50));
+    await type(page, page.getByPlaceholder('Milestone owner'), 'Design team', 18);
   });
   await r.beat(async () => {
-    await add('Design freeze', iso(50), 'Design team', true);
+    await click(page, page.getByText('Requires HOD / stakeholder approval'));
+    await click(page, page.getByRole('button', { name: /add milestone/i }).last());
+    await pause(page, 0.6);
     await pop(page, page.getByText('Design freeze').first(), 'Requires approval', { up: 2 });
   });
   await r.beat(async () => {
     const done = page.getByRole('button', { name: /^Complete$/ }).first();
     await pop(page, done, 'Complete');
-    await pause(page, 1.5);
+    await pause(page, 1.2);
     await click(page, done);
   });
   await r.stop();
@@ -524,12 +532,12 @@ ch('p2s11', async ({ browser }) => {
     const add = page.getByRole('button', { name: /Add issue or risk/ });
     await scrollTo(page, add, 300);
     await click(page, add);
-    await type(page, page.getByPlaceholder('Issue or risk title *'), 'Stone delivery at risk', 22);
+    await type(page, page.getByPlaceholder('Issue or risk title *'), 'Stone delivery at risk', 14);
     await type(
       page,
       page.getByPlaceholder('Describe the issue, cause, and current situation *'),
       'Quarry strike may delay the stone.',
-      12,
+      7,
     );
   });
   await r.beat(async () => {
