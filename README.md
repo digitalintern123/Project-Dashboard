@@ -1,6 +1,6 @@
 # Encalm Project Dashboard: built release
 
-Generated from commit `bce24c63d6e46fa175c17ac2672b8385e7ab9209` by the "Plesk release" workflow. Do not edit:
+Generated from commit `5653ecf222cef7a53720d1da12f37701192c9069` by the "Plesk release" workflow. Do not edit:
 change the source on `main` instead.
 
 Install and start (no build step, no Python or C++ tools needed):
