@@ -10,7 +10,6 @@ const WPS = 2.4; // a calm narration pace, about 145 words a minute
 
 // Pronunciation: subtitles keep the normal spelling, the voice reads these.
 const SAY = [
-  [/\bEncalm\b/g, 'EN-calm'],
   [/\bAOP\b/g, 'A-O-P'],
   [/\bHODs\b/g, 'H-O-Ds'],
   [/\bHOD\b/g, 'H-O-D'],

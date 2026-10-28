@@ -41,7 +41,7 @@ node docs/video/assemble.cjs                     # → .out/out/Encalm-Projects-
 ## Adding the voiceover
 The voice is the user's own voice, cloned with their consent using OmniVoice ([VoiceStudio](https://github.com/debpalash/VoiceStudio)'s default engine), run locally. Its reference recording is described in `voice-reference.md`. **Don't commit voice recordings**; they are personal data.
 
-Each beat in `.out/script.json` has `text` (the subtitle) and `speak` (the same line spelt for the voice: EN-calm, A-O-P, H-O-D, N-O-C, "crore rupees"). The voice reads `speak`.
+Each beat in `.out/script.json` has `text` (the subtitle) and `speak` (the same line spelt for the voice: A-O-P, H-O-D, N-O-C, "crore rupees"). The voice reads `speak`.
 
 1. Install the tools in a Python venv: `pip install omnivoice faster-whisper`. A GPU isn't needed, but on a 4-core CPU each beat takes 2–4 minutes.
 2. Cut 10–15 s of the reference recording at a sentence break: `ffmpeg -i memo.m4a -ss 0.3 -to 14.8 -ac 1 -ar 24000 ref.wav`.

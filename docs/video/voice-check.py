@@ -1,4 +1,4 @@
-# Checks each raw clip against the script with faster-whisper, then trims edge silence into
+# Checks each raw clip against the script with faster-whisper, then cleans it up into
 # .out/audio/<chapter>-<beat>.wav and writes .out/audio/durations.json.
 # FLAG means words are missing, added, or the first word was dropped: listen, and regenerate
 # with voice-gen.py <ids>. Whisper mishears some words ("Encalm", "e-mails"), so a flag is a hint.
@@ -10,8 +10,12 @@ A = os.path.join(HERE, ".out", "audio")
 script = json.load(open(os.path.join(HERE, ".out", "script.json")))
 m = WhisperModel("small", device="cpu", compute_type="int8")
 NUM = {"0": "zero", "100": "one hundred", "10": "ten", "20": "twenty", "7": "seven", "5": "five"}
-TRIM = ("silenceremove=start_periods=1:start_threshold=-55dB:start_silence=0.12,areverse,"
-        "silenceremove=start_periods=1:start_threshold=-55dB:start_silence=0.2,areverse")
+# Trim the ends, shorten pauses inside a line to about 0.25 s, then a little presence,
+# de-essing and gentle compression so the voice is clear and even.
+CLEAN = ("highpass=f=80,silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.1:"
+         "stop_periods=-1:stop_duration=0.3:stop_threshold=-40dB:stop_silence=0.22,"
+         "equalizer=f=3000:t=q:w=1.2:g=2,deesser=i=0.3,"
+         "acompressor=threshold=-22dB:ratio=2.5:attack=8:release=120:makeup=2")
 
 def norm(s):
     s = s.lower().replace("encalm", "encom").replace("%", " percent").replace("-", " ")
@@ -37,7 +41,7 @@ for c in script:
             bad.append(k)
         print(f"{k:5} miss={miss:.2f} extra={extra:.2f} {'FLAG' if flag else '    '} | {heard.strip()}", flush=True)
         f = os.path.join(A, k + ".wav")
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", raw, "-af", TRIM, f], check=True)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", raw, "-af", CLEAN, f], check=True)
         dur[k] = round(len(pcm(f)) / 16000, 2)
 json.dump(dur, open(os.path.join(A, "durations.json"), "w"), indent=1)
 print("FLAGGED:", " ".join(bad) or "none")
