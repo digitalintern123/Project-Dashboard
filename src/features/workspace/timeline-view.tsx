@@ -8,6 +8,7 @@ import { leadName } from '@/data/users';
 import { sortProjectsIncompleteFirst } from '@/lib/calculations';
 import { PageHeader } from './page-header';
 import { currentStage, effectiveStageStatus } from '@/lib/stage-status';
+import { projectProgressTone } from '@/lib/progress-tone';
 
 export function TimelineView() {
   const { projects } = useAppState();
@@ -112,9 +113,13 @@ export function TimelineView() {
                         <span>Progress</span>
                         <span>{project.progress}%</span>
                       </div>
-                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#e7e7dc]">
+                      <div
+                        className="mt-1 h-2 overflow-hidden rounded-full bg-[#e7e7dc]"
+                        title={projectProgressTone(project).reason}
+                      >
                         <div
-                          className="h-full rounded-full bg-[#3d9a7e] transition-all"
+                          data-tone={projectProgressTone(project).key}
+                          className={`h-full rounded-full ${projectProgressTone(project).bar} transition-all`}
                           style={{ width: `${project.progress}%` }}
                         />
                       </div>
