@@ -130,7 +130,7 @@ ch('p1s3', async ({ browser }) => {
   await r.beat(async () => {
     await type(page, page.getByPlaceholder('e.g. Karan Verma'), 'Rahul Mehta', 45);
     await type(page, page.getByPlaceholder('e.g. karan.verma@encalm.com'), 'rahul.mehta@encalm.com', 25);
-    await pop(page, page.getByText('Create Project Lead').first(), 'Create Project Lead', { up: 2 });
+    await pop(page, page.locator('form').filter({ hasText: 'Create Project Lead Account' }), 'Create Project Lead');
   });
   await r.beat(() => pop(page, page.getByPlaceholder(/Temporary password/), 'Temporary password'));
   await r.stop();
@@ -381,7 +381,7 @@ ch('p2s6', async ({ browser }) => {
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
-    const first = page.locator('main').getByText('Brief & scope', { exact: true }).first();
+    const first = page.locator('main strong', { hasText: /^Brief & scope$/ }).first();
     await scrollTo(page, first, 200);
     await pop(page, first, 'Stage bars', { up: 5 });
   });
@@ -430,7 +430,7 @@ ch('p2s7', async ({ browser }) => {
     await click(page, form.getByRole('button', { name: 'Save stage update' }));
   });
   await r.beat(async () => {
-    const design = page.locator('main').getByText('Design development', { exact: true }).first();
+    const design = page.locator('main strong', { hasText: /^Design development$/ }).first();
     await scrollTo(page, design, 220);
     await hl(page, design, { up: 5 });
   });

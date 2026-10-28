@@ -13,5 +13,9 @@ export default defineConfig({
   reporter: 'list',
   expect: { timeout: 10_000 },
   outputDir: '.out/test-results',
-  use: { baseURL: 'http://localhost:5073', actionTimeout: 15_000, launchOptions: { executablePath: chromium } },
+  use: {
+    baseURL: 'http://localhost:5073',
+    actionTimeout: 15_000,
+    launchOptions: { executablePath: chromium, args: ['--lang=en-IN'] },
+  },
 });
