@@ -1,9 +1,9 @@
 # Voice reference recording
 
-The tutorial narration uses a cloned voice: a female colleague's voice, Indian English, **recorded with her consent**. VoiceStudio needs one short, clean sample of her speaking.
+The tutorial narration uses a cloned voice: the narrator's own voice, Indian English, **used with their consent**. OmniVoice (VoiceStudio's default engine) needs one short, clean sample of them speaking.
 
 ## Before recording
-- She agrees, in writing (an email is enough), that her voice may be used to narrate the Encalm Projects tutorial video.
+- If the narrator is not the person making the video, they agree in writing (an email is enough) that their voice may be used to narrate the Encalm Projects tutorial video.
 - The recording and the cloned voice are used only for this video and deleted afterwards. They are never committed to the repository.
 
 ## How to record
