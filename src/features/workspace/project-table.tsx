@@ -6,6 +6,7 @@ import { useAppState } from '@/state/app-state';
 import { useToast } from '@/hooks/use-toast';
 import { healthTone, statusTone } from '@/lib/tones';
 import { leadName } from '@/data/users';
+import { projectProgressTone } from '@/lib/progress-tone';
 import { errorMessage } from '@/lib/utils';
 
 export function ProjectTable({ rows }: { rows: Project[] }) {
@@ -84,9 +85,13 @@ export function ProjectTable({ rows }: { rows: Project[] }) {
                     </td>
                     <td className="px-3 py-3.5 whitespace-nowrap">
                       <div className="flex items-center gap-2.5 min-w-[100px]">
-                        <div className="h-1.5 w-16 rounded-full bg-[#e7e7dc] overflow-hidden">
+                        <div
+                          className="h-1.5 w-16 rounded-full bg-[#e7e7dc] overflow-hidden"
+                          title={projectProgressTone(project).reason}
+                        >
                           <div
-                            className="h-full rounded-full bg-[#2e7c67] transition-all"
+                            data-tone={projectProgressTone(project).key}
+                            className={`h-full rounded-full ${projectProgressTone(project).bar} transition-all`}
                             style={{ width: `${project.progress}%` }}
                           />
                         </div>

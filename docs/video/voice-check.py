@@ -25,7 +25,7 @@ def pcm(f):
 dur, bad = {}, []
 for c in script:
     for i, b in enumerate(c["beats"]):
-        k = f'{c["n"]}-{i}'
+        k = f'{c["id"]}-{i}'
         raw = os.path.join(A, "raw", k + ".wav")
         pad = np.zeros(8000, np.float32)  # whisper skips a first word that starts at 0 s
         heard = " ".join(s.text for s in m.transcribe(np.concatenate([pad, pcm(raw), pad]), language="en", beam_size=5)[0])

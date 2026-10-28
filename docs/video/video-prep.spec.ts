@@ -3,19 +3,31 @@ import { E2E_USERS } from './users.mjs';
 
 const H = { 'X-Requested-With': 'XMLHttpRequest' };
 
-// Runs after the seed: Neha (Coordinator) moves Procurement on Delhi T3, so
-// Rahul has a real stage notification to open in chapter 7.
-test('prep: coordinator stage update for the notification scene', async ({ playwright }) => {
-  const neha = await playwright.request.newContext({ baseURL: 'http://localhost:5073' });
+// Runs after the seed. Creating a project does not store stage dates, so
+// Priya (Coordinator) adds planned dates to Delhi T3's stages, giving its bars
+// real schedule colours where the video shows them.
+const T3_DATES: Record<string, [string, string]> = {
+  'Brief & scope': ['2026-03-01', '2026-04-15'],
+  'Design development': ['2026-04-16', '2026-07-31'],
+  Procurement: ['2026-07-01', '2026-11-30'],
+  Execution: ['2026-06-01', '2026-12-15'],
+  Handover: ['2027-02-01', '2027-02-28'],
+};
+
+test('prep: planned stage dates for Delhi T3', async ({ playwright }) => {
+  const priya = await playwright.request.newContext({ baseURL: 'http://localhost:5073' });
   const u = E2E_USERS.coordinator;
   expect(
-    (await neha.post('/api/auth/login', { headers: H, data: { email: u.email, password: u.password } })).status(),
+    (await priya.post('/api/auth/login', { headers: H, data: { email: u.email, password: u.password } })).status(),
   ).toBe(200);
-  const { project } = await (await neha.get('/api/projects/del-t3-intl-lounge', { headers: H })).json();
-  const proc = project.phases.find((p: { name: string }) => p.name === 'Procurement');
-  const r = await neha.patch(`/api/projects/del-t3-intl-lounge/phases/${proc.id}`, {
-    headers: H,
-    data: { progress: 85 },
-  });
-  expect(r.status(), await r.text()).toBe(200);
+  const { project } = await (await priya.get('/api/projects/del-t3-intl-lounge', { headers: H })).json();
+  for (const phase of project.phases as { id: string; name: string }[]) {
+    const [plannedStart, plannedFinish] = T3_DATES[phase.name] ?? [];
+    if (!plannedStart) continue;
+    const r = await priya.patch(`/api/projects/del-t3-intl-lounge/phases/${phase.id}`, {
+      headers: H,
+      data: { plannedStart, plannedFinish },
+    });
+    expect(r.status(), await r.text()).toBe(200);
+  }
 });

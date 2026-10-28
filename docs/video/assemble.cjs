@@ -1,5 +1,7 @@
-// Builds the final tutorial: cards + recorded chapters, burned-in subtitles,
-// chapter timestamps, and the narration track when audio/<n>-<i>.wav exist.
+// Builds the final tutorial from .out: opening card, recorded chapters (each
+// step after its step card), role title cards held while their narration
+// plays, the end card; burned-in subtitles; a chapter list; and the narration
+// track when .out/audio/<chapter>-<beat>.wav clips exist.
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -18,6 +20,10 @@ const FONTS = '/usr/share/fonts/opentype/inter'; // Inter, for subtitles that ma
 const ENC = ['-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-r', '30'];
 
 const script = JSON.parse(fs.readFileSync(path.join(V, 'script.json'), 'utf8'));
+const durFile = path.join(V, 'audio', 'durations.json');
+const durations = fs.existsSync(durFile) ? JSON.parse(fs.readFileSync(durFile, 'utf8')) : {};
+/** Same rule as the recorder: the voice clip's length plus a breath, else the estimate. */
+const beatLength = (id, i, est) => (durations[`${id}-${i}`] ?? est) + (durations[`${id}-${i}`] ? 0.45 : 0);
 
 function card(name, seconds) {
   const out = path.join(TMP, `card-${name}.mp4`);
@@ -25,11 +31,11 @@ function card(name, seconds) {
     '-loop',
     '1',
     '-t',
-    String(seconds),
+    seconds.toFixed(2),
     '-i',
     path.join(V, 'cards', `${name}.png`),
     '-vf',
-    `fade=in:st=0:d=0.4,fade=out:st=${seconds - 0.4}:d=0.4,scale=1920:1080`,
+    `fade=in:st=0:d=0.4,fade=out:st=${(seconds - 0.4).toFixed(2)}:d=0.4,scale=1920:1080`,
     ...ENC,
     out,
   ]);
@@ -43,42 +49,55 @@ const subs = [];
 const voice = [];
 let t = 0;
 const add = (file) => {
-  const d = probe(file);
-  segments.push(file);
   const start = t;
-  t += d;
+  segments.push(file);
+  t += probe(file);
   return start;
 };
+const say = (id, beats, startOf) =>
+  beats.forEach((b, i) => {
+    subs.push({ start: startOf(i).start, end: startOf(i).end - 0.25, text: b.text });
+    const wav = path.join(V, 'audio', `${id}-${i}.wav`);
+    if (fs.existsSync(wav)) voice.push({ at: startOf(i).start + 0.15, wav });
+  });
 
 chapters.push({ at: 0, title: 'Opening' });
 add(card('open', 4));
 for (const c of script) {
-  const rec = path.join(V, 'rec', `ch${pad(c.n)}.mp4`);
-  if (!fs.existsSync(rec)) throw new Error(`missing ${rec}`);
-  if (c.n !== 0 && c.n !== 13) {
-    const title = c.title.replace(/^For Coordinators: /, 'For Coordinators: ');
-    chapters.push({ at: t, title: `${c.n}. ${title}` });
-    add(card(`ch${pad(c.n)}`, 2.5));
-  } else if (c.n === 13) chapters.push({ at: t, title: 'Closing' });
-  const start = add(rec);
-  const meta = JSON.parse(fs.readFileSync(path.join(V, 'rec', `ch${pad(c.n)}`, 'meta.json'), 'utf8'));
-  for (const b of meta.beats) {
-    subs.push({ start: start + b.start, end: start + b.end - 0.25, text: b.text });
-    const wav = path.join(V, 'audio', `${c.n}-${b.i}.wav`);
-    if (fs.existsSync(wav)) voice.push({ at: start + b.start + 0.15, wav });
+  if (c.kind === 'card') {
+    // Role title card: held on screen while its narration plays.
+    const lead = 1.2;
+    let at = lead;
+    const times = c.beats.map((b, i) => {
+      const len = beatLength(c.id, i, b.est);
+      const span = { start: at, end: at + len };
+      at += len;
+      return span;
+    });
+    chapters.push({ at: t, title: `Part ${c.part} · ${c.title}` });
+    const start = add(card(c.id, at + 1.0));
+    say(c.id, c.beats, (i) => ({ start: start + times[i].start, end: start + times[i].end }));
+    continue;
   }
+  const rec = path.join(V, 'rec', `${c.id}.mp4`);
+  if (!fs.existsSync(rec)) throw new Error(`missing ${rec}: record ${c.id} and run encode.sh`);
+  if (c.part) {
+    chapters.push({ at: t, title: `   Step ${c.step} · ${c.title}` });
+    add(card(c.id, 1.8));
+  } else if (c.id === 'close') chapters.push({ at: t, title: 'Closing' });
+  const start = add(rec);
+  const meta = JSON.parse(fs.readFileSync(path.join(V, 'rec', c.id, 'meta.json'), 'utf8'));
+  say(c.id, c.beats, (i) => ({ start: start + meta.beats[i].start, end: start + meta.beats[i].end }));
 }
-chapters.push({ at: t, title: 'End' });
 add(card('end', 5));
 const total = t;
 
 // ---- Subtitles (ASS, split into readable two-line chunks) ----
 const MAX = 84;
 function chunks(text) {
-  const words = text.split(/\s+/);
   const out = [];
   let cur = '';
-  for (const w of words) {
+  for (const w of text.split(/\s+/)) {
     if ((cur + ' ' + w).trim().length > MAX && cur) {
       out.push(cur.trim());
       cur = '';
@@ -119,7 +138,7 @@ for (const s of subs) {
   let at = s.start;
   for (const p of parts) {
     const len = ((s.end - s.start) * p.length) / chars;
-    ass += `Dialogue: 0,${ts(at)},${ts(at + len - 0.05)},Default,,0,0,0,,${p.replace(/\n/g, ' ')}\n`;
+    ass += `Dialogue: 0,${ts(at)},${ts(at + len - 0.05)},Default,,0,0,0,,${p}\n`;
     const st = (x) => ts(x).replace('.', ',').padStart(11, '0') + '0';
     srt += `${++k}\n${st(at)} --> ${st(at + len - 0.05)}\n${p}\n\n`;
     at += len;
@@ -130,10 +149,7 @@ fs.writeFileSync(path.join(OUT, 'Encalm-Projects-Tutorial.srt'), srt);
 
 // ---- Chapter timestamps ----
 const mmss = (s) => `${pad(Math.floor(s / 60))}:${pad(Math.floor(s % 60))}`;
-const list = chapters
-  .filter((c) => c.title !== 'End')
-  .map((c) => `${mmss(c.at)} ${c.title}`)
-  .join('\n');
+const list = chapters.map((c) => `${mmss(c.at)} ${c.title}`).join('\n');
 fs.writeFileSync(path.join(OUT, 'chapters.txt'), list + '\n');
 
 // ---- Join, add audio, burn subtitles ----

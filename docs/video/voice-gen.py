@@ -1,5 +1,5 @@
-# Speaks every narration beat in the cloned voice with OmniVoice (VoiceStudio's default engine), on CPU.
-# Usage: python voice-gen.py <reference.wav> "<reference transcript>" [beat ids, e.g. 7-1 9-2]
+# Speaks every narration beat (its `speak` spelling) in the cloned voice with OmniVoice (VoiceStudio's default engine), on CPU.
+# Usage: python voice-gen.py <reference.wav> "<reference transcript>" [beat ids, e.g. p2s7-2 p1s3-0]
 # Writes .out/audio/raw/<chapter>-<beat>.wav. Without ids, only beats that have no clip yet.
 import sys, os, json, time, wave, numpy as np, torch
 from omnivoice import OmniVoice
@@ -14,12 +14,12 @@ prompt = m.create_voice_clone_prompt(ref_audio=ref, ref_text=ref_text)
 os.makedirs(OUT, exist_ok=True)
 for c in script:
     for i, b in enumerate(c["beats"]):
-        k = f'{c["n"]}-{i}'
+        k = f'{c["id"]}-{i}'
         f = os.path.join(OUT, k + ".wav")
         if (want and k not in want) or (not want and os.path.exists(f)):
             continue
         t = time.time()
-        a = m.generate(text=b["text"], language="en", voice_clone_prompt=prompt)[0]
+        a = m.generate(text=b["speak"], language="en", voice_clone_prompt=prompt)[0]
         a = a.detach().cpu().numpy() if torch.is_tensor(a) else np.asarray(a)
         a = np.clip(a.reshape(-1), -1, 1)
         with wave.open(f, "wb") as w:

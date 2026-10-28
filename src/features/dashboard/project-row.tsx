@@ -4,6 +4,7 @@ import { formatCrore, type Project } from '@/data/projects';
 import { statusTone } from '@/lib/tones';
 import { categoryIcons } from './constants';
 import { HealthPill, ProgressBar } from './project-badges';
+import { projectProgressTone } from '@/lib/progress-tone';
 
 export function ProjectRow({ project, index }: { project: Project; index: number }) {
   // Fall back for categories outside the known list (older data or imports).
@@ -37,7 +38,7 @@ export function ProjectRow({ project, index }: { project: Project; index: number
         <HealthPill health={project.health} />
       </span>
       <span>
-        <ProgressBar value={project.progress} compact />
+        <ProgressBar value={project.progress} tone={projectProgressTone(project)} compact />
       </span>
       <span className="text-[12px] font-semibold text-foreground">{formatCrore(project.aop)}</span>
       <span className="text-[12px] font-semibold text-foreground">{formatCrore(project.spent)}</span>
@@ -88,7 +89,7 @@ export function ProjectCard({ project, index }: { project: Project; index: numbe
         <span className="font-mono text-[10px] text-muted-foreground">{project.targetLabel}</span>
       </span>
       <span className="mt-4 block">
-        <ProgressBar value={project.progress} />
+        <ProgressBar value={project.progress} tone={projectProgressTone(project)} />
       </span>
       <span className="mt-4 flex items-center justify-between border-t border-border/70 pt-3">
         <span className="text-[10px] text-muted-foreground">

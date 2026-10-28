@@ -3,6 +3,7 @@ import { Check, Target } from 'lucide-react';
 import { type Project } from '@/data/projects';
 import { clampPercent } from './helpers';
 import { effectiveStageStatus } from '@/lib/stage-status';
+import { stageProgressTone } from '@/lib/progress-tone';
 
 export function Metric({
   label,
@@ -96,9 +97,10 @@ export function PhaseList({ project }: { project: Project }) {
               </p>
               <span className="font-mono text-[10px] text-muted-foreground">{phase.progress}%</span>
             </div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#e7e7dc]">
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#e7e7dc]" title={stageProgressTone(phase).reason}>
               <div
-                className={`h-full rounded-full ${effectiveStageStatus(phase) === 'active' ? 'bg-[#d19b35]' : 'bg-[#3d9a7e]'}`}
+                data-tone={stageProgressTone(phase).key}
+                className={`h-full rounded-full ${stageProgressTone(phase).bar}`}
                 style={{ width: `${phase.progress}%` }}
               />
             </div>

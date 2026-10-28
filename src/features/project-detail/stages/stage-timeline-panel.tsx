@@ -6,6 +6,7 @@ import { TagUserPopover } from '@/components/tag-user-popover';
 import { DetailCard } from '../ui';
 import { StageEditorForm } from './stage-editor-form';
 import { effectiveStageStatus } from '@/lib/stage-status';
+import { stageProgressTone } from '@/lib/progress-tone';
 
 export function StageTimelinePanel({
   project,
@@ -95,11 +96,13 @@ export function StageTimelinePanel({
                       </div>
                     </div>
 
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e7e7dc]">
+                    <div
+                      className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e7e7dc]"
+                      title={stageProgressTone(phase).reason}
+                    >
                       <span
-                        className={`block h-full rounded-full ${
-                          status === 'active' ? 'bg-[#d19b35]' : status === 'blocked' ? 'bg-[#d66254]' : 'bg-[#3d9a7e]'
-                        }`}
+                        data-tone={stageProgressTone(phase).key}
+                        className={`block h-full rounded-full ${stageProgressTone(phase).bar}`}
                         style={{ width: `${phase.progress}%` }}
                       />
                     </div>
