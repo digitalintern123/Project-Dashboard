@@ -213,9 +213,9 @@ ch('p1s7', async ({ browser }) => {
   });
   await r.beat(async () => {
     const to = page.getByPlaceholder(/Type @ followed by/);
-    await type(page, to, '@Ani', 120);
+    await type(page, to, '@Rah', 120);
     await pause(page, 0.8);
-    await click(page, page.getByRole('button', { name: /Anita Desai/ }).last());
+    await click(page, page.getByRole('button', { name: /Rahul Mehta/ }).last());
     await pop(page, to, 'Recipients', { up: 1 });
   });
   await r.beat(async () => {
@@ -574,11 +574,11 @@ ch('p2s12', async ({ browser }) => {
     await type(page, page.getByLabel('Update note'), 'Layouts shared for review with ', 18);
   });
   await r.beat(async () => {
-    await page.getByLabel('Update note').pressSequentially('@Ani', { delay: 160 });
+    await page.getByLabel('Update note').pressSequentially('@Pri', { delay: 160 });
     await pause(page, 0.8);
-    await pop(page, page.getByText('Anita Desai').last(), 'Pick a person', { up: 2 });
+    await pop(page, page.getByRole('button', { name: /Priya Sharma/ }).last(), 'Pick a person', { up: 1 });
     await pause(page, 1.8);
-    await click(page, page.getByText('Anita Desai').last());
+    await click(page, page.getByRole('button', { name: /Priya Sharma/ }).last());
     await click(page, page.getByRole('button', { name: 'Post update' }));
   });
   await r.beat(async () => {
@@ -588,7 +588,7 @@ ch('p2s12', async ({ browser }) => {
     await click(page, tagBtn);
     await pop(page, page.getByText('Select Member(s):'), 'Select members', { up: 1 });
     await pause(page, 1.5);
-    await click(page, page.getByRole('button', { name: /Anita Desai/ }));
+    await click(page, page.getByRole('button', { name: /Priya Sharma/ }));
   });
   await r.beat(async () => {
     await type(
