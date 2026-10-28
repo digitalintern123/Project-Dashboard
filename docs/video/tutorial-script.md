@@ -14,6 +14,7 @@
 **Voice pronunciation** (subtitles keep the normal spelling):
 - Encalm is read as written, the way the voice said it in the first video;
 - AOP, HOD, NOC are read as letters;
+- Lounge is spelt "Lownge" for the voice, or it sounds like "launch";
 - amounts are read as "48 crore rupees".
 
 ---

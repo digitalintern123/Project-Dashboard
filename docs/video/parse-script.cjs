@@ -14,6 +14,7 @@ const SAY = [
   [/\bHODs\b/g, 'H-O-Ds'],
   [/\bHOD\b/g, 'H-O-D'],
   [/\bNOC\b/g, 'N-O-C'],
+  [/\bLounge\b/g, 'Lownge'], // otherwise the voice says "launch"
   [/₹\s?([\d.]+)\s?Cr\b/g, '$1 crore rupees'],
 ];
 const speak = (text) => SAY.reduce((s, [re, to]) => s.replace(re, to), text);
