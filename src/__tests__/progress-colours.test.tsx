@@ -47,8 +47,8 @@ describe('progress bar colours', () => {
     await user.click(screen.getByRole('button', { name: /^Timeline/ }));
 
     const bar = (reason: RegExp) => screen.getAllByTitle(reason)[0].firstElementChild!;
-    // No planned dates: coloured by % (40% → amber).
-    expect(bar(/40% done · no planned dates/)).toHaveAttribute('data-tone', 'amber');
+    // No planned dates: work in progress → yellow.
+    expect(bar(/40% done · no planned dates/)).toHaveAttribute('data-tone', 'yellow');
     // Planned Jan → Jul: about 43% due by 1 Apr, only 10% done → red.
     expect(bar(/10% done · planned 43% by today · 33 points behind/)).toHaveAttribute('data-tone', 'red');
     // Blocked is always red.

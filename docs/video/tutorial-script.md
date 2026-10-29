@@ -160,7 +160,7 @@
 1. On the Timeline tab, plan each stage first. Click Update stage on Brief and scope. ★ *Update stage*
 2. Enter its planned start and planned finish dates, and save. Do the same for each stage. ★ *Planned start · Planned finish*
 3. With dates in place, each bar's colour shows whether the stage is on schedule. ★ *Stage bars*
-4. Green means on plan, amber falling behind, and red well behind, overdue or blocked. ★ *Legend*
+4. Green means ahead of schedule, yellow means work in progress on track, and red means delayed, overdue or blocked. ★ *Legend*
 
 ### Step 7 · Timeline tab: updating stages as work happens (~1:30)
 **[SCREEN]** Brief & scope: Progress 100 → Status Complete (pop-out), save. Design development: type Progress 0 → 40, Status changes to In progress (pop-out); fill in Work completed and Next action; save.
