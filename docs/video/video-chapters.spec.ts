@@ -107,14 +107,15 @@ ch('p1s2', async ({ browser }) => {
   await r.beat(() => pop(page, page.getByRole('link', { name: /Team & Allotment/ }), 'Team & Allotment'));
   await r.beat(async () => {
     // Each pop-out lands on its word: "role" 1.8 s, "notifications" 2.8 s and
-    // "Logout" 3.9 s into the clip, which starts 0.15 s after the beat.
+    // "Logout" 3.9 s into the clip, which starts 0.15 s after the beat. A pop-out
+    // shows about 0.4 s after it is called and takes 0.75 s, so call it early.
     const t0 = Date.now();
     const at = (s: number) => page.waitForTimeout(Math.max(0, s * 1000 - (Date.now() - t0)));
     await at(1.55);
     await pop(page, page.getByText('Project coordinator', { exact: true }).first(), 'Your role');
-    await at(2.7);
+    await at(2.5);
     await pop(page, page.getByRole('button', { name: 'Open notifications' }).first(), 'Notifications');
-    await at(3.85);
+    await at(3.65);
     await pop(page, page.getByRole('button', { name: 'Logout' }), 'Logout');
   });
   await r.beat(async () => {
