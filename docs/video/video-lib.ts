@@ -329,7 +329,24 @@ export async function pop(page: Page, loc: Locator, label: string, opts: { up?: 
   await hlOff(page);
   await unpop(page);
   await loc.first().scrollIntoViewIfNeeded();
-  await page.waitForTimeout(150);
+  // An area whose enlarged copy would run off the top or bottom of the screen is
+  // scrolled to the middle first. The menu and top bar are fixed, so they stay.
+  const moved = await loc.first().evaluate((el, up) => {
+    let node = el as HTMLElement;
+    for (let i = 0; i < up && node.parentElement; i++) node = node.parentElement;
+    for (let n: HTMLElement | null = node; n; n = n.parentElement)
+      if (/fixed|sticky/.test(getComputedStyle(n).position)) return false;
+    const r = node.getBoundingClientRect();
+    const grow = r.height * 0.07;
+    if (r.top - grow >= 8 && r.bottom + grow <= innerHeight - 8) return false;
+    const want = r.height + 2 * grow > innerHeight - 100 ? r.top - grow - 50 : r.top + r.height / 2 - innerHeight / 2;
+    const max = document.documentElement.scrollHeight - innerHeight;
+    const to = Math.max(0, Math.min(max, scrollY + want));
+    if (Math.abs(to - scrollY) < 4) return false;
+    window.scrollTo({ top: to, behavior: 'smooth' });
+    return true;
+  }, opts.up ?? 0);
+  await page.waitForTimeout(moved ? 650 : 150);
   await loc.first().evaluate(
     (el, [up, label, scaleWanted]) => {
       let node = el as HTMLElement;
