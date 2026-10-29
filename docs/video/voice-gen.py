@@ -13,7 +13,9 @@ m = OmniVoice.from_pretrained("k2-fsa/OmniVoice", device_map="cpu", dtype=torch.
 prompt = m.create_voice_clone_prompt(ref_audio=ref, ref_text=ref_text)
 # A measured, professional read: about 127 words a minute; stronger guidance and a lower
 # position temperature keep the delivery steady (lower values dropped opening words).
-STYLE = dict(speed=1.15, guidance_scale=3.0, position_temperature=2.0)
+# The model's own silence trim and fade-in can swallow a soft first word ("If", "Give"),
+# so it is off: voice-check.py trims and cleans each clip instead.
+STYLE = dict(speed=1.15, guidance_scale=3.0, position_temperature=2.0, postprocess_output=False)
 os.makedirs(OUT, exist_ok=True)
 for c in script:
     for i, b in enumerate(c["beats"]):
