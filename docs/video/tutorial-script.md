@@ -81,7 +81,7 @@
 1. With the team in place, the Portfolio overview shows how every project is doing. ★ *Key figures*
 2. Here you see how many projects are on track, at risk or delayed. ★ *Portfolio health*
 3. Management attention lists the projects that need help first. ★ *Needs attention*
-4. Each project's bar is coloured by its schedule: green on plan, amber falling behind, red well behind or overdue. ★ *Progress bars*
+4. Each project's bar is coloured by its schedule: green ahead, yellow on track, and red delayed. ★ *Progress bars*
 
 ### Step 6 · Approving milestones (~0:45)
 **[SCREEN]** Delhi T3 International Lounge → Milestones. Pop out the pending approval; click Approve.
@@ -160,7 +160,7 @@
 1. On the Timeline tab, plan each stage first. Click Update stage on Brief and scope. ★ *Update stage*
 2. Enter its planned start and planned finish dates, and save. Do the same for each stage. ★ *Planned start · Planned finish*
 3. With dates in place, each bar's colour shows whether the stage is on schedule. ★ *Stage bars*
-4. Green means ahead of schedule, yellow means work in progress on track, and red means delayed, overdue or blocked. ★ *Legend*
+4. Green means ahead of schedule, yellow means work in progress on track, and red means delayed. ★ *Legend*
 
 ### Step 7 · Timeline tab: updating stages as work happens (~1:30)
 **[SCREEN]** Brief & scope: Progress 100 → Status Complete (pop-out), save. Design development: type Progress 0 → 40, Status changes to In progress (pop-out); fill in Work completed and Next action; save.
