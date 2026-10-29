@@ -6,15 +6,16 @@ import { parseIsoDate } from '@/lib/date';
  * on a straight line from its start date to its target (or planned finish)
  * date.
  *
- * - green: 100% done, on/ahead of plan, up to 10 points behind, or not due
- *   to start yet
- * - amber: 10–25 points behind
- * - red: more than 25 behind, past its date and not done, or a blocked stage
+ * - green: ahead of plan, or 100% done
+ * - yellow: work in progress, exactly on plan
+ * - red: delayed — any amount behind plan, past its date and not done, or a
+ *   blocked stage
+ * - blank: not due to start yet
  *
- * Without usable dates there is no plan to compare with, so the colour falls
- * back to the % alone: 0–24 red, 25–49 amber, 50–100 green.
+ * Without usable dates there is no plan to compare with, so work in progress
+ * shows yellow, 100% green and 0% blank.
  */
-export type ProgressToneKey = 'green' | 'amber' | 'red';
+export type ProgressToneKey = 'green' | 'yellow' | 'red' | 'blank';
 
 export type ProgressTone = {
   key: ProgressToneKey;
@@ -26,8 +27,9 @@ export type ProgressTone = {
 
 const BAR: Record<ProgressToneKey, string> = {
   green: 'bg-[#3d9a7e]',
-  amber: 'bg-[#d19b35]',
+  yellow: 'bg-[#e3b53c]',
   red: 'bg-[#d66254]',
+  blank: 'bg-transparent',
 };
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -54,7 +56,7 @@ export function progressTone({
   const startAt = parseIsoDate(start);
   const finishAt = parseIsoDate(finish);
   if (startAt && finishAt && finishAt > startAt) {
-    if (pct === 0 && now < startAt) return tone('green', 'Not started · not due to start yet');
+    if (pct === 0 && now < startAt) return tone('blank', 'Not started · not due to start yet');
     // Dates are parsed at midday; the target day counts until it ends.
     if (now.getTime() > finishAt.getTime() + DAY / 2) return tone('red', `${pct}% done · past its target date`);
     const fraction = (now.getTime() - startAt.getTime()) / (finishAt.getTime() - startAt.getTime());
@@ -62,15 +64,13 @@ export function progressTone({
     const gap = planned - pct;
     const where = gap > 0 ? `${gap} points behind` : gap < 0 ? `${-gap} points ahead` : 'on plan';
     const reason = `${pct}% done · planned ${planned}% by today · ${where}`;
-    if (gap <= 10) return tone('green', reason);
-    if (gap <= 25) return tone('amber', reason);
+    if (gap < 0) return tone('green', reason);
+    if (gap === 0) return tone('yellow', reason);
     return tone('red', reason);
   }
 
-  const reason = `${pct}% done · no planned dates, so coloured by progress`;
-  if (pct < 25) return tone('red', reason);
-  if (pct < 50) return tone('amber', reason);
-  return tone('green', reason);
+  if (pct === 0) return tone('blank', 'Not started · no planned dates');
+  return tone('yellow', `${pct}% done · no planned dates, so in progress`);
 }
 
 /** A project's bar: its start date to its target completion date. */

@@ -397,9 +397,9 @@ export async function legend(page: Page) {
   await unpop(page);
   await page.evaluate(() => {
     const rows: [string, string][] = [
-      ['#3d9a7e', 'Green — on plan or up to 10 points behind'],
-      ['#d19b35', 'Amber — 10 to 25 points behind'],
-      ['#d66254', 'Red — more than 25 behind, overdue or blocked'],
+      ['#3d9a7e', 'Green — ahead of schedule, or complete'],
+      ['#e3b53c', 'Yellow — work in progress, on track'],
+      ['#d66254', 'Red — delayed, overdue or blocked'],
     ];
     const dim = document.createElement('div');
     dim.style.cssText =

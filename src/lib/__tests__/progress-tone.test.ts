@@ -8,18 +8,17 @@ const midYear = new Date('2026-07-02T12:00:00');
 const at = (actual: number, now = midYear) => progressTone({ actual, start, finish, now });
 
 describe('progressTone against the schedule', () => {
-  it('is green on or ahead of plan', () => {
-    expect(at(50).key).toBe('green');
+  it('is green ahead of plan and yellow exactly on plan', () => {
+    expect(at(51).key).toBe('green');
     expect(at(70).key).toBe('green');
     expect(at(70).reason).toBe('70% done · planned 50% by today · 20 points ahead');
+    expect(at(50).key).toBe('yellow');
+    expect(at(50).reason).toBe('50% done · planned 50% by today · on plan');
   });
 
-  it('stays green up to 10 behind, then turns amber, then red', () => {
-    expect(at(41).key).toBe('green'); // 9 behind
-    expect(at(40).key).toBe('green'); // 10 behind
-    expect(at(39).key).toBe('amber'); // 11 behind
-    expect(at(25).key).toBe('amber'); // 25 behind
-    expect(at(24).key).toBe('red'); // 26 behind
+  it('is red as soon as it falls behind plan', () => {
+    expect(at(49).key).toBe('red'); // 1 behind
+    expect(at(30).key).toBe('red');
     expect(at(30).reason).toBe('30% done · planned 50% by today · 20 points behind');
   });
 
@@ -28,27 +27,26 @@ describe('progressTone against the schedule', () => {
     expect(at(95, new Date('2027-01-02T09:00:00')).reason).toBe('95% done · past its target date');
     expect(at(100, new Date('2027-03-01')).key).toBe('green');
     // The target day itself still counts as on time.
-    expect(at(95, new Date('2026-12-31T18:00:00')).key).not.toBe('red');
+    expect(at(95, new Date('2026-12-31T18:00:00')).reason).not.toMatch(/past its target date/);
   });
 
-  it('is green when not due to start yet', () => {
-    expect(at(0, new Date('2025-12-15')).key).toBe('green');
+  it('is blank when not due to start yet', () => {
+    expect(at(0, new Date('2025-12-15')).key).toBe('blank');
+    expect(at(0, new Date('2025-12-15')).bar).toBe('bg-transparent');
     expect(at(0, new Date('2025-12-15')).reason).toBe('Not started · not due to start yet');
     expect(at(5, new Date('2025-12-15')).key).toBe('green');
   });
 
-  it('falls back to % bands without usable dates', () => {
+  it('without usable dates shows work in progress as yellow', () => {
     const noDates = (actual: number) => progressTone({ actual, now: midYear }).key;
-    expect([noDates(0), noDates(24), noDates(25), noDates(49), noDates(50), noDates(99), noDates(100)]).toEqual([
-      'red',
-      'red',
-      'amber',
-      'amber',
-      'green',
-      'green',
+    expect([noDates(0), noDates(1), noDates(50), noDates(99), noDates(100)]).toEqual([
+      'blank',
+      'yellow',
+      'yellow',
+      'yellow',
       'green',
     ]);
-    expect(progressTone({ actual: 60, start: finish, finish: start, now: midYear }).key).toBe('green');
+    expect(progressTone({ actual: 60, start: finish, finish: start, now: midYear }).key).toBe('yellow');
   });
 });
 
@@ -60,7 +58,7 @@ describe('project and stage bars', () => {
 
   it('uses a stage planned dates, and a blocked stage is always red', () => {
     const phase = { progress: 50, plannedStart: start, plannedFinish: finish, status: 'active' as const };
-    expect(stageProgressTone(phase, midYear).key).toBe('green');
+    expect(stageProgressTone(phase, midYear).key).toBe('yellow');
     expect(stageProgressTone({ ...phase, status: 'blocked' }, midYear).key).toBe('red');
     expect(stageProgressTone({ ...phase, progress: 100, status: 'blocked' }, midYear).reason).toBe(
       '100% done · blocked',
