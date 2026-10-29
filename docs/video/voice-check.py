@@ -10,7 +10,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 A = os.path.join(HERE, ".out", "audio")
 script = json.load(open(os.path.join(HERE, ".out", "script.json")))
 m = WhisperModel("medium", device="cpu", compute_type="int8")
-NUM = {"0": "zero", "100": "one hundred", "10": "ten", "20": "twenty", "7": "seven", "5": "five", "40": "forty"}
+NUM = {"0": "zero", "1": "one", "100": "one hundred", "10": "ten", "20": "twenty", "7": "seven", "5": "five", "40": "forty"}
 # Trim the ends, shorten pauses inside a line to about 0.25 s, then a little presence,
 # de-essing and gentle compression so the voice is clear and even.
 CLEAN = ("highpass=f=80,silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.1:"
@@ -31,7 +31,8 @@ def pcm(f):
 def glitches(text, audio):
     pad = np.zeros(int(PAD * 16000), np.float32)
     segs = m.transcribe(np.concatenate([pad, audio, pad]), language="en", word_timestamps=True, beam_size=5)[0]
-    words = [(norm(w.word)[0] if norm(w.word) else "", w) for s in segs for w in s.words]
+    # One entry per spoken token: "100%" is "one hundred percent", "1." is "one".
+    words = [(t, w) for s in segs for w in s.words for t in (norm(w.word) or [""])]
     want, got = norm(text), [h for h, _ in words]
     out = []
     for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, want, got, autojunk=False).get_opcodes():
