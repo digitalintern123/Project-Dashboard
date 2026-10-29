@@ -416,7 +416,7 @@ export async function legend(page: Page) {
     const rows: [string, string][] = [
       ['#3d9a7e', 'Green — ahead of schedule, or complete'],
       ['#e3b53c', 'Yellow — work in progress, on track'],
-      ['#d66254', 'Red — delayed, overdue or blocked'],
+      ['#d66254', 'Red — delayed or blocked'],
     ];
     const dim = document.createElement('div');
     dim.style.cssText =
