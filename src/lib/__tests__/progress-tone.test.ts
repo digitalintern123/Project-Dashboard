@@ -14,9 +14,9 @@ describe('progressTone against the schedule', () => {
     expect(at(70).reason).toBe('70% done · planned 50% by today · 20 points ahead');
   });
 
-  it('turns lime, amber, then red the further behind plan it falls', () => {
-    expect(at(41).key).toBe('lime'); // 9 behind
-    expect(at(40).key).toBe('lime'); // 10 behind
+  it('stays green up to 10 behind, then turns amber, then red', () => {
+    expect(at(41).key).toBe('green'); // 9 behind
+    expect(at(40).key).toBe('green'); // 10 behind
     expect(at(39).key).toBe('amber'); // 11 behind
     expect(at(25).key).toBe('amber'); // 25 behind
     expect(at(24).key).toBe('red'); // 26 behind
@@ -31,8 +31,9 @@ describe('progressTone against the schedule', () => {
     expect(at(95, new Date('2026-12-31T18:00:00')).key).not.toBe('red');
   });
 
-  it('is grey when not due to start yet and still at 0%', () => {
-    expect(at(0, new Date('2025-12-15')).key).toBe('grey');
+  it('is green when not due to start yet', () => {
+    expect(at(0, new Date('2025-12-15')).key).toBe('green');
+    expect(at(0, new Date('2025-12-15')).reason).toBe('Not started · not due to start yet');
     expect(at(5, new Date('2025-12-15')).key).toBe('green');
   });
 
@@ -43,11 +44,11 @@ describe('progressTone against the schedule', () => {
       'red',
       'amber',
       'amber',
-      'lime',
-      'lime',
+      'green',
+      'green',
       'green',
     ]);
-    expect(progressTone({ actual: 60, start: finish, finish: start, now: midYear }).key).toBe('lime');
+    expect(progressTone({ actual: 60, start: finish, finish: start, now: midYear }).key).toBe('green');
   });
 });
 
