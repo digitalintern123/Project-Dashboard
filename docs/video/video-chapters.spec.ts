@@ -177,9 +177,12 @@ ch('p1s5', async ({ browser }) => {
   await r.beat(() =>
     pop(page, page.getByText('Portfolio health', { exact: true }).first(), 'Portfolio health', { up: 3 }),
   );
-  await r.beat(() =>
-    pop(page, page.getByText('Management attention', { exact: true }).first(), 'Needs attention', { up: 3 }),
-  );
+  await r.beat(async () => {
+    // Bring the whole card into view first, so its enlarged copy stays on screen.
+    const card = page.getByText('Management attention', { exact: true }).first();
+    await scrollTo(page, card, 220);
+    await pop(page, card, 'Needs attention', { up: 3 });
+  });
   await r.beat(async () => {
     const bar = page.locator('[data-tone]').first();
     await scrollTo(page, bar, 260);
@@ -231,7 +234,7 @@ ch('p1s7', async ({ browser }) => {
       page,
       page.getByPlaceholder(/Critical procurement milestones/),
       'Procurement 85% complete; chiller delay being recovered. Soft opening on track for 20 Feb.',
-      14,
+      35,
     );
     await pop(page, page.getByRole('button', { name: /Send Branded Update Email/ }), 'Send');
   });

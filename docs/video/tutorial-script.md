@@ -194,7 +194,7 @@
 ### Step 11 · Issues and risks tab (~0:50)
 **[SCREEN]** Issues & risks: Add issue or risk "Stone delivery at risk", choose severity, Add issue; move its status to Action in progress.
 
-1. If something threatens time, cost or quality, record it on the Issues and risks tab. ★ *Add issue or risk*
+1. If something affects time, cost or quality, record it on the Issues and risks tab. ★ *Add issue or risk*
 2. Choose the severity carefully. A High issue alerts every Coordinator and HOD by email. ★ *Severity*
 3. As work continues, move the issue along, from Open to Closed. ★ *Status*
 
