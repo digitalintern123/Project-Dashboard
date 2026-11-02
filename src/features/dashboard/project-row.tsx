@@ -1,5 +1,5 @@
 import { Link } from 'wouter';
-import { ArrowUpRight, MapPin, SlidersHorizontal } from 'lucide-react';
+import { ArrowUpRight, MapPin } from 'lucide-react';
 import { formatCrore, type Project } from '@/data/projects';
 import { statusTone } from '@/lib/tones';
 import { categoryIcons } from './constants';
@@ -8,7 +8,7 @@ import { projectProgressTone } from '@/lib/progress-tone';
 
 export function ProjectRow({ project, index }: { project: Project; index: number }) {
   // Fall back for categories outside the known list (older data or imports).
-  const Icon = categoryIcons[project.category] ?? SlidersHorizontal;
+  const Icon = categoryIcons[project.category] ?? categoryIcons.Other;
   return (
     <Link
       href={`/project/${project.id}`}
@@ -16,7 +16,10 @@ export function ProjectRow({ project, index }: { project: Project; index: number
       className={`fade-up stagger-${Math.min(index + 1, 5)} group grid grid-cols-[minmax(180px,1.2fr)_105px_95px_110px_90px_90px_105px_24px] items-center gap-3 border-b border-border/70 px-5 py-3.5 last:border-0 hover:bg-[#fcf5e5]`}
     >
       <span className="flex min-w-0 items-center gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#e8f0ec] text-[#2e7c67]">
+        <span
+          title={project.category}
+          className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#e8f0ec] text-[#2e7c67]"
+        >
           <Icon size={16} />
         </span>
         <span className="min-w-0">
@@ -56,7 +59,7 @@ export function ProjectRow({ project, index }: { project: Project; index: number
 
 export function ProjectCard({ project, index }: { project: Project; index: number }) {
   // Fall back for categories outside the known list (older data or imports).
-  const Icon = categoryIcons[project.category] ?? SlidersHorizontal;
+  const Icon = categoryIcons[project.category] ?? categoryIcons.Other;
   return (
     <Link
       href={`/project/${project.id}`}
@@ -65,7 +68,10 @@ export function ProjectCard({ project, index }: { project: Project; index: numbe
     >
       <span className="flex items-start justify-between gap-3">
         <span className="flex min-w-0 items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#e8f0ec] text-[#2e7c67]">
+          <span
+            title={project.category}
+            className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#e8f0ec] text-[#2e7c67]"
+          >
             <Icon size={16} />
           </span>
           <span className="min-w-0">

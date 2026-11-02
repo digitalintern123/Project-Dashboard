@@ -1,4 +1,4 @@
-import { Activity, ChartBar as BarChart3, CircleDollarSign, SlidersHorizontal, Target, TrendingUp } from 'lucide-react';
+import { Building2, ChartBar as BarChart3, ChefHat, Hotel, Sofa, Utensils } from 'lucide-react';
 import type { Category, Health } from '@/data/projects';
 
 export const healthStyles: Record<Health, { dot: string; text: string; bg: string }> = {
@@ -9,9 +9,9 @@ export const healthStyles: Record<Health, { dot: string; text: string; bg: strin
 };
 
 export const categoryIcons: Record<Category, typeof BarChart3> = {
-  Hotel: Target,
-  Lounge: Activity,
-  Kitchen: CircleDollarSign,
-  'Encalm Eats': TrendingUp,
-  Other: SlidersHorizontal,
+  Hotel: Hotel,
+  Lounge: Sofa,
+  Kitchen: ChefHat,
+  'Encalm Eats': Utensils,
+  Other: Building2,
 };
