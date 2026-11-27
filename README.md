@@ -8,7 +8,7 @@ Internal project-control dashboard for Encalm Hospitality: portfolio health, sta
 - **Security:** httpOnly cookie sessions with refresh-token rotation, CSRF header check, bcrypt passwords with forced change on first sign-in, account lockout, rate limits, zod validation on every route, audit log, encrypted email secrets, strict CSP.
 - **Ops:** versioned migrations, nightly backups with tested restore, structured JSON logs, optional Sentry, CI, and release-based deploys with automatic rollback.
 
-Running it in production: **[PRODUCTION.md](PRODUCTION.md)**.
+Running it in production: **[PRODUCTION.md](PRODUCTION.md)**. Taking over maintenance: start with **[docs/HANDOVER.md](docs/HANDOVER.md)**.
 
 ---
 
