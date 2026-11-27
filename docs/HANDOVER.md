@@ -1,14 +1,30 @@
 # Encalm Projects: Handover and Maintenance Guide
 
-For whoever looks after **Encalm Projects** (the project dashboard at <https://projects.encalmhospitality.com>) from now on. It covers what the app is built with, how it is deployed, how to make and release a change safely, and what to check on a regular schedule.
+For whoever looks after **Encalm Projects** (the project dashboard at <https://projects.encalmhospitality.com>) from now on.
 
-This guide is the starting point. The full detail is in **[PRODUCTION.md](../PRODUCTION.md)** (section 15 is the Plesk server we use); how to use the app is in **[USER_MANUAL.md](USER_MANUAL.md)**.
+- **Part A** is for the **business owner**: what the app is, what it needs from you, simple routine checks and who to call. No technical knowledge needed.
+- **Part B** is for **IT**: technology, deployment, making changes, backups, health checks and troubleshooting.
 
-> **Never** put passwords, keys or secrets in this file, in Git, in chat or in email. They belong in the company password manager. Wherever this guide says *(password manager)*, that is where the value lives.
+The full technical detail is in **[PRODUCTION.md](../PRODUCTION.md)** (section 15 is the Plesk server we use); how to use the app is in **[USER_MANUAL.md](USER_MANUAL.md)**.
+
+> **Never** put passwords, keys or secrets in this document, in Git, in chat or in email. They belong in the company password manager. Wherever this guide mentions a secret, that is where the value lives.
 
 ---
 
 ## Contents
+
+**Part A: For the business owner**
+
+- [A1. What the app is](#a1-what-the-app-is)
+- [A2. Who uses it](#a2-who-uses-it)
+- [A3. What it runs on](#a3-what-it-runs-on)
+- [A4. Your responsibilities](#a4-your-responsibilities)
+- [A5. Simple routine checks](#a5-simple-routine-checks)
+- [A6. When to call IT](#a6-when-to-call-it)
+- [A7. Contacts](#a7-contacts)
+- [A8. Important dates and renewals](#a8-important-dates-and-renewals)
+
+**Part B: Technical guide for IT**
 
 1. [At a glance](#1-at-a-glance)
 2. [Technology used](#2-technology-used)
@@ -30,9 +46,109 @@ This guide is the starting point. The full detail is in **[PRODUCTION.md](../PRO
 
 ---
 
+# Part A: For the business owner
+
+## A1. What the app is
+
+**Encalm Projects** is Encalm Hospitality's internal website for tracking every project from brief to opening: progress of each stage, target dates, milestones and approvals, issues and risks, budget (AOP) and spend, site photographs and team updates. Management sees the whole portfolio on one screen; Project Leads keep their own projects up to date.
+
+- Address: <https://projects.encalmhospitality.com>
+- People sign in with their work email and a password of their own.
+- Progress bars are colour-coded: **green** ahead of schedule or complete, **yellow** on track, **red** delayed, overdue or blocked.
+- A tutorial video and the user manual explain how to use it.
+
+## A2. Who uses it
+
+| Role | Who | Can do |
+|---|---|---|
+| **Project Coordinator** | PMO / project management team, Vice President | Everything: all projects, add Project Leads, allot projects, approvals, settings, backups |
+| **Project Lead** | Person responsible for a project | Update their own projects: stages, milestones, photos, issues, updates |
+| **HOD** | Heads of department | See everything, tag people, receive critical-issue alerts |
+| **Viewer** | Management / others who only need to look | See everything, change nothing |
+
+Coordinators add and remove people in the app (**Team & Allotment**). Only IT can create coordinator, HOD and viewer accounts.
+
+## A3. What it runs on
+
+| Item | Detail | Who looks after it |
+|---|---|---|
+| Server | A Windows server rented from **GoDaddy**, managed with **Plesk** | IT |
+| Web address | `projects.encalmhospitality.com` (domain registered with GoDaddy) | IT |
+| Email | Sent through the company's **Microsoft 365** | Encalm IT |
+| Code | Stored on **GitHub** (`digitalintern123/Project-Dashboard`) | IT / developer |
+| Data | One database file on the server, backed up automatically every night | IT |
+
+The same server also hosts other Encalm sites (dashboard, tracker, Employee Hub).
+
+## A4. Your responsibilities
+
+As the business owner you do not need to touch the server or the code. You decide and approve:
+
+1. **Who has access**, and at which role. Ask a coordinator to remove people who leave or change role.
+2. **Changes and new features**: agree what should change and approve before IT releases it.
+3. **Renewals and payments**: GoDaddy server and domain, Microsoft 365 (section A8).
+4. **That backups are taken** and that IT can restore them (ask IT once a quarter).
+5. **That the handover is complete**: the checklist in Part B, section 17.
+
+## A5. Simple routine checks
+
+| How often | What to do (no technical knowledge needed) | All good when |
+|---|---|---|
+| **Daily** | Open <https://projects.encalmhospitality.com> | The sign-in page or dashboard appears |
+| **Weekly** | As a coordinator: **Settings (gear icon) → Server backups** | "Last backup" is within the last day |
+| | Look at the dashboard: are leads updating their projects? | Projects show recent updates; red bars are being followed up |
+| | **Envelope icon (top right) → Outbox & Delivery Logs** | No new emails marked **Failed** |
+| **Monthly** | **Team & Allotment**: review the people list | Everyone listed still needs access, with the right role |
+| | Ask IT: "Were security updates and off-site backups done?" | IT confirms |
+| **Quarterly** | Ask IT to test restoring a backup | IT confirms it worked |
+| **Yearly** | Check renewal dates (section A8) | Nothing expires in the next 3 months |
+
+## A6. When to call IT
+
+Call IT straight away if:
+
+- the site does not open for **several people** (one person only is usually their own network or a mistyped password);
+- everyone sees an **error page** (for example "500");
+- **data looks wrong or missing**;
+- emails from the app have stopped arriving;
+- you suspect someone has **unauthorised access** or a password was shared.
+
+Tell IT: what you saw (a photo of the screen helps), when it started, and who is affected. **Never send passwords** in the message.
+
+Not an emergency, the user can fix it: "Invalid email or password" (check the spelling of the email; after 5 wrong tries wait 15 minutes; a coordinator can reset the password in **Team & Allotment**).
+
+## A7. Contacts
+
+Fill in and keep up to date.
+
+| Role | Name | Phone / email |
+|---|---|---|
+| Business owner | | |
+| IT / app maintainer | | |
+| Backup IT contact | | |
+| Microsoft 365 admin (Encalm IT) | Prasenjit Baidya, Manager IT | |
+| GoDaddy account holder | | |
+| Developer (code changes) | | |
+
+## A8. Important dates and renewals
+
+Fill in with IT. Missing one of these can take the app offline or stop emails.
+
+| What | Renewal / expiry date | Owner |
+|---|---|---|
+| GoDaddy server | | |
+| Domain `encalmhospitality.com` | | |
+| SSL certificate (the padlock) | Renews automatically every 90 days; IT checks | IT |
+| Microsoft 365 app secret (email) | Usually every 24 months | Encalm IT |
+| Plesk licence | | |
+
+---
+
+# Part B: Technical guide for IT
+
 ## 1. At a glance
 
-| | |
+| Item | Detail |
 |---|---|
 | **Live site** | <https://projects.encalmhospitality.com> |
 | **Is it up?** | <https://projects.encalmhospitality.com/api/system/ready> shows `{"status":"ready"}` |
